@@ -1,41 +1,37 @@
-// Listen for extension installation
+const DEFAULT_SETTINGS = {
+  aiEnabled: true, regexEnabled: true, useFakeData: true,
+  sensitivity: 'medium', customPatterns: '', trustedSites: [],
+  monitorClipboard: true, theme: 'light'
+};
+
 chrome.runtime.onInstalled.addListener(() => {
-  console.log('AEGIS Data Cloak installed');
-  
-  // Set default settings
-  chrome.storage.sync.set({
-    enabled: true,
-    blockedCount: 0
+  chrome.storage.sync.get(['settings'], (result) => {
+    if (!result.settings) chrome.storage.sync.set({ settings: DEFAULT_SETTINGS });
   });
 });
 
-// Listen for messages from content script
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.type === 'CHECK_PII') {
-    const result = checkForPII(request.text);
-    sendResponse(result);
+  if (request.type === 'GET_SETTINGS') {
+    chrome.storage.sync.get(['settings'], (result) => {
+      sendResponse({ settings: result.settings || DEFAULT_SETTINGS });
+    });
     return true;
   }
-});
-
-// PII Detection Logic
-function checkForPII(text) {
-  const patterns = {
-    ssn: /\b\d{3}-\d{2}-\d{4}\b/,
-    creditCard: /\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b/,
-    email: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/,
-    phone: /\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b/
-  };
-  
-  const detected = [];
-  for (const [type, pattern] of Object.entries(patterns)) {
-    if (pattern.test(text)) {
-      detected.push(type);
-    }
+  if (request.type === 'SAVE_TRUSTED_SITES') {
+    chrome.storage.sync.get(['settings'], (result) => {
+      const settings = result.settings || DEFAULT_SETTINGS;
+      settings.trustedSites = request.sites || [];
+      chrome.storage.sync.set({ settings }, () => sendResponse({ success: true }));
+    });
+    return true;
   }
-  
-  return {
-    hasPII: detected.length > 0,
-    types: detected
-  };
-}
+  if (request.type === 'CHECK_OLLAMA') {
+    fetch('http://localhost:11434/api/tags', { method: 'GET' })
+      .then(r => sendResponse({ available: r.ok }))
+      .catch(() => sendResponse({ available: false }));
+    return true;
+  }
+  if (request.type === 'OPEN_OPTIONS') {
+    chrome.runtime.openOptionsPage();
+  }
+});
