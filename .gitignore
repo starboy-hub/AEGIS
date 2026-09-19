@@ -4,7 +4,7 @@ jspm_packages/
 web_modules/
 
 # Build and distribution directories
-dist/
+
 build/
 out/
 
