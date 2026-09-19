@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>AEGIS Settings</title>
+<style>
+:root{--bg:#fff;--text:#333;--border:#e9ecef;--card:#f8f9fa;--primary:#667eea}
+body.dark{--bg:#1e1e1e;--text:#e0e0e0;--border:#333;--card:#2d2d2d}
+body{font-family:-apple-system,sans-serif;background:var(--bg);color:var(--text);max-width:600px;margin:0 auto;padding:24px}
+h1{font-size:24px;margin-bottom:8px}
+.subtitle{color:#666;font-size:14px;margin-bottom:32px}
+.setting-row{display:flex;justify-content:space-between;align-items:center;padding:16px 0;border-bottom:1px solid var(--border)}
+.setting-info{flex:1}
+.setting-label{font-weight:600;font-size:15px;margin-bottom:4px}
+.setting-desc{font-size:13px;color:#666}
+.toggle{width:44px;height:24px;background:#ccc;border-radius:12px;position:relative;cursor:pointer;transition:background 0.3s}
+.toggle.active{background:var(--primary)}
+.toggle::after{content:'';position:absolute;top:2px;left:2px;width:20px;height:20px;background:white;border-radius:50%;transition:transform 0.3s}
+.toggle.active::after{transform:translateX(20px)}
+select,textarea{padding:8px 12px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:14px}
+textarea{width:100%;height:120px;font-family:monospace;font-size:13px;resize:vertical;margin-top:8px}
+.save-btn{padding:8px 16px;background:var(--primary);color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;margin-top:8px}
+.footer{margin-top:40px;text-align:center;font-size:12px;color:#999}
+</style></head><body>
+<h1>🛡️ AEGIS Settings</h1>
+<div class="subtitle">Configure your AI privacy shield</div>
+
+<div class="setting-row">
+  <div class="setting-info"><div class="setting-label">🌙 Dark Mode</div><div class="setting-desc">Toggle dark interface</div></div>
+  <div id="toggleTheme" class="toggle"></div>
+</div>
+
+<div class="setting-row">
+  <div class="setting-info"><div class="setting-label">⚡ Regex Detection</div><div class="setting-desc">Detect standard PII</div></div>
+  <div id="toggleRegex" class="toggle"></div>
+</div>
+
+<div class="setting-row">
+  <div class="setting-info"><div class="setting-label">🎯 Sensitivity</div><div class="setting-desc">Detection aggressiveness</div></div>
+  <select id="selectSensitivity">
+    <option value="low">Low (Regex only)</option>
+    <option value="medium">Medium (Regex + Context)</option>
+    <option value="high">High (All layers)</option>
+  </select>
+</div>
+
+<div class="setting-row">
+  <div class="setting-info"><div class="setting-label">🎭 Use Fake Data</div><div class="setting-desc">Replace with realistic fakes</div></div>
+  <div id="toggleFakeData" class="toggle"></div>
+</div>
+
+<div class="setting-row">
+  <div class="setting-info"><div class="setting-label">🌍 Language</div><div class="setting-desc">Interface language</div></div>
+  <select id="selectLanguage">
+    <option value="auto">Auto</option>
+    <option value="en">English</option><option value="es">Español</option>
+    <option value="fr">Français</option><option value="de">Deutsch</option>
+    <option value="pt">Português</option><option value="it">Italiano</option>
+    <option value="ru">Русский</option><option value="zh">中文</option>
+    <option value="ar">العربية</option>
+  </select>
+</div>
+
+<div class="setting-row" style="flex-direction:column;align-items:flex-start">
+  <div class="setting-info" style="width:100%"><div class="setting-label">🔧 Custom Regex</div><div class="setting-desc">Format: TYPE:/regex/flags</div></div>
+  <textarea id="customPatternsInput" placeholder="EMPLOYEE_ID:/EMP-\d{5}/g"></textarea>
+  <button id="saveCustomPatternsBtn" class="save-btn">Save</button>
+</div>
+
+<div class="setting-row" style="flex-direction:column;align-items:flex-start;border-bottom:none">
+  <div class="setting-info" style="width:100%"><div class="setting-label">🤝 Trusted Sites</div><div class="setting-desc">One domain per line</div></div>
+  <textarea id="trustedSitesInput" placeholder="example.com"></textarea>
+  <button id="saveTrustedSitesBtn" class="save-btn">Save</button>
+</div>
+
+<div class="footer">AEGIS v5.5 • 100% Local</div>
+<script src="options.js"></script>
+</body></html>
