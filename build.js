@@ -26,9 +26,9 @@ files.forEach(file => {
   }
 });
 
-// Create icons directory
-if (!fs.existsSync('dist/icons')) {
-  fs.mkdirSync('dist/icons');
-}
+// Generate icons
+console.log('\n🎨 Generating icons...');
+const { execSync } = require('child_process');
+execSync('node create-icons.js', { stdio: 'inherit' });
 
 console.log('\n✅ Build complete! Load the "dist" folder in Chrome.');
