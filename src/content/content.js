@@ -167,12 +167,12 @@ function loadTheme() { return new Promise((resolve) => { chrome.storage.sync.get
 
 chrome.storage.onChanged.addListener((changes, ns) => {
   if (ns === 'sync') {
-    if (changes.theme) { currentTheme = changes.theme.newValue || 'light'; if (popup) popup.render(); }
+    if (changes.theme) { currentTheme = changes.theme.newValue || 'light'; if (typeof popup !== 'undefined' && popup) popup.render(); }
     if (changes.manualLanguage) {
       const newLang = changes.manualLanguage.newValue || 'auto';
       if (newLang !== 'auto' && TRANSLATIONS[newLang]) currentLang = newLang;
       else { const browserLang = navigator.language.split('-')[0].toLowerCase(); currentLang = TRANSLATIONS[browserLang] ? browserLang : 'en'; }
-      if (popup) popup.render();
+      if (typeof popup !== 'undefined' && popup) popup.render();
     }
   }
 });
@@ -216,18 +216,19 @@ async function scanText(text) {
 function highlightSensitive(element, redactions) {
   if (!element) return; removeInlineIndicator(element);
   if (element.getAttribute('contenteditable') === 'true') {
+  const color = tc('#ff4444', '#ef5350');
     let html = element.innerHTML;
-    redactions.forEach(r => { if (r.text && r.text.length > 0) { const escaped = r.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); html = html.replace(new RegExp(escaped, 'g'), `<span class="aegis-sensitive" style="color:#ff4444!important;font-weight:600;text-decoration:wavy underline #ff4444;">${r.text}</span>`); } });
+    redactions.forEach(r => { if (r.text && r.text.length > 0) { const escaped = r.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); html = html.replace(new RegExp(escaped, 'g'), `<span class="aegis-sensitive" style="color:${color}!important;font-weight:600;text-decoration:wavy underline ${color};">${r.text}</span>`); } });
     element.innerHTML = html;
-  } else { element.style.transition = 'all 0.3s ease'; element.style.color = '#ff4444'; element.style.borderLeft = '4px solid #ff4444'; showInlineIndicator(element, ' PII detected', '#ff4444'); }
+  } else { element.style.transition = 'all 0.3s ease'; element.style.color = color; element.style.borderLeft = '4px solid ' + color; showInlineIndicator(element, ' PII detected', color); }
 }
 function highlightProtected(element, replacements) {
   if (!element) return; removeInlineIndicator(element);
-  element.style.transition = 'all 0.3s ease'; element.style.color = '#28a745'; element.style.borderLeft = '4px solid #28a745';
-  showInlineIndicator(element, '🛡️ Protected', '#28a745');
+  element.style.transition = 'all 0.3s ease'; const pColor = tc('#28a745', '#66bb6a'); element.style.color = pColor; element.style.borderLeft = '4px solid ' + pColor;
+  showInlineIndicator(element, '🛡️ Protected', pColor);
 }
 function clearHighlights(element) { if (!element) return; removeInlineIndicator(element); if (element.getAttribute('contenteditable') === 'true') { element.querySelectorAll('.aegis-sensitive, .aegis-protected').forEach(span => { span.replaceWith(document.createTextNode(span.textContent)); }); } else { element.style.borderLeft = ''; element.style.color = ''; } }
-function showInlineIndicator(element, text, color) { const rect = element.getBoundingClientRect(); const indicator = document.createElement('div'); indicator.className = 'aegis-inline-indicator'; indicator.textContent = text; indicator.style.cssText = `position:absolute!important;top:${rect.top - 28}px!important;left:${rect.left}px!important;background:${color}!important;color:white!important;padding:4px 10px!important;border-radius:4px!important;font-size:11px!important;font-weight:600!important;z-index:2147483645!important;font-family:-apple-system,sans-serif!important;box-shadow:0 2px 8px rgba(0,0,0,0.2)!important;pointer-events:none!important;`; document.body.appendChild(indicator); }
+function showInlineIndicator(element, text, color) { const rect = element.getBoundingClientRect(); const indicator = document.createElement('div'); indicator.className = 'aegis-inline-indicator'; indicator.textContent = text; indicator.style.cssText = `position:absolute!important;top:${rect.top - 28}px!important;left:${rect.left}px!important;background:${color}!important;color:white!important;padding:4px 10px!important;border-radius:4px!important;font-size:11px!important;font-weight:600!important;z-index:2147483645!important;font-family:-apple-system,sans-serif!important;box-shadow:0 2px 8px ${currentTheme === 'dark' ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.2)'}!important;pointer-events:none!important;`; document.body.appendChild(indicator); }
 function removeInlineIndicator() { document.querySelectorAll('.aegis-inline-indicator').forEach(el => el.remove()); }
 
 function performRedaction(element, redactions) {
