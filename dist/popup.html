@@ -1,4 +1,100 @@
 <!DOCTYPE html>
-<html><head><meta charset="UTF-8"><title>AEGIS</title>
-<style>body{width:300px;padding:24px;font-family:-apple-system,sans-serif;text-align:center;background:#1e1e1e;color:white}h2{margin:0 0 10px 0}p{font-size:13px;color:#aaa}</style>
-</head><body><h2>🛡️ AEGIS Active</h2><p>Check bottom-right for shield icon</p><script src="popup.js"></script></body></html>
+<html><head><meta charset="UTF-8"><title>AEGIS Data Cloak</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#1e1e1e;--text:#fff;--card:#2d2d2d;--border:#404040;--primary:#667eea;--success:#28a745;--danger:#ff4444;--warning:#ffc107;--muted:#999}
+body{width:380px;min-height:400px;padding:0;font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);overflow:hidden}
+.header{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);padding:16px;text-align:center;position:relative}
+.header h1{font-size:18px;font-weight:700;margin-bottom:4px;display:flex;align-items:center;justify-content:center;gap:8px}
+.header .version{font-size:11px;opacity:0.8;font-weight:400}
+.status-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:12px;font-size:11px;font-weight:600;margin-top:8px;background:rgba(255,255,255,0.15)}
+.status-dot{width:8px;height:8px;border-radius:50%;background:#4ade80;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+.content{padding:16px}
+.section{margin-bottom:16px}
+.section-title{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center}
+.stat-value{font-size:22px;font-weight:700;color:var(--primary);line-height:1}
+.stat-label{font-size:10px;color:var(--muted);text-transform:uppercase;margin-top:4px}
+.toggle-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)}
+.toggle-label{flex:1;font-size:13px}
+.toggle-desc{font-size:11px;color:var(--muted);margin-top:2px}
+.toggle-switch{width:40px;height:22px;background:#555;border-radius:11px;position:relative;cursor:pointer;transition:background 0.3s}
+.toggle-switch.active{background:var(--primary)}
+.toggle-switch::after{content:'';position:absolute;top:2px;left:2px;width:18px;height:18px;background:#fff;border-radius:50%;transition:transform 0.3s}
+.toggle-switch.active::after{transform:translateX(18px)}
+.sensitivity-selector{display:flex;gap:4px;background:var(--card);padding:4px;border-radius:8px}
+.sensitivity-btn{flex:1;padding:8px;border:none;border-radius:6px;background:transparent;color:var(--muted);font-size:11px;cursor:pointer;transition:all 0.2s}
+.sensitivity-btn.active{background:var(--primary);color:#fff;font-weight:600}
+.sensitivity-btn:hover:not(.active){background:rgba(102,126,234,0.2)}
+.action-buttons{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.btn{padding:10px;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;justify-content:center;gap:6px}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-primary:hover{filter:brightness:1.1}
+.btn-secondary{background:var(--card);color:var(--text);border:1px solid var(--border)}
+.btn-secondary:hover{background:var(--border)}
+.btn-danger{background:var(--danger);color:#fff}
+.footer{padding:12px 16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--muted)}
+.footer-links{display:flex;gap:12px}
+.footer-link{color:var(--primary);text-decoration:none;cursor:pointer}
+.footer-link:hover{text-decoration:underline}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--success);color:#fff;padding:8px 16px;border-radius:20px;font-size:12px;font-weight:600;opacity:0;pointer-events:none;transition:opacity 0.3s;z-index:1000}
+.toast.show{opacity:1}
+</style></head><body>
+<div class="header">
+  <h1>🛡️ AEGIS <span class="version">v5.5</span></h1>
+  <div class="status-badge"><span class="status-dot" id="statusDot"></span><span id="statusText">Active</span></div>
+</div>
+<div class="content">
+  <div class="section">
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-value" id="todayCount">0</div><div class="stat-label">Today</div></div>
+      <div class="stat-card"><div class="stat-value" id="allTimeCount">0</div><div class="stat-label">All Time</div></div>
+      <div class="stat-card"><div class="stat-value" id="sitesCount">0</div><div class="stat-label">Sites</div></div>
+    </div>
+  </div>
+  
+  <div class="section">
+    <div class="section-title">🔒 Detection Settings</div>
+    <div class="toggle-row">
+      <div><div class="toggle-label">Regex Detection</div><div class="toggle-desc">Detect standard PII patterns</div></div>
+      <div class="toggle-switch" id="toggleRegex"></div>
+    </div>
+    <div class="toggle-row">
+      <div><div class="toggle-label">AI Analysis</div><div class="toggle-desc">Context-aware detection (requires Ollama)</div></div>
+      <div class="toggle-switch" id="toggleAI"></div>
+    </div>
+    <div class="toggle-row">
+      <div><div class="toggle-label">Use Fake Data</div><div class="toggle-desc">Replace with realistic fakes</div></div>
+      <div class="toggle-switch" id="toggleFake"></div>
+    </div>
+    <div style="margin-top:12px">
+      <div class="section-title" style="margin-bottom:6px">Sensitivity Level</div>
+      <div class="sensitivity-selector">
+        <button class="sensitivity-btn" data-level="low">Low</button>
+        <button class="sensitivity-btn" data-level="medium">Medium</button>
+        <button class="sensitivity-btn" data-level="high">High</button>
+      </div>
+    </div>
+  </div>
+  
+  <div class="section">
+    <div class="action-buttons">
+      <button class="btn btn-secondary" id="btnPause"><span id="pauseIcon">⏸️</span><span id="pauseText">Pause</span></button>
+      <button class="btn btn-secondary" id="btnOptions">⚙️ Settings</button>
+      <button class="btn btn-secondary" id="btnTrust">🤝 Trust Site</button>
+      <button class="btn btn-danger" id="btnClear">🗑️ Clear History</button>
+    </div>
+  </div>
+</div>
+<div class="footer">
+  <span>AEGIS Data Cloak v5.5</span>
+  <div class="footer-links">
+    <span class="footer-link" id="linkHelp">Help</span>
+    <span class="footer-link" id="linkReport">Report</span>
+  </div>
+</div>
+<div class="toast" id="toast">Saved!</div>
+<script src="popup.js"></script>
+</body></html>
