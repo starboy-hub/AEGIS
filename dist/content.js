@@ -215,19 +215,23 @@ async function scanText(text) {
 
 function highlightSensitive(element, redactions) {
   if (!element) return; removeInlineIndicator(element);
+  const sensitiveColor = currentTheme === 'dark' ? '#ef5350' : '#ff4444';
+  const shadowColor = currentTheme === 'dark' ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.2)';
   if (element.getAttribute('contenteditable') === 'true') {
     let html = element.innerHTML;
-    redactions.forEach(r => { if (r.text && r.text.length > 0) { const escaped = r.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); html = html.replace(new RegExp(escaped, 'g'), `<span class="aegis-sensitive" style="color:#ff4444!important;font-weight:600;text-decoration:wavy underline #ff4444;">${r.text}</span>`); } });
+    redactions.forEach(r => { if (r.text && r.text.length > 0) { const escaped = r.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); html = html.replace(new RegExp(escaped, 'g'), `<span class="aegis-sensitive" style="color:${sensitiveColor}!important;font-weight:600;text-decoration:wavy underline ${sensitiveColor};">${r.text}</span>`); } });
     element.innerHTML = html;
-  } else { element.style.transition = 'all 0.3s ease'; element.style.color = '#ff4444'; element.style.borderLeft = '4px solid #ff4444'; showInlineIndicator(element, ' PII detected', '#ff4444'); }
+  } else { element.style.transition = 'all 0.3s ease'; element.style.color = sensitiveColor; element.style.borderLeft = `4px solid ${sensitiveColor}`; showInlineIndicator(element, ' PII detected', sensitiveColor, shadowColor); }
 }
 function highlightProtected(element, replacements) {
   if (!element) return; removeInlineIndicator(element);
-  element.style.transition = 'all 0.3s ease'; element.style.color = '#28a745'; element.style.borderLeft = '4px solid #28a745';
-  showInlineIndicator(element, '🛡️ Protected', '#28a745');
+  const protectedColor = currentTheme === 'dark' ? '#66bb6a' : '#28a745';
+  const shadowColor = currentTheme === 'dark' ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.2)';
+  element.style.transition = 'all 0.3s ease'; element.style.color = protectedColor; element.style.borderLeft = `4px solid ${protectedColor}`;
+  showInlineIndicator(element, '🛡️ Protected', protectedColor, shadowColor);
 }
 function clearHighlights(element) { if (!element) return; removeInlineIndicator(element); if (element.getAttribute('contenteditable') === 'true') { element.querySelectorAll('.aegis-sensitive, .aegis-protected').forEach(span => { span.replaceWith(document.createTextNode(span.textContent)); }); } else { element.style.borderLeft = ''; element.style.color = ''; } }
-function showInlineIndicator(element, text, color) { const rect = element.getBoundingClientRect(); const indicator = document.createElement('div'); indicator.className = 'aegis-inline-indicator'; indicator.textContent = text; indicator.style.cssText = `position:absolute!important;top:${rect.top - 28}px!important;left:${rect.left}px!important;background:${color}!important;color:white!important;padding:4px 10px!important;border-radius:4px!important;font-size:11px!important;font-weight:600!important;z-index:2147483645!important;font-family:-apple-system,sans-serif!important;box-shadow:0 2px 8px rgba(0,0,0,0.2)!important;pointer-events:none!important;`; document.body.appendChild(indicator); }
+function showInlineIndicator(element, text, color, shadowColor = 'rgba(0,0,0,0.2)') { const rect = element.getBoundingClientRect(); const indicator = document.createElement('div'); indicator.className = 'aegis-inline-indicator'; indicator.textContent = text; indicator.style.cssText = `position:absolute!important;top:${rect.top - 28}px!important;left:${rect.left}px!important;background:${color}!important;color:white!important;padding:4px 10px!important;border-radius:4px!important;font-size:11px!important;font-weight:600!important;z-index:2147483645!important;font-family:-apple-system,sans-serif!important;box-shadow:0 2px 8px ${shadowColor}!important;pointer-events:none!important;`; document.body.appendChild(indicator); }
 function removeInlineIndicator() { document.querySelectorAll('.aegis-inline-indicator').forEach(el => el.remove()); }
 
 function performRedaction(element, redactions) {
