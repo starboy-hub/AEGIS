@@ -12,9 +12,7 @@ fs.copyFileSync('manifest.json', 'dist/manifest.json');
 // Copy and flatten source files
 const files = [
   { src: 'src/background/background.js', dest: 'dist/background.js' },
-  { src: 'src/content/content.js', dest: 'dist/content.js' },
-  { src: 'src/popup/popup.html', dest: 'dist/popup.html' },
-  { src: 'src/popup/popup.js', dest: 'dist/popup.js' }
+  { src: 'src/content/content.js', dest: 'dist/content.js' }
 ];
 
 files.forEach(file => {
