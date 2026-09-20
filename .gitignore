@@ -1,43 +1,19 @@
-# Dependency directories
-node_modules/
-jspm_packages/
-web_modules/
+```
+# Build/dist directory
+dist/
 
-# Build and distribution directories
+# Environment files
+.env
+.env.local
+*.env.*
 
-build/
-out/
+# IDE files
+.vscode/
+.idea/
 
 # Logs
 *.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
 
-# Environment and secrets
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-.env.sample
-!.env.example # Track the example/placeholder file
-
-# Diagnostic reports and coverage
-report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
-coverage/
-.nyc_output/
-
-# Editor and Tooling configs
-.vscode/
-.idea/
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.swp
-
-# OS files
-.DS_Store
-Thumbs.db
+# Temp files
+*.tmp
+```

@@ -28,7 +28,11 @@ files.forEach(file => {
 
 // Create icons directory
 if (!fs.existsSync('dist/icons')) {
-  fs.mkdirSync('dist/icons');
+  fs.mkdirSync('dist/icons', { recursive: true });
 }
+
+// Generate icons using create-icons.js
+console.log('\n🎨 Generating icons...');
+require('./create-icons.js');
 
 console.log('\n✅ Build complete! Load the "dist" folder in Chrome.');
