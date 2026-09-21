@@ -1,4 +1,9 @@
-console.log('🛡️ AEGIS v5.5: Complete Final Build Loaded');
+// AEGIS - AI Privacy Shield v6.0
+// Wrapped in IIFE to prevent global scope pollution
+(function() {
+  'use strict';
+
+console.log('🛡️ AEGIS v6.0: Enterprise Build Loaded');
 
 const TRANSLATIONS = {
   en: { sensitiveDetected: "Sensitive Data Detected", proceed: "Are you sure you want to proceed?", cancel: "Cancel", sendAnyway: "Send Anyway", protectTip: "Tip: Click Protect in the AEGIS popup to replace sensitive data first", imageUpload: "Image Upload Detected", aiCanRead: "AI can read text and faces in images. Does this file contain IDs or sensitive info?", privacyRisk: "Privacy Risk: Once uploaded, you cannot control who accesses this file.", cancelUpload: "Cancel Upload", uploadAnyway: "Upload Anyway", sensitiveFilename: "Sensitive Filename", containsKeywords: "contains sensitive keywords.", welcome: "Welcome to AEGIS!", welcomeText: "I'll protect your sensitive data as you type.", quickProtect: "Tip: Press ⌘+Enter to quick-protect", gotIt: "Got it!" },
@@ -193,23 +198,94 @@ async function checkOllama() { return new Promise((resolve) => { chrome.runtime.
 async function classifyWithAI(text) { if (!ollamaAvailable || !settings.aiEnabled) return { categories: [], redactions: [] }; const ct = cleanText(text); if (ct.length < 15 || ct.length > 300) return { categories: [], redactions: [] }; return new Promise((resolve) => { chrome.runtime.sendMessage({ type: 'CLASSIFY_TEXT', text: ct }, (response) => { resolve(response || { categories: [], redactions: [] }); }); }); }
 
 async function scanText(text) {
-  const ct = cleanText(text); const alerts = [], redactions = [], seen = new Set();
+  const ct = cleanText(text); 
+  const alerts = [], redactions = [], seen = new Set();
   const sensitivity = settings.sensitivity || 'medium';
-  if (settings.regexEnabled) { const r = scanWithRegex(ct); alerts.push(...r.alerts); r.redactions.forEach(x => { redactions.push(x); seen.add(x.text); }); }
-  if (sensitivity === 'medium' || sensitivity === 'high') {
-    const ctx = scanWithContext(ct); ctx.alerts.forEach(a => { if (!alerts.find(x => x.type === a.type && x.source === 'context') && !ignoredTexts.has(a.text)) alerts.push(a); }); ctx.redactions.forEach(r => { if (!seen.has(r.text) && !ignoredTexts.has(r.text)) { redactions.push(r); seen.add(r.text); } });
+  
+  // Ensure we always return a valid structure
+  if (!text || text.length < 5) {
+    return { alerts: [], redactions: [] };
   }
-  if (sensitivity === 'high') {
-    findNamesHeuristic(ct).forEach(n => { if (!seen.has(n) && !ignoredTexts.has(n)) { alerts.push({ type: 'NAME', source: 'heuristic', severity: 'medium' }); redactions.push({ text: n, type: 'NAME' }); seen.add(n); } });
+  
+  try {
+    if (settings.regexEnabled) { 
+      const r = scanWithRegex(ct); 
+      if (r && r.alerts) alerts.push(...r.alerts); 
+      if (r && r.redactions) r.redactions.forEach(x => { redactions.push(x); seen.add(x.text); }); 
+    }
+    
+    if (sensitivity === 'medium' || sensitivity === 'high') {
+      const ctx = scanWithContext(ct); 
+      if (ctx && ctx.alerts) {
+        ctx.alerts.forEach(a => { 
+          if (!alerts.find(x => x.type === a.type && x.source === 'context') && !ignoredTexts.has(a.text)) 
+            alerts.push(a); 
+        }); 
+      }
+      if (ctx && ctx.redactions) {
+        ctx.redactions.forEach(r => { 
+          if (!seen.has(r.text) && !ignoredTexts.has(r.text)) { 
+            redactions.push(r); 
+            seen.add(r.text); 
+          } 
+        });
+      }
+    }
+    
+    if (sensitivity === 'high') {
+      const names = findNamesHeuristic(ct);
+      if (names && Array.isArray(names)) {
+        names.forEach(n => { 
+          if (!seen.has(n) && !ignoredTexts.has(n)) { 
+            alerts.push({ type: 'NAME', source: 'heuristic', severity: 'medium' }); 
+            redactions.push({ text: n, type: 'NAME' }); 
+            seen.add(n); 
+          } 
+        });
+      }
+    }
+    
+    if (settings.customPatterns) {
+      const customPatterns = parseCustomPatterns(settings.customPatterns);
+      const custom = scanWithCustomPatterns(ct, customPatterns);
+      if (custom && custom.alerts) {
+        custom.alerts.forEach(a => { 
+          if (!alerts.find(x => x.type === a.type && x.source === 'custom') && !ignoredTexts.has(a.text)) 
+            alerts.push(a); 
+        });
+      }
+      if (custom && custom.redactions) {
+        custom.redactions.forEach(r => { 
+          if (!seen.has(r.text) && !ignoredTexts.has(r.text)) { 
+            redactions.push(r); 
+            seen.add(r.text); 
+          } 
+        });
+      }
+    }
+    
+    const hasHighSeverity = alerts.some(a => a.severity === 'high');
+    if (ollamaAvailable && settings.aiEnabled && !hasHighSeverity) { 
+      const ai = await classifyWithAI(text); 
+      if (ai && ai.categories) {
+        ai.categories.forEach(c => { 
+          if (!alerts.find(a => a.type === c)) 
+            alerts.push({ type: c, source: 'ai', severity: 'medium' }); 
+        }); 
+      }
+      if (ai && ai.redactions) {
+        ai.redactions.forEach(r => { 
+          if (!seen.has(r.text) && ct.includes(r.text) && !ignoredTexts.has(r.text)) { 
+            redactions.push(r); 
+            seen.add(r.text); 
+          } 
+        }); 
+      }
+    }
+  } catch (err) {
+    console.warn('🛡️ AEGIS: Scan internal error:', err.message);
   }
-  if (settings.customPatterns) {
-    const customPatterns = parseCustomPatterns(settings.customPatterns);
-    const custom = scanWithCustomPatterns(ct, customPatterns);
-    custom.alerts.forEach(a => { if (!alerts.find(x => x.type === a.type && x.source === 'custom') && !ignoredTexts.has(a.text)) alerts.push(a); });
-    custom.redactions.forEach(r => { if (!seen.has(r.text) && !ignoredTexts.has(r.text)) { redactions.push(r); seen.add(r.text); } });
-  }
-  const hasHighSeverity = alerts.some(a => a.severity === 'high');
-  if (ollamaAvailable && settings.aiEnabled && !hasHighSeverity) { const ai = await classifyWithAI(text); ai.categories.forEach(c => { if (!alerts.find(a => a.type === c)) alerts.push({ type: c, source: 'ai', severity: 'medium' }); }); ai.redactions.forEach(r => { if (!seen.has(r.text) && ct.includes(r.text) && !ignoredTexts.has(r.text)) { redactions.push(r); seen.add(r.text); } }); }
+  
   return { alerts, redactions };
 }
 
@@ -447,8 +523,16 @@ async function init() {
   document.addEventListener('mousemove', (e) => popup.onDrag(e)); document.addEventListener('mouseup', () => popup.endDrag());
   setupKeyboardShortcuts(); setupSubmissionGuard(); setupAttachmentGuard();
   if (isWhitelisted) { popup.minimize(); return; }
-  const hasOllama = await checkOllama(); console.log('️ AEGIS: Ollama =', hasOllama);
+  const hasOllama = await checkOllama(); console.log('🛡️ AEGIS: Ollama =', hasOllama);
   if (settings.monitorClipboard) monitorClipboard();
   showOnboarding();
 }
-if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+
+// Initialize when DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
+
+})(); // End IIFE wrapper
