@@ -16,6 +16,7 @@ const files = [
   { src: 'src/content/content.js', dest: 'dist/content.js' },
   { src: 'src/popup/popup.html', dest: 'dist/popup.html' },
   { src: 'src/popup/popup.js', dest: 'dist/popup.js' },
+  { src: 'src/popup/popup.css', dest: 'dist/popup.css' },
   { src: 'src/options/options.html', dest: 'dist/options.html' },
   { src: 'src/options/options.js', dest: 'dist/options.js' },
   { src: 'src/install-mac.sh', dest: 'dist/install-mac.sh' },
