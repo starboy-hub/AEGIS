@@ -215,7 +215,8 @@ async function scanText(text) {
 
 function highlightSensitive(element, redactions) {
   if (!element) return; removeInlineIndicator(element);
-  const color = tc('#ff4444', '#ef5350');
+  const safeTheme = typeof currentTheme !== 'undefined' ? currentTheme : 'light';
+  const color = safeTheme === 'dark' ? '#ef5350' : '#ff4444';
   if (element.getAttribute('contenteditable') === 'true') {
     let html = element.innerHTML;
     redactions.forEach(r => { if (r.text && r.text.length > 0) { const escaped = r.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); html = html.replace(new RegExp(escaped, 'g'), `<span class="aegis-sensitive" style="color:${color}!important;font-weight:600;text-decoration:wavy underline ${color};">${r.text}</span>`); } });
