@@ -215,8 +215,8 @@ async function scanText(text) {
 
 function highlightSensitive(element, redactions) {
   if (!element) return; removeInlineIndicator(element);
-  if (element.getAttribute('contenteditable') === 'true') {
   const color = tc('#ff4444', '#ef5350');
+  if (element.getAttribute('contenteditable') === 'true') {
     let html = element.innerHTML;
     redactions.forEach(r => { if (r.text && r.text.length > 0) { const escaped = r.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); html = html.replace(new RegExp(escaped, 'g'), `<span class="aegis-sensitive" style="color:${color}!important;font-weight:600;text-decoration:wavy underline ${color};">${r.text}</span>`); } });
     element.innerHTML = html;
