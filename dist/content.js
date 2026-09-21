@@ -162,7 +162,7 @@ function cleanText(t) { return t.replace(/\{[^}]*\}/g,'').replace(/\b[0-9a-f]{8}
 let ollamaAvailable = false;
 let settings = { aiEnabled: true, regexEnabled: true, useFakeData: true, sensitivity: 'medium', customPatterns: '', trustedSites: [], monitorClipboard: true, notificationSize: 'standard' };
 let isWhitelisted = false, isPaused = false, pauseTimer = null, protectionHistory = [], totalProtected = 0, allTimeProtected = 0, ignoredTexts = new Set(), currentTheme = 'light';
-function tc(light, dark) { return currentTheme === 'dark' ? dark : light; }
+function tc(light, dark) { return (typeof currentTheme === 'undefined' || currentTheme === 'dark') ? dark : light; }
 function loadTheme() { return new Promise((resolve) => { chrome.storage.sync.get(['theme'], (r) => { currentTheme = r.theme || 'light'; resolve(currentTheme); }); }); }
 
 chrome.storage.onChanged.addListener((changes, ns) => {
