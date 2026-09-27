@@ -79,6 +79,18 @@ textarea{width:100%;height:120px;font-family:monospace;font-size:13px;resize:ver
 </div>
 
 <div class="setting-row" style="flex-direction:column;align-items:flex-start">
+  <div class="setting-info" style="width:100%"><div class="setting-label">🏦 Trust Graph</div><div class="setting-desc">Your real organizations and contacts. If a pressure message names one of these, AEGIS escalates it as impersonation. One per line.</div></div>
+  <textarea id="trustedEntitiesInput" style="height:70px" placeholder="Global Bank&#10;Acme Corp&#10;john@family.com"></textarea>
+  <button id="saveTrustedEntitiesBtn" class="save-btn">Save Trust List</button>
+  <div id="trustedList" style="width:100%;margin-top:8px"></div>
+</div>
+
+<div class="setting-row">
+  <div class="setting-info"><div class="setting-label">👨‍👩‍👧 Family Guardian Mode</div><div class="setting-desc">Maximum protection for loved ones: all layers on, warns on even mild pressure patterns</div></div>
+  <div id="toggleFamilyMode" class="toggle"></div>
+</div>
+
+<div class="setting-row" style="flex-direction:column;align-items:flex-start">
   <div class="setting-info" style="width:100%"><div class="setting-label">🔧 Custom Regex</div><div class="setting-desc">Format: TYPE:/regex/flags</div></div>
   <textarea id="customPatternsInput" placeholder="EMPLOYEE_ID:/EMP-\d{5}/g"></textarea>
   <button id="saveCustomPatternsBtn" class="save-btn">Save</button>

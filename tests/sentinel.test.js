@@ -59,4 +59,45 @@ describe('AEGIS Sentinel engine', () => {
     expect(top).toHaveLength(2);
     expect(top[0]).toBe('Requests credentials or codes'); // weight 40, ties with payment
   });
+
+  describe('trust-graph escalation', () => {
+    test('suspicious message naming YOUR org escalates to dangerous', () => {
+      const base = analyzeMessage('Urgent: your account will be suspended today, act now to avoid legal action.');
+      expect(base.level).toBe('suspicious');
+      const escalated = AEGIS_SENTINEL.escalateForTrust(base, ['Global Bank']);
+      expect(escalated.level).toBe('dangerous');
+      expect(escalated.signals.some(s => s.id === 'trusted_impersonation')).toBe(true);
+    });
+
+    test('no escalation without pressure patterns', () => {
+      const base = analyzeMessage('Global Bank announces a new branch opening downtown next month.');
+      expect(AEGIS_SENTINEL.escalateForTrust(base, ['Global Bank']).level).toBe('none');
+    });
+
+    test('no escalation without trust hits', () => {
+      const base = analyzeMessage('Urgent: your account will be suspended today, act now to avoid legal action.');
+      expect(AEGIS_SENTINEL.escalateForTrust(base, []).level).toBe('suspicious');
+    });
+
+    test('no duplicate escalation', () => {
+      const base = { level: 'suspicious', score: 40, signals: [{ id: 'x', label: 'x', weight: 40 }] };
+      const once = AEGIS_SENTINEL.escalateForTrust(base, ['Global Bank']);
+      const twice = AEGIS_SENTINEL.escalateForTrust(once, ['Global Bank']);
+      expect(twice.signals.filter(s => s.id === 'trusted_impersonation')).toHaveLength(1);
+    });
+  });
+
+  describe('shouldWarn (Family Guardian thresholds)', () => {
+    test('normal mode: warns on suspicious/dangerous only', () => {
+      expect(AEGIS_SENTINEL.shouldWarn('low', false)).toBe(false);
+      expect(AEGIS_SENTINEL.shouldWarn('suspicious', false)).toBe(true);
+      expect(AEGIS_SENTINEL.shouldWarn('dangerous', false)).toBe(true);
+      expect(AEGIS_SENTINEL.shouldWarn('none', false)).toBe(false);
+    });
+
+    test('family mode: warns on low too', () => {
+      expect(AEGIS_SENTINEL.shouldWarn('low', true)).toBe(true);
+      expect(AEGIS_SENTINEL.shouldWarn('none', true)).toBe(false);
+    });
+  });
 });

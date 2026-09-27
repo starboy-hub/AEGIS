@@ -72,6 +72,30 @@ describe('AEGIS Identity Vault', () => {
     expect(await vault.getPseudoFor('entry1', 'claude.ai')).toBe('Ana Costa');
     expect(await vault.getPseudoFor('entry1', 'gemini.google.com')).toBeNull();
   });
+
+  test('trusted entities: roundtrip, encrypted at rest, independent of identity entries', async () => {
+    const storage = makeStorage();
+    const vault = createVault(storage, cryptoObj);
+    await vault.addEntry('name', 'Sarah Mitchell');
+    await vault.addTrusted('org', 'Global Bank');
+    await vault.addTrusted('contact', 'john@family.com');
+
+    const trusted = await vault.listTrusted();
+    expect(trusted).toHaveLength(2);
+    expect(trusted.map(t => t.kind).sort()).toEqual(['contact', 'org']);
+    expect((await vault.listEntries())).toHaveLength(1); // identity entries untouched
+
+    // encrypted at rest
+    const raw = JSON.stringify([...storage.mem.values()]);
+    expect(raw).not.toContain('Global Bank');
+
+    // dedup by value
+    await vault.addTrusted('org', 'global bank');
+    expect(await vault.listTrusted()).toHaveLength(2);
+
+    await vault.removeTrusted(trusted[0].id);
+    expect((await vault.listTrusted()).some(t => t.value === 'Global Bank')).toBe(false);
+  });
 });
 
 describe('Vault matchers', () => {

@@ -22,6 +22,7 @@ function t(key) { return TRANSLATIONS[currentLang]?.[key] || TRANSLATIONS.en[key
 
 let ollamaAvailable = false;
 let vaultCorpus = [], vaultMatchers = [], vaultPseudos = {}, vaultById = {};
+let trustMatchers = [];
 let sentinelAnalyzed = new Set(), sentinelBannerEl = null, sentinelBannerLevel = '';
 let injectionSeen = new Set(), injectionBannerEl = null;
 let settings = { aiEnabled: true, regexEnabled: true, useFakeData: true, sensitivity: 'medium', customPatterns: '', trustedSites: [], monitorClipboard: true, notificationSize: 'standard' };
@@ -72,6 +73,7 @@ async function refreshVault() {
     vaultMatchers = AEGIS_VAULT.buildMatchers(vaultCorpus);
     vaultById = {};
     vaultCorpus.forEach(e => { vaultById[e.id] = e.value; });
+    trustMatchers = AEGIS_VAULT.buildMatchers((res && res.trusted) || []);
     const mapRes = await chrome.runtime.sendMessage({ type: 'PSEUDO_GET_MAP', site: location.hostname });
     vaultPseudos = (mapRes && mapRes.map) || {};
   } catch (e) { console.warn('🛡️ AEGIS: vault unavailable:', e.message); }
@@ -147,7 +149,7 @@ function showSentinelBanner(result, sample) {
   const signals = AEGIS_SENTINEL.topSignals(result, 2).join(' + ');
   const label = document.createElement('span');
   label.style.fontWeight = '700';
-  label.textContent = danger ? '🚨 Sentinel: likely scam' : '⚠️ Sentinel: suspicious message';
+  label.textContent = (danger ? '🚨 Sentinel: likely scam' : '⚠️ Sentinel: suspicious message') + (settings.familyMode ? ' · 👨‍👩‍👧 Family Guardian' : '');
   const desc = document.createElement('span');
   desc.style.cssText = 'flex:1;opacity:.95;';
   desc.textContent = (signals ? signals + ' — ' : '') + result.advice;
@@ -181,7 +183,17 @@ function sentinelPass() {
     if (sentinelAnalyzed.has(hash)) return;
     sentinelAnalyzed.add(hash);
     const result = AEGIS_SENTINEL.analyzeMessage(text);
-    if (result.level === 'none' || result.level === 'low') return;
+    // Trust-graph escalation: pressure message naming YOUR org = impersonation
+    let trustedHits = [];
+    if (trustMatchers.length && result.level !== 'none' && result.level !== 'low') {
+      trustedHits = trustMatchers.filter(m => new RegExp(m.regex.source, m.regex.flags).test(text)).map(m => m.value);
+      if (trustedHits.length) {
+        const escalated = AEGIS_SENTINEL.escalateForTrust(result, trustedHits);
+        result.level = escalated.level;
+        result.signals = escalated.signals;
+      }
+    }
+    if (!AEGIS_SENTINEL.shouldWarn(result.level, settings.familyMode)) return;
     // AI-vs-AI second opinion for gray-zone messages (local model)
     if (result.level === 'suspicious' && ollamaAvailable && settings.aiEnabled) {
       try {

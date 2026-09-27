@@ -57,7 +57,33 @@
       .map(s => s.label);
   }
 
-  const AEGIS_SENTINEL = { analyzeMessage, topSignals, SENTINEL_SIGNALS, LEVELS };
+  /**
+   * Trust-graph escalation: a pressure message that names one of the user's
+   * OWN trusted organizations is impersonation — escalate to dangerous.
+   * @param {{level:string,score:number,signals:Array}} result - analyzeMessage output
+   * @param {Array<{label:string}>} trustedHits - trusted org/contact labels found in the text
+   */
+  function escalateForTrust(result, trustedHits) {
+    if (!trustedHits || !trustedHits.length) return result;
+    if (result.level === 'none' || result.level === 'low') return result;
+    if (result.signals.some(s => s.id === 'trusted_impersonation')) return result;
+    return {
+      ...result,
+      level: 'dangerous',
+      signals: [...result.signals, { id: 'trusted_impersonation', label: 'Impersonates YOUR trusted organization (' + trustedHits.join(', ') + ')', weight: 45 }]
+    };
+  }
+
+  /**
+   * Should this level surface a banner? Family Guardian mode warns even on
+   * 'low' so loved ones see every pressure pattern.
+   */
+  function shouldWarn(level, familyMode) {
+    if (familyMode) return level !== 'none';
+    return level === 'suspicious' || level === 'dangerous';
+  }
+
+  const AEGIS_SENTINEL = { analyzeMessage, topSignals, escalateForTrust, shouldWarn, SENTINEL_SIGNALS, LEVELS };
   root.AEGIS_SENTINEL = AEGIS_SENTINEL;
   if (typeof module !== 'undefined' && module.exports) module.exports = AEGIS_SENTINEL;
 })(typeof self !== 'undefined' ? self : globalThis);

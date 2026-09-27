@@ -2,6 +2,31 @@
 
 All notable changes to AEGIS will be documented in this file.
 
+## [6.7.0] - 2026-09-27
+
+### Added — 🏦 Trust Graph + 👨‍👩‍👧 Family Guardian Mode
+
+**Trust Graph.** The Vault now also holds your real organizations and
+contacts (encrypted like identity values, used for matching — never masked):
+
+- When a pressure message (suspicious or worse) names one of YOUR trusted
+  organizations, Sentinel escalates it to **dangerous** with the signal
+  "Impersonates YOUR trusted organization" — knowing which bank is *yours*
+  turns generic scam detection into personal scam detection
+- Manage the trust list in Options (orgs and contact addresses, encrypted at
+  rest, independent of identity entries)
+- Verified: benign mentions of trusted names never escalate (pressure
+  patterns required); no duplicate escalation
+
+**Family Guardian Mode.** One toggle (Options) for protecting loved ones:
+
+- Arms every layer (Sentinel, Injection Firewall, Vault restore)
+- Strictest Sentinel thresholds — warns even on mild ("low") pressure
+  patterns, banners marked "Family Guardian"
+- New E2E journey: teach "Global Bank" → the planted scam message naming it
+  escalates with the impersonation signal. 112 unit tests (was 105), 7 E2E
+  journeys (was 6)
+
 ## [6.6.0] - 2026-09-27
 
 ### Added — 🧬 Reality Check: synthetic-media provenance

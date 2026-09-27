@@ -38,7 +38,7 @@
     const KEYS = root.AEGIS ? root.AEGIS.KEYS : require('../shared/aegis-shared.js').KEYS;
     const subtle = cryptoObj.subtle;
     let cachedKey = null;
-    let cachedEntries = null;
+    let cachedVault = null;
 
     async function ensureKey() {
       if (cachedKey) return cachedKey;
@@ -66,37 +66,64 @@
       return JSON.parse(new TextDecoderCls().decode(plain));
     }
 
-    async function listEntries() {
-      if (cachedEntries) return cachedEntries;
+    async function loadVault() {
+      if (cachedVault) return cachedVault;
       const stored = await storage.get(KEYS.VAULT_DATA);
-      cachedEntries = stored[KEYS.VAULT_DATA] ? (await decryptJson(stored[KEYS.VAULT_DATA])).entries : [];
-      return cachedEntries;
+      const blob = stored[KEYS.VAULT_DATA] ? await decryptJson(stored[KEYS.VAULT_DATA]) : { entries: [], trusted: [] };
+      // Backward compatibility: blobs from before the trust graph lack `trusted`
+      cachedVault = { entries: blob.entries || [], trusted: blob.trusted || [] };
+      return cachedVault;
     }
 
-    async function saveEntries(entries) {
-      cachedEntries = entries;
-      await storage.set({ [KEYS.VAULT_DATA]: await encryptJson({ entries }), [KEYS.VAULT_VERSION]: Date.now() });
+    async function saveVault(v) {
+      cachedVault = v;
+      await storage.set({ [KEYS.VAULT_DATA]: await encryptJson(v), [KEYS.VAULT_VERSION]: Date.now() });
+    }
+
+    async function listEntries() {
+      return (await loadVault()).entries;
     }
 
     async function addEntry(kind, value) {
       const v = String(value || '').trim();
       if (!v) return null;
-      const entries = await listEntries();
-      const existing = entries.find(e => e.kind === kind && e.value.toLowerCase() === v.toLowerCase());
+      const vlt = await loadVault();
+      const existing = vlt.entries.find(e => e.kind === kind && e.value.toLowerCase() === v.toLowerCase());
       if (existing) return existing;
       const entry = { id: b64encode(cryptoObj.getRandomValues(new Uint8Array(6))), kind, value: v };
-      entries.push(entry);
-      await saveEntries(entries);
+      await saveVault({ entries: [...vlt.entries, entry], trusted: vlt.trusted });
       return entry;
     }
 
     async function removeEntry(id) {
-      const entries = await listEntries();
-      await saveEntries(entries.filter(e => e.id !== id));
+      const vlt = await loadVault();
+      await saveVault({ entries: vlt.entries.filter(e => e.id !== id), trusted: vlt.trusted });
+    }
+
+    // ---- trusted organizations / contacts (matched, never masked) ----
+
+    async function listTrusted() {
+      return (await loadVault()).trusted;
+    }
+
+    async function addTrusted(kind, value) {
+      const v = String(value || '').trim();
+      if (!v) return null;
+      const vlt = await loadVault();
+      const existing = vlt.trusted.find(e => e.value.toLowerCase() === v.toLowerCase());
+      if (existing) return existing;
+      const entry = { id: b64encode(cryptoObj.getRandomValues(new Uint8Array(6))), kind, value: v };
+      await saveVault({ entries: vlt.entries, trusted: [...vlt.trusted, entry] });
+      return entry;
+    }
+
+    async function removeTrusted(id) {
+      const vlt = await loadVault();
+      await saveVault({ entries: vlt.entries, trusted: vlt.trusted.filter(e => e.id !== id) });
     }
 
     async function clearAll() {
-      cachedEntries = [];
+      cachedVault = null;
       await storage.remove([KEYS.VAULT_DATA, KEYS.PSEUDO_MAP]);
       await storage.set({ [KEYS.VAULT_VERSION]: Date.now() });
     }
@@ -119,7 +146,7 @@
       return (map[site] || {})[entryId] || null;
     }
 
-    return { addEntry, removeEntry, listEntries, clearAll, encryptJson, decryptJson, getPseudoMap, recordPseudo, getPseudoFor };
+    return { addEntry, removeEntry, listEntries, listTrusted, addTrusted, removeTrusted, clearAll, encryptJson, decryptJson, getPseudoMap, recordPseudo, getPseudoFor };
   }
 
   /**

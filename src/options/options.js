@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-  const toggles = ['toggleTheme', 'toggleRegex', 'toggleFakeData', 'toggleVaultRestore'];
+  const toggles = ['toggleTheme', 'toggleRegex', 'toggleFakeData', 'toggleVaultRestore', 'toggleFamilyMode'];
   const langSelect = document.getElementById('selectLanguage');
   const sensitivitySelect = document.getElementById('selectSensitivity');
   const customInput = document.getElementById('customPatternsInput');
@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (s.regexEnabled !== false) document.getElementById('toggleRegex').classList.add('active');
     if (s.useFakeData !== false) document.getElementById('toggleFakeData').classList.add('active');
     if (s.vaultRestore !== false) document.getElementById('toggleVaultRestore').classList.add('active');
+    if (s.familyMode) document.getElementById('toggleFamilyMode').classList.add('active');
     if (langSelect) langSelect.value = result.manualLanguage || 'auto';
     if (sensitivitySelect) sensitivitySelect.value = s.sensitivity || 'medium';
     if (customInput && s.customPatterns) customInput.value = s.customPatterns;
@@ -30,6 +31,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (id === 'toggleRegex') s.regexEnabled = isActive;
         if (id === 'toggleFakeData') s.useFakeData = isActive;
         if (id === 'toggleVaultRestore') s.vaultRestore = isActive;
+        if (id === 'toggleFamilyMode') {
+          s.familyMode = isActive;
+          if (isActive) { s.sentinelEnabled = true; s.injectionFirewall = true; s.vaultRestore = true; }
+        }
         chrome.storage.sync.set({ settings: s });
       });
     });
@@ -132,6 +137,65 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  // ==========================================
+  // TRUST GRAPH
+  // ==========================================
+  function refreshTrustedList() {
+    chrome.runtime.sendMessage({ type: 'VAULT_CORPUS' }, (res) => {
+      const list = document.getElementById('trustedList');
+      if (!list) return;
+      const trusted = (res && res.trusted) || [];
+      if (!trusted.length) {
+        list.innerHTML = '<div class="vault-empty">Trust list is empty — add your bank, employer, and family contacts.</div>';
+        return;
+      }
+      list.innerHTML = '';
+      trusted.forEach(e => {
+        const row = document.createElement('div');
+        row.className = 'vault-item';
+        const label = document.createElement('span');
+        const kindSpan = document.createElement('span');
+        kindSpan.className = 'kind';
+        kindSpan.textContent = e.kind;
+        label.appendChild(kindSpan);
+        label.appendChild(document.createTextNode(e.value));
+        const remove = document.createElement('button');
+        remove.className = 'vault-remove';
+        remove.textContent = '✕';
+        remove.title = 'Remove';
+        remove.addEventListener('click', () => {
+          chrome.runtime.sendMessage({ type: 'VAULT_REMOVE_TRUSTED', id: e.id }, () => refreshTrustedList());
+        });
+        row.appendChild(label);
+        row.appendChild(remove);
+        list.appendChild(row);
+      });
+    });
+  }
+
+  document.getElementById('saveTrustedEntitiesBtn').addEventListener('click', () => {
+    const adds = [];
+    document.getElementById('trustedEntitiesInput').value.split('\n').forEach(line => {
+      const v = line.trim();
+      if (!v) return;
+      adds.push({ kind: v.includes('@') ? 'contact' : 'org', value: v });
+    });
+    if (!adds.length) return;
+    let pending = adds.length;
+    adds.forEach(a => {
+      chrome.runtime.sendMessage({ type: 'VAULT_ADD_TRUSTED', ...a }, () => {
+        if (--pending === 0) {
+          document.getElementById('trustedEntitiesInput').value = '';
+          const btn = document.getElementById('saveTrustedEntitiesBtn');
+          btn.textContent = 'Saved! ✅';
+          setTimeout(() => btn.textContent = 'Save Trust List', 2000);
+          refreshTrustedList();
+        }
+      });
+    });
+  });
+
+  refreshTrustedList();
   refreshVaultList();
 });
 

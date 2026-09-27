@@ -40,7 +40,8 @@
     notificationSize: 'standard',
     vaultRestore: true,
     sentinelEnabled: true,
-    injectionFirewall: true
+    injectionFirewall: true,
+    familyMode: false
   };
 
   function mergeSettings(stored) {

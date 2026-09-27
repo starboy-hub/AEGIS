@@ -110,3 +110,20 @@ test('injection firewall: hidden prompt-injection text triggers the banner', asy
   await expect(page.locator('[data-aegis="injection-banner"]')).toContainText('Injection Firewall');
   await context.close();
 });
+
+test('trust graph: a scam naming YOUR trusted organization escalates as impersonation', async () => {
+  const { context, page, extensionId } = await launchWithExtension();
+
+  // Teach the trust graph: Global Bank is the user's real bank
+  const options = await context.newPage();
+  await options.goto(`chrome-extension://${extensionId}/options.html`);
+  await options.fill('#trustedEntitiesInput', 'Global Bank');
+  await options.click('#saveTrustedEntitiesBtn');
+  await expect(options.locator('.vault-item')).toHaveCount(1, { timeout: 10000 });
+  await options.close();
+
+  // The page's scam message names Global Bank -> impersonation escalation
+  await page.waitForSelector('[data-aegis="sentinel-banner"]', { timeout: 25000 });
+  await expect(page.locator('[data-aegis="sentinel-banner"]')).toContainText('Impersonates YOUR trusted organization', { timeout: 10000 });
+  await context.close();
+});

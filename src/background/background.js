@@ -159,7 +159,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
 
     // ---- Identity Vault ----
-    if (request.type === 'VAULT_LIST' || request.type === 'VAULT_CORPUS') {
+    if (request.type === 'VAULT_CORPUS') {
+      Promise.all([vault.listEntries(), vault.listTrusted()])
+        .then(([entries, trusted]) => sendResponse({ entries, trusted }));
+      return true;
+    }
+    if (request.type === 'VAULT_LIST') {
       vault.listEntries().then((entries) => sendResponse({ entries }));
       return true;
     }
@@ -171,6 +176,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
     if (request.type === 'VAULT_REMOVE') {
       vault.removeEntry(request.id)
+        .then(() => sendResponse({ ok: true }))
+        .catch((e) => sendResponse({ ok: false, error: e.message }));
+      return true;
+    }
+    if (request.type === 'VAULT_ADD_TRUSTED') {
+      vault.addTrusted(request.kind, request.value)
+        .then((entry) => sendResponse({ ok: !!entry, entry }))
+        .catch((e) => sendResponse({ ok: false, error: e.message }));
+      return true;
+    }
+    if (request.type === 'VAULT_REMOVE_TRUSTED') {
+      vault.removeTrusted(request.id)
         .then(() => sendResponse({ ok: true }))
         .catch((e) => sendResponse({ ok: false, error: e.message }));
       return true;

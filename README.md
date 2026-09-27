@@ -2,7 +2,7 @@
 
 > **Stop feeding your sensitive data to AI.**
 
-![Version](https://img.shields.io/badge/version-6.6.0-blue.svg)
+![Version](https://img.shields.io/badge/version-6.7.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Languages](https://img.shields.io/badge/languages-9-orange.svg)
 ![Privacy](https://img.shields.io/badge/privacy-100%25_local-red.svg)
