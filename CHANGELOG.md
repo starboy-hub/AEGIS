@@ -2,6 +2,17 @@
 
 All notable changes to AEGIS will be documented in this file.
 
+## [6.1.3] - 2026-09-27
+
+From the third manual test pass (all v6.1.2 fixes verified working):
+
+### Fixed
+- Credentials redaction ate its own label ("My password is" was consumed
+  along with the secret, leaving a naked generated password). The
+  CREDENTIALS pattern is now value-only like the other sub-value patterns:
+  "My password is hunter2secret" → "My password is Vq7#…" — label kept,
+  secret swapped. Also handles "password is: x" and "pwd=x" forms
+
 ## [6.1.2] - 2026-09-27
 
 Refinements from the second manual test pass:

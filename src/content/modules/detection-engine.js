@@ -30,7 +30,7 @@
     { type: 'FINANCIAL', pattern: /(?:my salary is|I earn|I make|annual income|yearly income|mi salario es|gano|mi sueldo es|mon salaire est|je gagne|mein gehalt ist|ich verdiene|meu salário é|ganho|il mio stipendio è|guadagno|моя зарплата|я зарабатываю|我的工资是|我赚|我的年薪|راتبي هو|أكسب|دخلي السنوي)\s*([$€£₽¥₹ر.سR$]?\s*\d+(?:[.,]\d+)*)/gi, valueGroup: true },
     { type: 'FINANCIAL', pattern: /\b(?:filed for bankruptcy|declared bankruptcy|foreclosure|evicted|defaulted on|debt collector|credit score is|bad credit)\b/gi },
     { type: 'LEGAL', pattern: /\b(?:my lawyer|my attorney|suing|lawsuit|arrested|charged with|convicted|parole|probation|court case|divorce proceedings)\b/gi },
-    { type: 'CREDENTIALS', pattern: /\b(?:my\s+)?(?:password|pwd|pass(?:word)?|login|api[-\s]?key|secret(?:\s+key)?|private\s+key|access\s+token)\s*(?:is|:|=)\s*\S+/gi },
+    { type: 'CREDENTIALS', pattern: /\b(?:my\s+)?(?:password|pwd|pass(?:word)?|login|api[-\s]?key|secret(?:\s+key)?|private\s+key|access\s+token)\s*(?:is|[:=])\s*:?\s*(\S+)/gi, valueGroup: true },
     { type: 'PERSONAL', pattern: /\b(?:getting divorced|cheating|affair|domestic violence|abuse|custody battle)\b/gi },
     { type: 'EMPLOYMENT', pattern: /\b(?:I work at|I work for|employed at|employed by|my employer is|my boss)\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+){0,2})/g, valueGroup: true },
     { type: 'EMPLOYMENT', pattern: /\b(?:fired|laid off|let go|terminated|quit my job|resigned)\b/gi }

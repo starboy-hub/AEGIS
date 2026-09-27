@@ -132,10 +132,18 @@ describe('AEGIS Detection Engine', () => {
       expect(alerts.some(a => a.type === 'FINANCIAL')).toBe(true);
     });
 
-    test('detects credentials and redacts the SECRET, not just the phrase', () => {
+    test('detects credentials and swaps only the SECRET, keeping the label', () => {
       const { alerts, redactions } = engine.scanWithContext('My password is hunter2secret');
       expect(alerts.some(a => a.type === 'CREDENTIALS')).toBe(true);
-      expect(redactions.some(r => r.text.toLowerCase().includes('hunter2secret'))).toBe(true);
+      const cred = redactions.find(r => r.text.toLowerCase().includes('hunter2secret'));
+      expect(cred.text.toLowerCase()).toBe('hunter2secret');       // value-only
+      expect(cred.context).toContain('My password is');            // label preserved
+    });
+
+    test('credentials: handles "is:", "=" and bare-colon forms', () => {
+      const { redactions } = engine.scanWithContext('password is: abc123 and pwd=xyz89');
+      expect(redactions.some(r => r.text === 'abc123')).toBe(true);
+      expect(redactions.some(r => r.text === 'xyz89')).toBe(true);
     });
 
     test('valueGroup patterns swap only the value, keeping the sentence readable', () => {
