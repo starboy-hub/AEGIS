@@ -64,7 +64,19 @@
     return { totalProtected: allTime, todayProtected, sitesVisited: sites.size };
   }
 
-  const AEGIS = { KEYS, DEFAULT_SETTINGS, mergeSettings, statsFromHistory, isSameDay };
+  /**
+   * Build a whitespace-tolerant RegExp from a literal text snippet.
+   * Detections are computed on text with normalized whitespace (cleanText
+   * collapses newlines), but replacement runs on the raw element value —
+   * so every literal space must match any whitespace run, or matches that
+   * spanned line breaks would silently fail to redact.
+   */
+  function flexiblePattern(text, flags) {
+    const escaped = String(text).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(escaped.replace(/ /g, '\\s+'), flags || 'g');
+  }
+
+  const AEGIS = { KEYS, DEFAULT_SETTINGS, mergeSettings, statsFromHistory, isSameDay, flexiblePattern };
   root.AEGIS = AEGIS;
   if (typeof module !== 'undefined' && module.exports) module.exports = AEGIS;
 })(typeof self !== 'undefined' ? self : globalThis);

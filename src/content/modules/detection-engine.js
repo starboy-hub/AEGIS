@@ -30,7 +30,7 @@
     { type: 'FINANCIAL', pattern: /(?:my salary is|I earn|I make|annual income|yearly income|mi salario es|gano|mi sueldo es|mon salaire est|je gagne|mein gehalt ist|ich verdiene|meu salário é|ganho|il mio stipendio è|guadagno|моя зарплата|я зарабатываю|我的工资是|我赚|我的年薪|راتبي هو|أكسب|دخلي السنوي)\s*[$€£₽¥₹ر.سR$]?\s*\d+(?:[.,]\d+)*/gi },
     { type: 'FINANCIAL', pattern: /\b(?:filed for bankruptcy|declared bankruptcy|foreclosure|evicted|defaulted on|debt collector|credit score is|bad credit)\b/gi },
     { type: 'LEGAL', pattern: /\b(?:my lawyer|my attorney|suing|lawsuit|arrested|charged with|convicted|parole|probation|court case|divorce proceedings)\b/gi },
-    { type: 'CREDENTIALS', pattern: /\b(?:my password is|password:?\s*\S+|login:?\s*\S+|secret key|API key|private key)\b/gi },
+    { type: 'CREDENTIALS', pattern: /\b(?:my\s+)?(?:password|pwd|pass(?:word)?|login|api[-\s]?key|secret(?:\s+key)?|private\s+key|access\s+token)\s*(?:is|:|=)\s*\S+/gi },
     { type: 'PERSONAL', pattern: /\b(?:getting divorced|cheating|affair|domestic violence|abuse|custody battle)\b/gi },
     { type: 'EMPLOYMENT', pattern: /\b(?:I work at|I work for|employed at|employed by|my employer is|my boss)\s+([A-Z][a-zA-Z\s-]+?)(?:\.|,|and|but|as|et|und|。|，|و|أو|$)/g },
     { type: 'EMPLOYMENT', pattern: /\b(?:fired|laid off|let go|terminated|quit my job|resigned)\b/gi }
@@ -54,9 +54,20 @@
   function scanWithRegex(text) {
     if (!text || text.length < 5) return { alerts: [], redactions: [] };
     const alerts = [], redactions = [];
+    const seenTypes = new Set();
     for (const [name, pattern] of Object.entries(PII_PATTERNS)) {
-      const matches = text.match(pattern);
-      if (matches) { alerts.push({ type: name, source: 'regex', severity: 'high' }); matches.forEach(m => redactions.push({ text: m, type: name })); }
+      const regex = new RegExp(pattern.source, pattern.flags);
+      let m;
+      while ((m = regex.exec(text)) !== null) {
+        if (m[0].length === 0) { regex.lastIndex++; continue; }
+        // Patterns whose sensitive value is a sub-part (DOB, passport, bank
+        // account, ...) capture it in group 1 — redact only the value so
+        // labels like "Date of Birth is" survive; m[0] is kept as context
+        // so fake-data can stay currency/keyword-aware.
+        const value = m[1] !== undefined ? m[1] : m[0];
+        if (!seenTypes.has(name)) { seenTypes.add(name); alerts.push({ type: name, source: 'regex', severity: 'high' }); }
+        redactions.push({ text: value, type: name, context: m[0] });
+      }
     }
     return { alerts, redactions };
   }

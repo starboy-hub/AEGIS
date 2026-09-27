@@ -45,9 +45,70 @@ describe('AEGIS Detection Engine', () => {
       expect(redactions.some(r => r.type === 'Date of Birth')).toBe(true);
     });
 
+    test('redacts only the VALUE for labeled PII, preserving labels (context kept for fake-data)', () => {
+      const { redactions } = engine.scanWithRegex('My Date of Birth is 04/15/1990 and passport: X1234567 and bank account is 12345678');
+      const dob = redactions.find(r => r.type === 'Date of Birth');
+      const pass = redactions.find(r => r.type === 'Passport');
+      const bank = redactions.find(r => r.type === 'Bank Account');
+      expect(dob.text).toBe('04/15/1990');
+      expect(dob.context).toContain('Date of Birth');
+      expect(pass.text).toBe('X1234567');
+      expect(pass.context).toContain('passport');
+      expect(bank.text).toBe('12345678');
+      expect(bank.context).toContain('bank account');
+    });
+
+    test('value-only redaction for groupless patterns (SSN, card, email)', () => {
+      const { redactions } = engine.scanWithRegex('SSN 123-45-6789 card 4532-8871-2934-1150 mail me@x.com ok');
+      const ssn = redactions.find(r => r.type === 'SSN');
+      expect(ssn.text).toBe('123-45-6789');
+      expect(ssn.context).toBe('123-45-6789');
+      expect(redactions.find(r => r.type === 'Credit Card').text).toBe('4532-8871-2934-1150');
+      expect(redactions.find(r => r.type === 'Email').text).toBe('me@x.com');
+    });
+
     test('returns empty for short/safe text', () => {
       expect(engine.scanWithRegex('hi').alerts).toEqual([]);
       expect(engine.scanWithRegex('Hello, how are you today?').alerts).toEqual([]);
+    });
+
+    test('regression: the full manual-test text — every detection redactable in RAW text', () => {
+      const shared = require('../src/shared/aegis-shared.js');
+      const raw = [
+        'Hi! I need help writing a secure note. Here are my details:',
+        '- My email is john.doe@example.com',
+        '- My phone number is 555-123-4567',
+        '- My SSN is 123-45-6789',
+        '- My credit card is 4532 8871 2934 1150, expires 12/27, CVV 123',
+        '- My IP address is 192.168.1.100',
+        '- My Date of Birth is 04/15/1990',
+        '- My passport: X1234567',
+        '- My bank account is 12345678',
+        '- My driver license: D12345678',
+        '- My medical record MRN 84739201',
+        '- I was diagnosed with type 2 diabetes last year',
+        '- I am taking metformin daily',
+        '- my salary is $150,000 per year',
+        '- My password is hunter2secret',
+        '- I work at TechCorp in Seattle',
+        '- My friend Sarah Mitchell recommended this'
+      ].join('\n');
+      const cleaned = engine.cleanText(raw);
+      const regex = engine.scanWithRegex(cleaned);
+      const ctx = engine.scanWithContext(cleaned);
+      const all = [...regex.redactions, ...ctx.redactions];
+
+      // All 10 regex types detected
+      ['SSN','Credit Card','Email','Phone','IP Address','Date of Birth','Passport',
+       'Bank Account','Driver License','Medical Record'].forEach(t =>
+        expect(all.some(r => r.type === t)).toBe(true));
+      // Context types detected (incl. the one that silently failed before)
+      expect(ctx.alerts.some(a => a.type === 'EMPLOYMENT')).toBe(true);
+      expect(ctx.alerts.some(a => a.type === 'FINANCIAL')).toBe(true);
+      // The secret is covered
+      expect(all.some(r => r.text.toLowerCase().includes('hunter2secret'))).toBe(true);
+      // Every redaction must be matchable in the RAW text via flexible whitespace
+      all.forEach(r => expect(shared.flexiblePattern(r.text).test(raw)).toBe(true));
     });
   });
 
@@ -68,9 +129,21 @@ describe('AEGIS Detection Engine', () => {
       expect(alerts.some(a => a.type === 'FINANCIAL')).toBe(true);
     });
 
-    test('detects credentials', () => {
-      const { alerts } = engine.scanWithContext('my password is hunter2 dont share');
+    test('detects credentials and redacts the SECRET, not just the phrase', () => {
+      const { alerts, redactions } = engine.scanWithContext('My password is hunter2secret');
       expect(alerts.some(a => a.type === 'CREDENTIALS')).toBe(true);
+      expect(redactions.some(r => r.text.toLowerCase().includes('hunter2secret'))).toBe(true);
+    });
+
+    test('credentials: catches API keys and logins with values', () => {
+      const { redactions } = engine.scanWithContext('API key: sk-abc123def and login: alice42');
+      expect(redactions.some(r => r.text.includes('sk-abc123def'))).toBe(true);
+      expect(redactions.some(r => r.text.includes('alice42'))).toBe(true);
+    });
+
+    test('credentials: does not flag innocent uses of the word password', () => {
+      const { alerts } = engine.scanWithContext('I forgot my password manager and use the password field');
+      expect(alerts).toEqual([]);
     });
 
     test('detects legal context', () => {

@@ -28,6 +28,12 @@ function loadTheme() { return new Promise((resolve) => { chrome.storage.sync.get
 
 chrome.storage.onChanged.addListener((changes, ns) => {
   if (ns === 'sync') {
+    if (changes.settings) {
+      settings = AEGIS.mergeSettings(changes.settings.newValue);
+      if (!settings.trustedSites) settings.trustedSites = [];
+      const host = window.location.hostname.toLowerCase();
+      isWhitelisted = settings.trustedSites.some(t => host === t || host.endsWith('.' + t));
+    }
     if (changes[AEGIS.KEYS.THEME]) { currentTheme = changes[AEGIS.KEYS.THEME].newValue || 'light'; if (typeof popup !== 'undefined' && popup) popup.render(); }
     if (changes.manualLanguage) {
       const newLang = changes.manualLanguage.newValue || 'auto';
@@ -168,7 +174,18 @@ function performRedaction(element, redactions) {
   if (!redactions || redactions.length === 0) return { originalText: null, replacements: [] };
   const cur = element.tagName === 'INPUT' || element.tagName === 'TEXTAREA' ? element.value : (element.innerText || '');
   const orig = cur; let txt = cur; const reps = [];
-  [...redactions].sort((a,b) => b.text.length - a.text.length).forEach(r => { if (r.text && r.text.length > 0 && txt.includes(r.text)) { const rep = settings.useFakeData ? AEGIS_FAKE.getFakeData(r.type, r.text) : '[REDACTED-' + r.type + ']'; reps.push({ original: r.text, fake: rep, type: r.type, timestamp: new Date().toISOString() }); txt = txt.split(r.text).join(rep); } });
+  [...redactions].sort((a,b) => b.text.length - a.text.length).forEach(r => {
+    if (!r.text || r.text.length === 0) return;
+    const rep = settings.useFakeData ? AEGIS_FAKE.getFakeData(r.type, r.context || r.text) : '[REDACTED-' + r.type + ']';
+    // Detections are computed on whitespace-normalized text; the raw value
+    // may still contain newlines, so match flexibly instead of includes()
+    const flexible = AEGIS.flexiblePattern(r.text);
+    if (flexible.test(txt)) {
+      reps.push({ original: r.text, fake: rep, type: r.type, timestamp: new Date().toISOString() });
+      flexible.lastIndex = 0;
+      txt = txt.replace(flexible, rep);
+    }
+  });
   if (txt !== orig) {
     if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
       const valueProto = element.tagName === 'TEXTAREA' ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype;

@@ -2,6 +2,35 @@
 
 All notable changes to AEGIS will be documented in this file.
 
+## [6.1.1] - 2026-09-27
+
+Fixes found by the first full manual test pass (paste of a 16-line sample
+message into a real AI chat):
+
+### Fixed
+- **Credentials leaked their secret**: the CREDENTIALS pattern matched the
+  phrase ("My password is") but not the value after it — passwords/API keys
+  survived Protect. The pattern now consumes the secret too, and ignores
+  innocent phrases like "I forgot my password manager"
+- **Matches spanning line breaks were silently not redacted**: detections are
+  computed on whitespace-normalized text, but replacement ran on the raw
+  value — a match like the EMPLOYMENT one crossing a newline never matched
+  again and was skipped without error. Replacement is now whitespace-tolerant
+  (`AEGIS.flexiblePattern`)
+- **Sensitivity changes did not reach open pages**: the content script only
+  watched theme/language changes, so setting Sensitivity to High never armed
+  name detection on already-loaded tabs. Settings changes now propagate live
+- **Labeled PII lost its label when redacted** ("My Date of Birth is
+  04/15/1990" became "My 07/08/1985"). Value-carrying patterns (DOB,
+  passport, bank account, driver license, medical record) now redact only the
+  captured value, keeping the label; the full match is passed as context so
+  currency-aware fake data still works
+
+### Added
+- Regression test replays the exact manual-test text end-to-end: all 10 regex
+  types detected, context types detected, every redaction matchable in raw
+  text, secret covered. 51 tests passing (was 43)
+
 ## [6.1.0] - 2026-09-27
 
 ### Added

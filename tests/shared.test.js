@@ -56,6 +56,25 @@ describe('AEGIS shared module', () => {
     });
   });
 
+  describe('flexiblePattern', () => {
+    const { flexiblePattern } = require('../src/shared/aegis-shared.js');
+
+    test('matches raw text even when detection ran on normalized whitespace', () => {
+      const raw = 'I work at TechCorp in Seattle\n- My friend Sarah Mitchell recommended this';
+      const cleaned = 'I work at TechCorp in Seattle - My friend Sarah Mitchell recommended this';
+      expect(flexiblePattern(cleaned).test(raw)).toBe(true);
+    });
+
+    test('escapes regex metacharacters in the snippet', () => {
+      expect(flexiblePattern('cost: $5.00 (total)').test('the cost: $5.00 (total) here')).toBe(true);
+      expect(flexiblePattern('a.b').test('axb')).toBe(false);
+    });
+
+    test('literal space matches any whitespace run', () => {
+      expect(flexiblePattern('two  words').test('two\t\twords')).toBe(true);
+    });
+  });
+
   describe('storage key contract', () => {
     test('content script history keys match the shared constants', () => {
       const fs = require('fs');
