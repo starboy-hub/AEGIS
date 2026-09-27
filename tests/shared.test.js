@@ -1,7 +1,7 @@
 /**
  * Tests for the AEGIS shared module (storage keys, defaults, stats)
  */
-const { KEYS, DEFAULT_SETTINGS, mergeSettings, statsFromHistory, isSameDay } = require('../src/shared/aegis-shared.js');
+const { DEFAULT_SETTINGS, mergeSettings, statsFromHistory, isSameDay } = require('../src/shared/aegis-shared.js');
 
 describe('AEGIS shared module', () => {
   describe('mergeSettings', () => {
@@ -63,7 +63,7 @@ describe('AEGIS shared module', () => {
       const contentSrc = fs.readFileSync(
         path.join(__dirname, '..', 'src', 'content', 'content.js'), 'utf8');
       expect(contentSrc).toContain('AEGIS.KEYS.HISTORY');
-      expect(contentSrc).not.toContain("'aegis_history'"); // no hardcoded key left
+      expect(contentSrc).not.toContain('\'aegis_history\''); // no hardcoded key left
     });
   });
 });

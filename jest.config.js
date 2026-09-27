@@ -8,8 +8,7 @@ module.exports = {
   moduleFileExtensions: ['js', 'jsx', 'ts', 'tsx'],
   collectCoverageFrom: [
     'src/**/*.js',
-    '!src/**/*.test.js',
-    '!src/content/modules/*.js'
+    '!src/**/*.test.js'
   ],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],

@@ -6,13 +6,19 @@ if (!fs.existsSync('dist')) {
   fs.mkdirSync('dist');
 }
 
-// Copy manifest.json from src (single source of truth)
-fs.copyFileSync('src/manifest.json', 'dist/manifest.json');
-console.log('✓ Copied src/manifest.json to dist/manifest.json');
+// Copy manifest.json from src (single source of truth), then stamp the
+// version from package.json so the two can never drift apart
+const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+const manifest = JSON.parse(fs.readFileSync('src/manifest.json', 'utf8'));
+manifest.version = pkg.version;
+fs.writeFileSync('dist/manifest.json', JSON.stringify(manifest, null, 2) + '\n');
+console.log(`✓ Wrote dist/manifest.json (version ${pkg.version} from package.json)`);
 
 // Copy and flatten source files
 const files = [
   { src: 'src/shared/aegis-shared.js', dest: 'dist/aegis-shared.js' },
+  { src: 'src/content/modules/fake-data.js', dest: 'dist/fake-data.js' },
+  { src: 'src/content/modules/detection-engine.js', dest: 'dist/detection-engine.js' },
   { src: 'src/background/background.js', dest: 'dist/background.js' },
   { src: 'src/content/content.js', dest: 'dist/content.js' },
   { src: 'src/popup/popup.html', dest: 'dist/popup.html' },

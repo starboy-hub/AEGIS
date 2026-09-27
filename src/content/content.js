@@ -6,163 +6,19 @@
 console.log('🛡️ AEGIS v6.0: Enterprise Build Loaded');
 
 const TRANSLATIONS = {
-  en: { sensitiveDetected: "Sensitive Data Detected", proceed: "Are you sure you want to proceed?", cancel: "Cancel", sendAnyway: "Send Anyway", protectTip: "Tip: Click Protect in the AEGIS popup to replace sensitive data first", imageUpload: "Image Upload Detected", aiCanRead: "AI can read text and faces in images. Does this file contain IDs or sensitive info?", privacyRisk: "Privacy Risk: Once uploaded, you cannot control who accesses this file.", cancelUpload: "Cancel Upload", uploadAnyway: "Upload Anyway", sensitiveFilename: "Sensitive Filename", containsKeywords: "contains sensitive keywords.", welcome: "Welcome to AEGIS!", welcomeText: "I'll protect your sensitive data as you type.", quickProtect: "Tip: Press ⌘+Enter to quick-protect", gotIt: "Got it!" },
-  es: { sensitiveDetected: "Datos Sensibles Detectados", proceed: "¿Estás seguro?", cancel: "Cancelar", sendAnyway: "Enviar", protectTip: "Consejo: Haz clic en Proteger", imageUpload: "Imagen Detectada", aiCanRead: "La IA puede leer texto.", privacyRisk: "Riesgo de Privacidad.", cancelUpload: "Cancelar", uploadAnyway: "Subir", sensitiveFilename: "Nombre Sensible", containsKeywords: "contiene palabras clave.", welcome: "¡Bienvenido!", welcomeText: "Protegeré tus datos.", quickProtect: "Presiona ⌘+Enter", gotIt: "¡Entendido!" },
-  fr: { sensitiveDetected: "Données Sensibles", proceed: "Êtes-vous sûr?", cancel: "Annuler", sendAnyway: "Envoyer", protectTip: "Astuce: Cliquez sur Protéger", imageUpload: "Image Détectée", aiCanRead: "L'IA peut lire le texte.", privacyRisk: "Risque de Confidentialité.", cancelUpload: "Annuler", uploadAnyway: "Télécharger", sensitiveFilename: "Nom Sensible", containsKeywords: "contient des mots-clés.", welcome: "Bienvenue!", welcomeText: "Je protège vos données.", quickProtect: "Appuyez sur ⌘+Entrée", gotIt: "Compris!" },
-  de: { sensitiveDetected: "Sensible Daten", proceed: "Sind Sie sicher?", cancel: "Abbrechen", sendAnyway: "Senden", protectTip: "Tipp: Klicken Sie auf Schützen", imageUpload: "Bild Erkannt", aiCanRead: "KI kann Text lesen.", privacyRisk: "Datenschutzrisiko.", cancelUpload: "Abbrechen", uploadAnyway: "Hochladen", sensitiveFilename: "Sensibler Name", containsKeywords: "enthält Schlüsselwörter.", welcome: "Willkommen!", welcomeText: "Ich schütze Ihre Daten.", quickProtect: "Drücken Sie ⌘+Enter", gotIt: "Verstanden!" },
-  pt: { sensitiveDetected: "Dados Sensíveis", proceed: "Tem certeza?", cancel: "Cancelar", sendAnyway: "Enviar", protectTip: "Dica: Clique em Proteger", imageUpload: "Imagem Detectada", aiCanRead: "A IA pode ler texto.", privacyRisk: "Risco de Privacidade.", cancelUpload: "Cancelar", uploadAnyway: "Enviar", sensitiveFilename: "Nome Sensível", containsKeywords: "contém palavras-chave.", welcome: "Bem-vindo!", welcomeText: "Protegerei seus dados.", quickProtect: "Pressione ⌘+Enter", gotIt: "Entendi!" },
-  it: { sensitiveDetected: "Dati Sensibili", proceed: "Sei sicuro?", cancel: "Annulla", sendAnyway: "Invia", protectTip: "Suggerimento: Clicca su Proteggi", imageUpload: "Immagine Rilevata", aiCanRead: "L'IA può leggere testo.", privacyRisk: "Rischio Privacy.", cancelUpload: "Annulla", uploadAnyway: "Carica", sensitiveFilename: "Nome Sensibile", containsKeywords: "contiene parole chiave.", welcome: "Benvenuto!", welcomeText: "Proteggerò i tuoi dati.", quickProtect: "Premi ⌘+Invio", gotIt: "Capito!" },
-  ru: { sensitiveDetected: "Конфиденциальные данные", proceed: "Вы уверены?", cancel: "Отмена", sendAnyway: "Отправить", protectTip: "Совет: Нажмите 'Защитить'", imageUpload: "Обнаружено изображение", aiCanRead: "ИИ может читать текст.", privacyRisk: "Риск конфиденциальности.", cancelUpload: "Отмена", uploadAnyway: "Загрузить", sensitiveFilename: "Конфиденциальное имя", containsKeywords: "содержит ключевые слова.", welcome: "Добро пожаловать!", welcomeText: "Я защищу ваши данные.", quickProtect: "Нажмите ⌘+Enter", gotIt: "Понятно!" },
-  zh: { sensitiveDetected: "检测到敏感数据", proceed: "您确定要继续吗？", cancel: "取消", sendAnyway: "仍然发送", protectTip: "提示：点击保护", imageUpload: "检测到图像", aiCanRead: "人工智能可以读取文本。", privacyRisk: "隐私风险。", cancelUpload: "取消上传", uploadAnyway: "仍然上传", sensitiveFilename: "敏感文件名", containsKeywords: "包含敏感关键字。", welcome: "欢迎使用 AEGIS！", welcomeText: "我会保护您的数据。", quickProtect: "按 ⌘+Enter", gotIt: "明白了！" },
-  ar: { sensitiveDetected: "بيانات حساسة", proceed: "هل أنت متأكد؟", cancel: "إلغاء", sendAnyway: "إرسال", protectTip: "نصيحة: انقر فوق حماية", imageUpload: "تم اكتشاف صورة", aiCanRead: "يمكن للذكاء الاصطناعي القراءة.", privacyRisk: "مخاطر الخصوصية.", cancelUpload: "إلغاء", uploadAnyway: "تحميل", sensitiveFilename: "اسم حساس", containsKeywords: "يحتوي على كلمات.", welcome: "مرحبًا بك!", welcomeText: "سأحمي بياناتك.", quickProtect: "اضغط ⌘+Enter", gotIt: "فهمت!" }
+  en: { sensitiveDetected: 'Sensitive Data Detected', proceed: 'Are you sure you want to proceed?', cancel: 'Cancel', sendAnyway: 'Send Anyway', protectTip: 'Tip: Click Protect in the AEGIS popup to replace sensitive data first', imageUpload: 'Image Upload Detected', aiCanRead: 'AI can read text and faces in images. Does this file contain IDs or sensitive info?', privacyRisk: 'Privacy Risk: Once uploaded, you cannot control who accesses this file.', cancelUpload: 'Cancel Upload', uploadAnyway: 'Upload Anyway', sensitiveFilename: 'Sensitive Filename', containsKeywords: 'contains sensitive keywords.', welcome: 'Welcome to AEGIS!', welcomeText: 'I\'ll protect your sensitive data as you type.', quickProtect: 'Tip: Press ⌘+Enter to quick-protect', gotIt: 'Got it!' },
+  es: { sensitiveDetected: 'Datos Sensibles Detectados', proceed: '¿Estás seguro?', cancel: 'Cancelar', sendAnyway: 'Enviar', protectTip: 'Consejo: Haz clic en Proteger', imageUpload: 'Imagen Detectada', aiCanRead: 'La IA puede leer texto.', privacyRisk: 'Riesgo de Privacidad.', cancelUpload: 'Cancelar', uploadAnyway: 'Subir', sensitiveFilename: 'Nombre Sensible', containsKeywords: 'contiene palabras clave.', welcome: '¡Bienvenido!', welcomeText: 'Protegeré tus datos.', quickProtect: 'Presiona ⌘+Enter', gotIt: '¡Entendido!' },
+  fr: { sensitiveDetected: 'Données Sensibles', proceed: 'Êtes-vous sûr?', cancel: 'Annuler', sendAnyway: 'Envoyer', protectTip: 'Astuce: Cliquez sur Protéger', imageUpload: 'Image Détectée', aiCanRead: 'L\'IA peut lire le texte.', privacyRisk: 'Risque de Confidentialité.', cancelUpload: 'Annuler', uploadAnyway: 'Télécharger', sensitiveFilename: 'Nom Sensible', containsKeywords: 'contient des mots-clés.', welcome: 'Bienvenue!', welcomeText: 'Je protège vos données.', quickProtect: 'Appuyez sur ⌘+Entrée', gotIt: 'Compris!' },
+  de: { sensitiveDetected: 'Sensible Daten', proceed: 'Sind Sie sicher?', cancel: 'Abbrechen', sendAnyway: 'Senden', protectTip: 'Tipp: Klicken Sie auf Schützen', imageUpload: 'Bild Erkannt', aiCanRead: 'KI kann Text lesen.', privacyRisk: 'Datenschutzrisiko.', cancelUpload: 'Abbrechen', uploadAnyway: 'Hochladen', sensitiveFilename: 'Sensibler Name', containsKeywords: 'enthält Schlüsselwörter.', welcome: 'Willkommen!', welcomeText: 'Ich schütze Ihre Daten.', quickProtect: 'Drücken Sie ⌘+Enter', gotIt: 'Verstanden!' },
+  pt: { sensitiveDetected: 'Dados Sensíveis', proceed: 'Tem certeza?', cancel: 'Cancelar', sendAnyway: 'Enviar', protectTip: 'Dica: Clique em Proteger', imageUpload: 'Imagem Detectada', aiCanRead: 'A IA pode ler texto.', privacyRisk: 'Risco de Privacidade.', cancelUpload: 'Cancelar', uploadAnyway: 'Enviar', sensitiveFilename: 'Nome Sensível', containsKeywords: 'contém palavras-chave.', welcome: 'Bem-vindo!', welcomeText: 'Protegerei seus dados.', quickProtect: 'Pressione ⌘+Enter', gotIt: 'Entendi!' },
+  it: { sensitiveDetected: 'Dati Sensibili', proceed: 'Sei sicuro?', cancel: 'Annulla', sendAnyway: 'Invia', protectTip: 'Suggerimento: Clicca su Proteggi', imageUpload: 'Immagine Rilevata', aiCanRead: 'L\'IA può leggere testo.', privacyRisk: 'Rischio Privacy.', cancelUpload: 'Annulla', uploadAnyway: 'Carica', sensitiveFilename: 'Nome Sensibile', containsKeywords: 'contiene parole chiave.', welcome: 'Benvenuto!', welcomeText: 'Proteggerò i tuoi dati.', quickProtect: 'Premi ⌘+Invio', gotIt: 'Capito!' },
+  ru: { sensitiveDetected: 'Конфиденциальные данные', proceed: 'Вы уверены?', cancel: 'Отмена', sendAnyway: 'Отправить', protectTip: 'Совет: Нажмите \'Защитить\'', imageUpload: 'Обнаружено изображение', aiCanRead: 'ИИ может читать текст.', privacyRisk: 'Риск конфиденциальности.', cancelUpload: 'Отмена', uploadAnyway: 'Загрузить', sensitiveFilename: 'Конфиденциальное имя', containsKeywords: 'содержит ключевые слова.', welcome: 'Добро пожаловать!', welcomeText: 'Я защищу ваши данные.', quickProtect: 'Нажмите ⌘+Enter', gotIt: 'Понятно!' },
+  zh: { sensitiveDetected: '检测到敏感数据', proceed: '您确定要继续吗？', cancel: '取消', sendAnyway: '仍然发送', protectTip: '提示：点击保护', imageUpload: '检测到图像', aiCanRead: '人工智能可以读取文本。', privacyRisk: '隐私风险。', cancelUpload: '取消上传', uploadAnyway: '仍然上传', sensitiveFilename: '敏感文件名', containsKeywords: '包含敏感关键字。', welcome: '欢迎使用 AEGIS！', welcomeText: '我会保护您的数据。', quickProtect: '按 ⌘+Enter', gotIt: '明白了！' },
+  ar: { sensitiveDetected: 'بيانات حساسة', proceed: 'هل أنت متأكد؟', cancel: 'إلغاء', sendAnyway: 'إرسال', protectTip: 'نصيحة: انقر فوق حماية', imageUpload: 'تم اكتشاف صورة', aiCanRead: 'يمكن للذكاء الاصطناعي القراءة.', privacyRisk: 'مخاطر الخصوصية.', cancelUpload: 'إلغاء', uploadAnyway: 'تحميل', sensitiveFilename: 'اسم حساس', containsKeywords: 'يحتوي على كلمات.', welcome: 'مرحبًا بك!', welcomeText: 'سأحمي بياناتك.', quickProtect: 'اضغط ⌘+Enter', gotIt: 'فهمت!' }
 };
 let currentLang = 'en';
 function t(key) { return TRANSLATIONS[currentLang]?.[key] || TRANSLATIONS.en[key]; }
 
-const FAKE_DATA = {
-  names: ['James Wilson', 'Sarah Chen', 'Michael Brown', 'Emily Davis', 'Robert Taylor', 'Lisa Anderson', 'Carlos García', 'María Rodríguez', 'Jean Dupont', 'Marie Laurent', 'Hans Müller', 'Anna Schmidt', 'João Silva', 'Ana Costa', 'Marco Rossi', 'Giulia Bianchi', 'Ivan Ivanov', 'Maria Petrova', 'Wei Zhang', 'Li Wang', 'Mohammed Al-Sayed', 'Fatima Hassan', 'Yuki Tanaka', 'Kenji Sato', 'Olga Sokolova', 'Dmitry Volkov', 'Ahmed Ali', 'Layla Mansour', 'Chen Wei', 'Liu Yang', 'Sofia Popov', 'Andrei Novak', 'Elena Rossi', 'Lucas Silva', 'Isabella Costa', 'Noah Williams', 'Emma Johnson', 'David Kim', 'Priya Patel', 'Omar Hassan'],
-  emails: ['user_8f7a2@example.com', 'contact_3k9x1@sample.net', 'info_5m2p4@test.org', 'hello_7j6n8@demo.io', 'admin_9b2c3@mock.com', 'support_1a4d5@fake.net', 'dev_6e8f9@test.io', 'team_2x5y7@sample.org', 'hello_4k8m1@demo.com', 'info_9p3q2@mock.net', 'contact_7h3j9@example.org', 'user_2m5n8@sample.io', 'mail_3b7c1@test.com', 'dev_8x2y4@mock.io', 'info_5k9m2@sample.net'],
-  phones: ['555-0147-8234', '555-0183-9472', '555-0129-6358', '555-0164-2791', '555-0192-3847', '555-0156-7293', '555-0138-4920', '555-0174-8392', '555-0111-2233', '555-0144-5566', '555-0177-8899', '555-0100-1122'],
-  ssns: ['000-12-3456', '000-45-6789', '666-98-7654', '666-54-3210', '999-11-2222', '999-33-4444', '000-77-8899', '666-12-9034', '999-88-7766', '000-31-7549', '666-47-8213', '999-52-6041'],
-  creditCards: ['4532-8871-2934-1150', '4916-3389-0472-1150', '5425-2334-8876-9920', '5193-7742-9918-3340', '6011-1111-1111-1110', '4532-9871-5534-8860', '4916-8811-7742-2291', '5425-6699-3311-0040'],
-  ips: ['10.20.30.40', '192.168.99.99', '172.16.0.1', '10.0.0.99', '192.0.2.1', '198.51.100.1', '203.0.113.1'],
-  medicals: ['seasonal allergies', 'mild asthma', 'common cold', 'myopia', 'hypertension', 'migraines', 'vitamin D deficiency', 'mild anxiety', 'seasonal depression'],
-  meds: ['famotidine', 'loratadine', 'ibuprofen', 'acetaminophen', 'omeprazole', 'cetirizine', 'amoxicillin', 'metformin', 'lisinopril'],
-  companies: ['Acme Corp', 'Global Solutions Inc', 'Tech Innovations LLC', 'Prime Services Ltd', 'Nexus Industries', 'Apex Dynamics', 'Stellar Systems', 'Quantum Labs'],
-  salaries: ['$75,000', '€60,000', '£55,000', '₽150,000', '¥50,000', 'ر.س 20,000', 'R$5,000', '$85,000', '€70,000', '¥80,000', 'R$8,000'],
-  medicalRecords: ['MRN 84739201', 'MRN 92837465', 'MRN 10293847', 'MRN 56473829'],
-  passports: ['A93847562', 'B10293847', 'C83746592', 'D92837465'],
-  driverLicenses: ['DL-8374-9201', 'DL-1029-3847', 'DL-5647-3829', 'DL-9283-7465'],
-  bankAccounts: ['9384756201', '1029384756', '8374659201', '9283746501'],
-  datesOfBirth: ['03/14/1988', '11/22/1992', '07/08/1985', '09/30/1995']
-};
-
-function getFakeData(type, originalText) {
-  const pick = arr => arr[Math.floor(Math.random() * arr.length)];
-  const t = originalText ? originalText.toLowerCase() : '';
-  switch (type) {
-    case 'NAME': return pick(FAKE_DATA.names);
-    case 'Email': return pick(FAKE_DATA.emails);
-    case 'Phone': return pick(FAKE_DATA.phones);
-    case 'SSN': return pick(FAKE_DATA.ssns);
-    case 'Credit Card': return pick(FAKE_DATA.creditCards);
-    case 'IP Address': return pick(FAKE_DATA.ips);
-    case 'FINANCIAL':
-      if (t.includes('₽') || t.includes('рублей') || t.includes('зарплата')) return pick(['₽150,000', '₽200,000']);
-      if (t.includes('¥') || t.includes('元') || t.includes('工资')) return pick(['¥50,000', '¥80,000']);
-      if (t.includes('ر.س') || t.includes('ريال') || t.includes('راتبي')) return pick(['ر.س 20,000', '$20,000']);
-      if (t.includes('r$') || t.includes('reais') || t.includes('salário')) return pick(['R$5,000', 'R$8,000']);
-      if (t.includes('£') || t.includes('libras')) return pick(['£55,000', '£65,000']);
-      if (t.includes('€') || t.includes('euro') || t.includes('euros') || t.includes('gagne') || t.includes('guadagno') || t.includes('verdiene') || t.includes('stipendio')) return pick(['€60,000', '€75,000']);
-      if (t.includes('$') || t.includes('salary') || t.includes('salario') || t.includes('gano') || t.includes('earn')) return pick(['$75,000', '$85,000']);
-      return '[REDACTED-FINANCIAL]';
-    case 'MEDICAL': 
-      const conditions = ['diagnosed', 'diabetes', 'cancer', 'tengo', 'sufro', 'leide', 'soffro', 'ansiedad', 'asthma', 'migraine', 'hypertension', 'depression', 'depresión', 'dépression', 'depressa', 'диабет', '抑郁', 'اكتئاب'];
-      if (conditions.some(c => t.includes(c))) return pick(FAKE_DATA.medicals);
-      return pick(FAKE_DATA.meds);
-    case 'EMPLOYMENT': 
-      const companyKeywords = ['corp', 'inc', 'ltd', 'llc', 'company', 'solutions', 'industries'];
-      if (companyKeywords.some(k => t.includes(k))) return pick(FAKE_DATA.companies);
-      return '[REDACTED-EMPLOYMENT]';
-    case 'Medical Record': return pick(FAKE_DATA.medicalRecords);
-    case 'Passport': return pick(FAKE_DATA.passports);
-    case 'Driver License': return pick(FAKE_DATA.driverLicenses);
-    case 'Bank Account': return pick(FAKE_DATA.bankAccounts);
-    case 'Date of Birth': return pick(FAKE_DATA.datesOfBirth);
-    default: return '[REDACTED-' + type + ']';
-  }
-}
-
-const PII_PATTERNS = {
-  'SSN': /\b\d{3}-\d{2}-\d{4}\b/g,
-  'Credit Card': /\b(?:\d{4}[-\s]?){3}\d{4}\b/g,
-  'Email': /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g,
-  'Phone': /\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b/g,
-  'IP Address': /\b(?:\d{1,3}\.){3}\d{1,3}\b/g,
-  'Date of Birth': /\b(?:born on|DOB:|birthday:?|Date of Birth:?)\s*(?:is\s+)?\:?\s*(\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})\b/gi,
-  'Passport': /\b(?:passport|passport\s*#?)\s*\:?\s*([A-Z]{1,2}\d{6,9})\b/gi,
-  'Bank Account': /\b(?:bank\s+account|account|acct)\s+(?:is\s+)?\:?\s*(\d{8,17})\b/gi,
-  'Driver License': /\b(?:driver\s+license|driver'?s?\s+license|license|DL)\s*#?\s*\:?\s*([A-Z]?\d{2,4}[-\s]?\d{2,4}[-\s]?\d{2,4})\b/gi,
-  'Medical Record': /\b(?:MRN|medical\s*record)\s*-?\s*#?\:?\s*(?:MRN\s+)?(\d{6,10})\b/gi
-};
-
-const CONTEXT_PATTERNS = [
-  { type: 'MEDICAL', pattern: /(?:I have|I've been diagnosed with|I suffer from|I was diagnosed with|my diagnosis is|tengo|me diagnosticaron|sufro de|fui diagnosticado|j'ai|on m'a diagnostiqué|je souffre de|ich habe|mir wurde diagnostiziert|leide unter|eu tenho|fui diagnosticado|sofro de|mi è stato diagnosticato|soffro di|у меня|мне поставили диагноз|я страдаю от|我被诊断出|我患有|我有|لدي|تم تشخيصي بـ|أعاني من)\s+([a-zA-ZÀ-ÿа-яА-Я\u4e00-\u9fa5\u0600-\u06FF\s-]{2,50})/gi },
-  { type: 'MEDICAL', pattern: /\b(?:pregnant|pregnancy|miscarriage|fertility|IVF|chemotherapy|radiation|dialysis|embarazada|embarazo|enceinte|schwanger|grávida|incinta|беременная|怀孕|حامل)\b/gi },
-  { type: 'MEDICAL', pattern: /\b(?:diabetes|cancer|HIV|AIDS|hepatitis|tuberculosis|depression|anxiety|bipolar|schizophrenia|PTSD|addiction|alcoholism|opioid|diabète|diabete|depresión|dépression|depressa|депрессия|抑郁|اكتئاب|ansiedad|asthma|migraine|hypertension)\b/gi },
-  { type: 'MEDICAL', pattern: /\b(?:I am taking|I'm taking|I take|taking my|I am on|I'm on|on my|using my|estoy tomando|tomo mi|je prends mon|ich nehme mein|eu tomo meu|prendo il mio|я принимаю|我在吃|أنا آخذ)\s+(?:metformin|insulin|lisinopril|adderall|xanax|oxycodone|vicodin|percocet|ambien|prozac|zoloft|lexapro|cetirizine|loratadine|ibuprofen|acetaminophen|aspirin|naproxen|omeprazole|atorvastatin|amlodipine|gabapentin|hydrocodone|tramadol|morphine|fentanyl|methadone|suboxone|klonopin|valium|ativan|restoril|sonata|lunesta|metformina|ibuprofeno|paracetamol|aspirina)\b/gi },
-  { type: 'FINANCIAL', pattern: /(?:my salary is|I earn|I make|annual income|yearly income|mi salario es|gano|mi sueldo es|mon salaire est|je gagne|mein gehalt ist|ich verdiene|meu salário é|ganho|il mio stipendio è|guadagno|моя зарплата|я зарабатываю|我的工资是|我赚|我的年薪|راتبي هو|أكسب|دخلي السنوي)\s*[\$€£₽¥₹ر.سR$]?\s*\d+(?:[.,]\d+)*/gi },
-  { type: 'FINANCIAL', pattern: /\b(?:filed for bankruptcy|declared bankruptcy|foreclosure|evicted|defaulted on|debt collector|credit score is|bad credit)\b/gi },
-  { type: 'LEGAL', pattern: /\b(?:my lawyer|my attorney|suing|lawsuit|arrested|charged with|convicted|parole|probation|court case|divorce proceedings)\b/gi },
-  { type: 'CREDENTIALS', pattern: /\b(?:my password is|password:?\s*\S+|login:?\s*\S+|secret key|API key|private key)\b/gi },
-  { type: 'PERSONAL', pattern: /\b(?:getting divorced|cheating|affair|domestic violence|abuse|custody battle)\b/gi },
-  { type: 'EMPLOYMENT', pattern: /\b(?:I work at|I work for|employed at|employed by|my employer is|my boss)\s+([A-Z][a-zA-Z\s-]+?)(?:\.|,|and|but|as|et|und|。|，|و|أو|$)/g },
-  { type: 'EMPLOYMENT', pattern: /\b(?:fired|laid off|let go|terminated|quit my job|resigned)\b/gi }
-];
-
-function parseCustomPatterns(patternsString) {
-  if (!patternsString || patternsString.trim() === '') return [];
-  const lines = patternsString.split('\n').filter(l => l.trim() !== '');
-  const parsed = [];
-  lines.forEach(line => {
-    const match = line.match(/^([A-Z_]+):\/(.+)\/([gim]*)$/);
-    if (match) {
-      const [, type, pattern, flags] = match;
-      try { parsed.push({ type, pattern: new RegExp(pattern, flags) }); }
-      catch (e) { console.warn('🛡️ AEGIS: Invalid custom pattern:', line); }
-    }
-  });
-  return parsed;
-}
-
-function scanWithRegex(text) {
-  if (!text || text.length < 5) return { alerts: [], redactions: [] };
-  const alerts = [], redactions = [];
-  for (const [name, pattern] of Object.entries(PII_PATTERNS)) {
-    const matches = text.match(pattern);
-    if (matches) { alerts.push({ type: name, source: 'regex', severity: 'high' }); matches.forEach(m => redactions.push({ text: m, type: name })); }
-  }
-  return { alerts, redactions };
-}
-
-function scanWithContext(text) {
-  if (!text || text.length < 5) return { alerts: [], redactions: [] };
-  const alerts = [], redactions = [], seen = new Set();
-  CONTEXT_PATTERNS.forEach(({ type, pattern }) => {
-    const regex = new RegExp(pattern.source, pattern.flags);
-    let match;
-    while ((match = regex.exec(text)) !== null) {
-      const t = match[0]; if (seen.has(t)) continue; seen.add(t);
-      alerts.push({ type, source: 'context', severity: 'medium' }); redactions.push({ text: t, type });
-    }
-  });
-  return { alerts, redactions };
-}
-
-function scanWithCustomPatterns(text, customPatterns) {
-  if (!text || text.length < 5 || !customPatterns || customPatterns.length === 0) return { alerts: [], redactions: [] };
-  const alerts = [], redactions = [];
-  customPatterns.forEach(({ type, pattern }) => {
-    const regex = new RegExp(pattern.source, pattern.flags);
-    const matches = text.match(regex);
-    if (matches) { alerts.push({ type, source: 'custom', severity: 'medium' }); matches.forEach(m => redactions.push({ text: m, type })); }
-  });
-  return { alerts, redactions };
-}
-
-function findNamesHeuristic(text) {
-  const names = new Set();
-  const skip = new Set(['The','This','That','What','When','Where','How','Why','Can','Could','Would','Should','ChatGPT','Chat','GPT','My','Your','His','Her','Our','Their','I','A','An','It','He','She','We','They','You','But','And','Or','If','Then','So','Not','Yes','No','Please','Thanks','Thank','Hello','Hi','Hey','Good','Morning','Afternoon','Evening','Today','Tomorrow','Yesterday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday','January','February','March','April','May','June','July','August','September','October','November','December','Dr','Mr','Mrs','Ms','Miss','Prof','Senior','Software','Engineer','Manager','Director','Analyst','Developer','Coordinator','Specialist','Academy','University','College','School','Institute','Hospital','General','Terrace','Street','Avenue','Road','Lane','Drive','Court','Boulevard','Way','Place','Plaza','Park','Social','Security','Driver','License','Medical','Record','API','Key','Bank','Account','Credit','Card']);
-  const multi = /\b([A-Z][a-z]+(?:[\s-]+[A-Z][a-z]+){1,2})\b/g;
-  let m;
-  while ((m = multi.exec(text)) !== null) { const c = m[1]; if (c.split(/[\s-]+/).some(w => skip.has(w))) continue; if (c.split(/[\s-]+/).length >= 2) names.add(c); }
-  [/\b(?:I'm|I am)\s+([A-Z][a-z]+)\b/g,/\bmy name is\s+([A-Z][a-z]+)\b/gi,/\bcall me\s+([A-Z][a-z]+)\b/gi,/\bthis is\s+([A-Z][a-z]+)\b/g,/\bname:\s*([A-Z][a-z]+)\b/gi,/\b(?:Mr|Mrs|Ms|Miss|Dr|Prof)\.?\s+([A-Z][a-z]+)\b/g].forEach(p => {
-    let mm; while ((mm = p.exec(text)) !== null) { const c = mm[1]; if (!skip.has(c) && c.length >= 2) names.add(c); }
-  });
-  return Array.from(names);
-}
-
-function cleanText(t) { return t.replace(/\{[^}]*\}/g,'').replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/g,'').replace(/\s+/g,' ').trim(); }
 
 let ollamaAvailable = false;
 let settings = { aiEnabled: true, regexEnabled: true, useFakeData: true, sensitivity: 'medium', customPatterns: '', trustedSites: [], monitorClipboard: true, notificationSize: 'standard' };
@@ -195,10 +51,10 @@ const historyStore = new HistoryStore();
 
 async function loadSettings() { return new Promise((resolve) => { chrome.runtime.sendMessage({ type: 'GET_SETTINGS' }, (response) => { if (response && response.settings) { settings = response.settings; if (!settings.trustedSites) settings.trustedSites = []; if (settings.useFakeData === undefined) settings.useFakeData = true; if (settings.monitorClipboard === undefined) settings.monitorClipboard = true; if (settings.notificationSize === undefined) settings.notificationSize = 'standard'; if (settings.sensitivity === undefined) settings.sensitivity = 'medium'; if (settings.customPatterns === undefined) settings.customPatterns = ''; const host = window.location.hostname.toLowerCase(); isWhitelisted = settings.trustedSites.some(t => host === t || host.endsWith('.' + t)); } resolve(settings); }); }); }
 async function checkOllama() { return new Promise((resolve) => { chrome.runtime.sendMessage({ type: 'CHECK_OLLAMA' }, (response) => { ollamaAvailable = response && response.available; resolve(ollamaAvailable); }); }); }
-async function classifyWithAI(text) { if (!ollamaAvailable || !settings.aiEnabled) return { categories: [], redactions: [] }; const ct = cleanText(text); if (ct.length < 15 || ct.length > 300) return { categories: [], redactions: [] }; return new Promise((resolve) => { chrome.runtime.sendMessage({ type: 'CLASSIFY_TEXT', text: ct }, (response) => { resolve(response || { categories: [], redactions: [] }); }); }); }
+async function classifyWithAI(text) { if (!ollamaAvailable || !settings.aiEnabled) return { categories: [], redactions: [] }; const ct = AEGIS_ENGINE.cleanText(text); if (ct.length < 15 || ct.length > 300) return { categories: [], redactions: [] }; return new Promise((resolve) => { chrome.runtime.sendMessage({ type: 'CLASSIFY_TEXT', text: ct }, (response) => { resolve(response || { categories: [], redactions: [] }); }); }); }
 
 async function scanText(text) {
-  const ct = cleanText(text); 
+  const ct = AEGIS_ENGINE.cleanText(text);
   const alerts = [], redactions = [], seen = new Set();
   const sensitivity = settings.sensitivity || 'medium';
   
@@ -209,13 +65,13 @@ async function scanText(text) {
   
   try {
     if (settings.regexEnabled) { 
-      const r = scanWithRegex(ct); 
+      const r = AEGIS_ENGINE.scanWithRegex(ct);
       if (r && r.alerts) alerts.push(...r.alerts); 
       if (r && r.redactions) r.redactions.forEach(x => { redactions.push(x); seen.add(x.text); }); 
     }
     
     if (sensitivity === 'medium' || sensitivity === 'high') {
-      const ctx = scanWithContext(ct); 
+      const ctx = AEGIS_ENGINE.scanWithContext(ct);
       if (ctx && ctx.alerts) {
         ctx.alerts.forEach(a => { 
           if (!alerts.find(x => x.type === a.type && x.source === 'context') && !ignoredTexts.has(a.text)) 
@@ -233,7 +89,7 @@ async function scanText(text) {
     }
     
     if (sensitivity === 'high') {
-      const names = findNamesHeuristic(ct);
+      const names = AEGIS_ENGINE.findNamesHeuristic(ct);
       if (names && Array.isArray(names)) {
         names.forEach(n => { 
           if (!seen.has(n) && !ignoredTexts.has(n)) { 
@@ -246,8 +102,8 @@ async function scanText(text) {
     }
     
     if (settings.customPatterns) {
-      const customPatterns = parseCustomPatterns(settings.customPatterns);
-      const custom = scanWithCustomPatterns(ct, customPatterns);
+      const customPatterns = AEGIS_ENGINE.parseCustomPatterns(settings.customPatterns);
+      const custom = AEGIS_ENGINE.scanWithCustomPatterns(ct, customPatterns);
       if (custom && custom.alerts) {
         custom.alerts.forEach(a => { 
           if (!alerts.find(x => x.type === a.type && x.source === 'custom') && !ignoredTexts.has(a.text)) 
@@ -299,7 +155,7 @@ function highlightSensitive(element, redactions) {
     element.innerHTML = html;
   } else { element.style.transition = 'all 0.3s ease'; element.style.color = color; element.style.borderLeft = '4px solid ' + color; showInlineIndicator(element, ' PII detected', color); }
 }
-function highlightProtected(element, replacements) {
+function highlightProtected(element, _replacements) {
   if (!element) return; removeInlineIndicator(element);
   element.style.transition = 'all 0.3s ease'; const pColor = tc('#28a745', '#66bb6a'); element.style.color = pColor; element.style.borderLeft = '4px solid ' + pColor;
   showInlineIndicator(element, '🛡️ Protected', pColor);
@@ -312,7 +168,7 @@ function performRedaction(element, redactions) {
   if (!redactions || redactions.length === 0) return { originalText: null, replacements: [] };
   const cur = element.tagName === 'INPUT' || element.tagName === 'TEXTAREA' ? element.value : (element.innerText || '');
   const orig = cur; let txt = cur; const reps = [];
-  [...redactions].sort((a,b) => b.text.length - a.text.length).forEach(r => { if (r.text && r.text.length > 0 && txt.includes(r.text)) { const rep = settings.useFakeData ? getFakeData(r.type, r.text) : '[REDACTED-' + r.type + ']'; reps.push({ original: r.text, fake: rep, type: r.type, timestamp: new Date().toISOString() }); txt = txt.split(r.text).join(rep); } });
+  [...redactions].sort((a,b) => b.text.length - a.text.length).forEach(r => { if (r.text && r.text.length > 0 && txt.includes(r.text)) { const rep = settings.useFakeData ? AEGIS_FAKE.getFakeData(r.type, r.text) : '[REDACTED-' + r.type + ']'; reps.push({ original: r.text, fake: rep, type: r.type, timestamp: new Date().toISOString() }); txt = txt.split(r.text).join(rep); } });
   if (txt !== orig) {
     if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
       const valueProto = element.tagName === 'TEXTAREA' ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype;
@@ -373,11 +229,11 @@ class AEGISPopup {
       const todayBlocked = totalProtected; const recentItems = protectionHistory.slice(-5).reverse().map(h => { const time = new Date(h.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); const color = h.type === 'MEDICAL' ? '#e91e63' : h.type === 'FINANCIAL' ? '#ff9800' : h.type === 'LEGAL' ? '#9c27b0' : h.type === 'CREDENTIALS' ? '#f44336' : '#667eea'; return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;font-size:11px;border-bottom:1px solid ${recentBorder};"><span style="width:6px;height:6px;border-radius:50%;background:${color};flex-shrink:0;"></span><span style="flex:1;color:${bodyText};">${h.type}</span><span style="color:${recentTime};">${time}</span></div>`; }).join('');
       body = `<div style="padding:14px 16px;background:${popupBg};color:${bodyText};"><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;"><div style="background:${idleCardBg};padding:8px;border-radius:8px;text-align:center;"><div style="font-size:20px;font-weight:bold;color:#667eea;">${todayBlocked}</div><div style="font-size:9px;color:${idleLabel};text-transform:uppercase;">Today</div></div><div style="background:${idleCardBg};padding:8px;border-radius:8px;text-align:center;"><div style="font-size:20px;font-weight:bold;color:#667eea;">${allTimeProtected}</div><div style="font-size:9px;color:${idleLabel};text-transform:uppercase;">All Time</div></div><div style="background:${idleCardBg};padding:8px;border-radius:8px;text-align:center;"><div style="font-size:20px;font-weight:bold;color:#667eea;">${new Set(protectionHistory.map(h => h.site).filter(Boolean)).size}</div><div style="font-size:9px;color:${idleLabel};text-transform:uppercase;">Sites</div></div></div><div style="font-size:11px;color:${idleLabel};text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Recent Activity</div><div style="max-height:140px;overflow-y:auto;">${recentItems || `<div style="color:${idleLabel};font-size:11px;padding:8px 0;">No activity yet</div>`}</div></div>`;
     }
-    const snoozeButtons = isPaused ? `<button data-aegis-action="resume" style="flex:2;padding:6px;background:#28a745;color:white;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;">▶️ Resume</button>` : `<div style="flex:2;display:flex;gap:4px;"><button data-aegis-action="pause-5" style="flex:1;padding:6px;background:${snoozeBtnBg};color:${snoozeBtnText};border:none;border-radius:6px;cursor:pointer;font-size:10px;font-weight:600;" title="Pause 5 min">5m</button><button data-aegis-action="pause-60" style="flex:1;padding:6px;background:${snoozeBtnBg};color:${snoozeBtnText};border:none;border-radius:6px;cursor:pointer;font-size:10px;font-weight:600;" title="Pause 1 hour">1h</button><button data-aegis-action="pause-refresh" style="flex:1;padding:6px;background:${snoozeBtnBg};color:${snoozeBtnText};border:none;border-radius:6px;cursor:pointer;font-size:10px;font-weight:600;" title="Pause until refresh">↻</button></div>`;
+    const snoozeButtons = isPaused ? '<button data-aegis-action="resume" style="flex:2;padding:6px;background:#28a745;color:white;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;">▶️ Resume</button>' : `<div style="flex:2;display:flex;gap:4px;"><button data-aegis-action="pause-5" style="flex:1;padding:6px;background:${snoozeBtnBg};color:${snoozeBtnText};border:none;border-radius:6px;cursor:pointer;font-size:10px;font-weight:600;" title="Pause 5 min">5m</button><button data-aegis-action="pause-60" style="flex:1;padding:6px;background:${snoozeBtnBg};color:${snoozeBtnText};border:none;border-radius:6px;cursor:pointer;font-size:10px;font-weight:600;" title="Pause 1 hour">1h</button><button data-aegis-action="pause-refresh" style="flex:1;padding:6px;background:${snoozeBtnBg};color:${snoozeBtnText};border:none;border-radius:6px;cursor:pointer;font-size:10px;font-weight:600;" title="Pause until refresh">↻</button></div>`;
     const footer = `<div style="padding:12px 16px;background:${footerBg};border-top:1px solid ${footerBorder};display:flex;gap:8px;align-items:center;flex-shrink:0;">${snoozeButtons}<div style="flex:1;"></div><div style="display:flex;gap:10px;align-items:center;"><button data-aegis-action="trust-site" style="background:transparent;color:#667eea;border:2px solid #667eea;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;font-weight:bold;transition:all 0.15s ease;" title="Trust this site" aria-label="Trust this site" onmouseover="this.style.background='#667eea';this.style.color='white'" onmouseout="this.style.background='transparent';this.style.color='#667eea'">🤝</button><button data-aegis-action="export" style="background:transparent;color:#667eea;border:2px solid #667eea;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;font-weight:bold;transition:all 0.15s ease;" title="Export JSON" aria-label="Export history as JSON" onmouseover="this.style.background='#667eea';this.style.color='white'" onmouseout="this.style.background='transparent';this.style.color='#667eea'">📤</button><button data-aegis-action="export-csv" style="background:transparent;color:#667eea;border:2px solid #667eea;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;font-weight:bold;transition:all 0.15s ease;" title="Export CSV" aria-label="Export history as CSV" onmouseover="this.style.background='#667eea';this.style.color='white'" onmouseout="this.style.background='transparent';this.style.color='#667eea'">📊</button><button data-aegis-action="settings" style="background:transparent;color:#667eea;border:2px solid #667eea;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;font-weight:bold;transition:all 0.15s ease;" title="Settings" aria-label="Open settings" onmouseover="this.style.background='#667eea';this.style.color='white'" onmouseout="this.style.background='transparent';this.style.color='#667eea'">⚙️</button></div></div>`;
     const popupWidth = this.isMaximized ? 'calc(100vw - 40px)' : this.getPopupWidth(); const popupHeight = this.isMaximized ? 'calc(100vh - 40px)' : this.getMaxHeight(); const popupRadius = this.isMaximized ? '0' : '14px';
     this.container.innerHTML = `<div data-aegis-part="full" style="width:${popupWidth};height:${popupHeight};max-height:${popupHeight};background:${popupBg};border-radius:${popupRadius};box-shadow:0 12px 40px rgba(0,0,0,0.4);overflow:hidden;border:1px solid ${popupBorder};display:flex;flex-direction:column;"><div data-aegis-part="header" style="background:${headerColor};color:white;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;cursor:grab;flex-shrink:0;"><div style="display:flex;align-items:center;gap:8px;"><span style="font-size:18px;">${headerIcon}</span><span style="font-size:14px;font-weight:600;">${headerTitle}</span></div><div style="display:flex;gap:10px;align-items:center;"><button data-aegis-action="minimize" style="background:transparent;color:white;border:2px solid white;width:22px;height:22px;border-radius:50%;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;font-weight:bold;transition:all 0.15s ease;" title="Minimize" onmouseover="this.style.background='white';this.style.color='#333'" onmouseout="this.style.background='transparent';this.style.color='white'">−</button><button data-aegis-action="${this.isMaximized ? 'restore' : 'maximize'}" style="background:transparent;color:white;border:2px solid white;width:22px;height:22px;border-radius:50%;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;font-weight:bold;transition:all 0.15s ease;" title="${this.isMaximized ? 'Restore' : 'Maximize'}" onmouseover="this.style.background='white';this.style.color='#333'" onmouseout="this.style.background='transparent';this.style.color='white'">${this.isMaximized ? '−' : '+'}</button></div></div>${body}${footer}</div>`;
-    if (this.isMaximized) { this.container.style.cssText = `position:fixed!important;z-index:2147483647!important;top:20px!important;left:20px!important;right:20px!important;bottom:20px!important;`; } else { this.container.style.cssText = `position:fixed!important;z-index:2147483647!important;right:${this.position.right}px!important;bottom:${this.position.bottom}px!important;left:auto!important;top:auto!important;`; }
+    if (this.isMaximized) { this.container.style.cssText = 'position:fixed!important;z-index:2147483647!important;top:20px!important;left:20px!important;right:20px!important;bottom:20px!important;'; } else { this.container.style.cssText = `position:fixed!important;z-index:2147483647!important;right:${this.position.right}px!important;bottom:${this.position.bottom}px!important;left:auto!important;top:auto!important;`; }
     this.attachHandlers();
   }
   attachHandlers() {
@@ -410,7 +266,7 @@ class AEGISPopup {
       case 'resume': isPaused = false; if (pauseTimer) clearTimeout(pauseTimer); this.render(); break;
       case 'settings': chrome.runtime.sendMessage({ type: 'OPEN_OPTIONS' }); break;
       case 'export': historyStore.exportJSON(); break; case 'export-csv': historyStore.exportCSV(); break;
-      case 'trust-site': 
+      case 'trust-site': {
         const host = window.location.hostname;
         if (!settings.trustedSites.includes(host)) {
           settings.trustedSites.push(host);
@@ -425,7 +281,7 @@ class AEGISPopup {
         }
         isWhitelisted = true;
         this.minimize();
-        break;
+        break; }
     }
   }
 }
@@ -433,7 +289,7 @@ let popup;
 
 function setupPasteListener() { document.addEventListener('paste', async (e) => { try { let pastedText = ''; if (e.clipboardData && e.clipboardData.getData) pastedText = e.clipboardData.getData('text/plain') || ''; if (!pastedText || pastedText.length < 5) return; const { alerts, redactions } = await scanText(pastedText); if (alerts.length > 0) { const markedAlerts = alerts.map(a => ({ ...a, source: 'clipboard:' + a.source })); popup.showAlert(markedAlerts, redactions, null, null, null, 'clipboard'); } } catch (error) {} }, true); }
 async function monitorClipboard() { setupPasteListener(); }
-let lastScannedText = '', scanDebounce = null, scanInterval = null;
+let lastScannedText = '', scanDebounce = null, _scanInterval = null;
 function getActiveInputElement() { const active = document.activeElement; if (!active) return null; if (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA') return active; if (active.getAttribute('contenteditable') === 'true') return active; const chatInput = document.querySelector('textarea[placeholder], div[contenteditable="true"], textarea'); return chatInput; }
 async function performScan() {
   if (isWhitelisted || isPaused) return; const element = getActiveInputElement(); if (!element) return;
@@ -474,8 +330,8 @@ const SENSITIVE_FILE_KEYWORDS = ['ssn', 'social security', 'tax', 'w2', '1099', 
 function setupAttachmentGuard() {
   const OriginalFile = window.File; window.File = function(fileBits, fileName, options) { const file = new OriginalFile(fileBits, fileName, options); checkFileForUpload(file, 'File constructor'); return file; }; window.File.prototype = OriginalFile.prototype;
   const OriginalFormData = window.FormData; const originalAppend = OriginalFormData.prototype.append; OriginalFormData.prototype.append = function(name, value, filename) { if (value instanceof File || value instanceof Blob) checkFileForUpload(value, 'FormData.append', filename); return originalAppend.apply(this, arguments); };
-  const OriginalXHR = window.XMLHttpRequest; const originalSend = OriginalXHR.prototype.send; OriginalXHR.prototype.send = function(body) { if (body && (body instanceof File || body instanceof Blob || body instanceof FormData)) { if (body instanceof FormData) { body.forEach((value, key) => { if (value instanceof File) checkFileForUpload(value, 'XHR FormData', value.name); }); } else { checkFileForUpload(body, 'XHR send', body.name); } } return originalSend.apply(this, arguments); };
-  const originalFetch = window.fetch; window.fetch = function(input, init) { if (init && init.body) { if (init.body instanceof FormData) { init.body.forEach((value, key) => { if (value instanceof File) checkFileForUpload(value, 'fetch FormData', value.name); }); } else if (init.body instanceof File || init.body instanceof Blob) { checkFileForUpload(init.body, 'fetch body', init.body.name); } } return originalFetch.apply(this, arguments); };
+  const OriginalXHR = window.XMLHttpRequest; const originalSend = OriginalXHR.prototype.send; OriginalXHR.prototype.send = function(body) { if (body && (body instanceof File || body instanceof Blob || body instanceof FormData)) { if (body instanceof FormData) { body.forEach((value, _key) => { if (value instanceof File) checkFileForUpload(value, 'XHR FormData', value.name); }); } else { checkFileForUpload(body, 'XHR send', body.name); } } return originalSend.apply(this, arguments); };
+  const originalFetch = window.fetch; window.fetch = function(input, init) { if (init && init.body) { if (init.body instanceof FormData) { init.body.forEach((value, _key) => { if (value instanceof File) checkFileForUpload(value, 'fetch FormData', value.name); }); } else if (init.body instanceof File || init.body instanceof Blob) { checkFileForUpload(init.body, 'fetch body', init.body.name); } } return originalFetch.apply(this, arguments); };
   document.addEventListener('change', (e) => { const target = e.target; if (target.tagName === 'INPUT' && target.type === 'file' && target.files) { Array.from(target.files).forEach(file => checkFileForUpload(file, 'file input')); } }, true);
   document.addEventListener('drop', (e) => { if (e.dataTransfer?.files) { Array.from(e.dataTransfer.files).forEach(file => checkFileForUpload(file, 'drag drop')); } }, true);
   console.log('️ AEGIS: ✅ Multi-layer attachment guard active');
@@ -520,7 +376,9 @@ async function init() {
   });
   popup = new AEGISPopup();
   document.addEventListener('input', handleInputEvent, true); document.addEventListener('keyup', handleInputEvent, true);
-  scanInterval = setInterval(performScan, 2000);
+  document.addEventListener('focusin', (e) => { const el = e.target; if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.getAttribute('contenteditable') === 'true')) handleInputEvent(); }, true);
+  _scanInterval = setInterval(() => { if (!document.hidden) performScan(); }, 2000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) performScan(); });
   document.addEventListener('mousemove', (e) => popup.onDrag(e)); document.addEventListener('mouseup', () => popup.endDrag());
   setupKeyboardShortcuts(); setupSubmissionGuard(); setupAttachmentGuard();
   if (isWhitelisted) { popup.minimize(); return; }

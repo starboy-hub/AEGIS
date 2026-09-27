@@ -2,6 +2,29 @@
 
 All notable changes to AEGIS will be documented in this file.
 
+## [6.1.0] - 2026-09-27
+
+### Added
+- Real test coverage of the shipped engine: detection patterns, context
+  scanning, name heuristics, custom patterns, and fake-data safety moved into
+  `src/content/modules/detection-engine.js` and `fake-data.js` (UMD modules
+  loaded by the manifest and required by tests) — the content script no longer
+  carries inline copies
+- GitHub Actions CI: lint, test, build, and a dist-completeness check on every
+  push and pull request
+- ESLint config repaired (invalid `chrome-extension` env made lint unrunnable);
+  codebase now lints clean
+
+### Changed
+- Manifest version is stamped from package.json at build time — versions can
+  no longer drift between the two
+- Idle scanning now skips hidden tabs (battery/CPU win) and rescans instantly
+  when an input is focused or a hidden tab becomes visible
+
+### Removed
+- Orphaned `modules/detection.js` and `modules/ui-overlay.js` (never imported
+  by any shipped code) and their stale tests
+
 ## [6.0.0] - 2026-09-27
 
 ### Fixed

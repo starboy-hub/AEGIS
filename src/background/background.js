@@ -1,7 +1,6 @@
 importScripts('aegis-shared.js');
 
 const DEFAULT_SETTINGS = AEGIS.DEFAULT_SETTINGS;
-const KEYS = AEGIS.KEYS;
 
 // Track pending responses to avoid port errors
 let ollamaCheckPending = false;

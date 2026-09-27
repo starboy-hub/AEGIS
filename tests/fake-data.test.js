@@ -3,6 +3,8 @@
  */
 
 const { getFakeData, FAKE_DATA } = require('../src/content/modules/fake-data.js');
+const contentSrc = require('fs').readFileSync(
+  require('path').join(__dirname, '..', 'src', 'content', 'content.js'), 'utf8');
 
 // Luhn checksum — fake cards must FAIL it so they can never be charged
 function luhnValid(numStr) {
@@ -73,15 +75,25 @@ describe('Fake Data Generator', () => {
       expect(name).toBeTruthy();
     });
 
-    test('fake SSN dataset matches the safe-value rules used at runtime', () => {
-      // The content script keeps an inline copy of FAKE_DATA for perf;
-      // this pins the two datasets to the same safety contract.
-      const fs = require('fs');
-      const path = require('path');
-      const contentSrc = fs.readFileSync(
-        path.join(__dirname, '..', 'src', 'content', 'content.js'), 'utf8');
-      expect(contentSrc).toContain(FAKE_DATA.ssns[0]);
-      expect(contentSrc).toContain(FAKE_DATA.creditCards[0]);
+    test('picks currency-aware fake salaries', () => {
+      expect(getFakeData('FINANCIAL', 'my salary is €50,000')).toMatch(/^€/);
+      expect(getFakeData('FINANCIAL', 'зарплата 100000')).toMatch(/^₽/);
+      expect(getFakeData('FINANCIAL', 'my salary is $90,000')).toMatch(/^\$/);
+    });
+
+    test('picks medical conditions or medications by context', () => {
+      expect(FAKE_DATA.medicals).toContain(getFakeData('MEDICAL', 'I was diagnosed with diabetes'));
+      expect(FAKE_DATA.meds).toContain(getFakeData('MEDICAL', 'random text'));
+    });
+
+    test('picks fake companies for employment context', () => {
+      expect(FAKE_DATA.companies).toContain(getFakeData('EMPLOYMENT', 'I work at TechCorp Inc'));
+      expect(getFakeData('EMPLOYMENT', 'my boss said hi')).toMatch(/^\[REDACTED-/);
+    });
+
+    test('content.js no longer carries an inline FAKE_DATA copy (single source of truth)', () => {
+      expect(contentSrc).not.toContain('FAKE_DATA = {');
+      expect(contentSrc).toContain('AEGIS_FAKE.getFakeData(');
     });
   });
 });
