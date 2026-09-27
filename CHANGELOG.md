@@ -2,6 +2,28 @@
 
 All notable changes to AEGIS will be documented in this file.
 
+## [6.4.0] - 2026-09-27
+
+### Added — 🚨 Sentinel: inbound scam defense (AI vs AI)
+
+AEGIS now watches the *other* direction: what AI-generated content delivers
+to you.
+
+- **Sentinel engine** (`src/content/modules/sentinel-engine.js`): weighted
+  scam-signal analysis of inbound messages — credential/OTP requests, payment
+  pressure (gift cards, crypto, wires), authority impersonation, too-good
+  offers, personal-info fishing, off-platform shifts, secrecy demands,
+  artificial urgency, link pressure. Scored → none / low / suspicious /
+  dangerous, with plain-language advice
+- **Page banner**: when a scanned message crosses the threshold, AEGIS shows
+  a dismissible warning naming the strongest signals and what to do
+- **AI-vs-AI second opinion**: gray-zone ("suspicious") messages are sent to
+  the local Ollama model for a scam/legit/unclear verdict — a scam verdict
+  escalates the warning (new SENTINEL_LLM background message)
+- Analyzed messages are hashed and deduplicated; detections record in the
+  audit history (type SENTINEL, message text never stored)
+- Toggle: settings.sentinelEnabled (default on)
+
 ## [6.3.1] - 2026-09-27
 
 ### Fixed

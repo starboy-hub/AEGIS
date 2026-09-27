@@ -168,6 +168,30 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         .catch(() => sendResponse({ map: {} }));
       return true;
     }
+    if (request.type === 'SENTINEL_LLM') {
+      // AI-vs-AI second opinion: local model classifies a gray-zone message
+      if (!ollamaAvailable) { sendResponse({ verdict: 'unclear', reason: 'Ollama unavailable' }); return false; }
+      fetch('http://localhost:11434/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'llama3',
+          stream: false,
+          prompt: 'You are a scam-detection assistant. Classify the following message as scam, legit, or unclear, then give one short reason. Reply ONLY with JSON: {"verdict":"scam|legit|unclear","reason":"..."}\n\nMessage:\n' + String(request.text || '').substring(0, 800)
+        }),
+        signal: AbortSignal.timeout(8000)
+      })
+        .then((r) => r.json())
+        .then((data) => {
+          try {
+            const m = (data.response || '').match(/\{[\s\S]*\}/);
+            const j = m ? JSON.parse(m[0]) : {};
+            sendResponse({ verdict: j.verdict || 'unclear', reason: j.reason || '' });
+          } catch (e) { sendResponse({ verdict: 'unclear', reason: 'parse' }); }
+        })
+        .catch(() => sendResponse({ verdict: 'unclear', reason: 'timeout' }));
+      return true;
+    }
 
     sendResponse({ error: 'unknown_request_type' });
     return false;

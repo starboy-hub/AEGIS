@@ -1,0 +1,62 @@
+/**
+ * Tests for the AEGIS Sentinel engine — inbound scam/phishing analysis
+ */
+const AEGIS_SENTINEL = require('../src/content/modules/sentinel-engine.js');
+const { analyzeMessage, topSignals } = AEGIS_SENTINEL;
+
+describe('AEGIS Sentinel engine', () => {
+  test('classic lottery/advance-fee scam -> dangerous', () => {
+    const r = analyzeMessage('Congratulations, you have won our international lottery prize! To release your unclaimed funds you must send money via wire transfer and pay the processing fee within 24 hours.');
+    expect(r.level).toBe('dangerous');
+    expect(r.signals.some(s => s.id === 'payment_pressure')).toBe(true);
+    expect(r.signals.some(s => s.id === 'too_good')).toBe(true);
+    expect(r.advice).toContain('Do not reply');
+  });
+
+  test('credential harvesting -> dangerous regardless of score', () => {
+    const r = analyzeMessage('Your account will be suspended today. Please verify your password and provide your verification code immediately.');
+    expect(r.level).toBe('dangerous');
+    expect(r.signals.some(s => s.id === 'credential_request')).toBe(true);
+  });
+
+  test('authority + urgency pressure -> suspicious', () => {
+    const r = analyzeMessage('This is the tax department. Urgent: your account will be suspended today, act now to avoid legal action.');
+    expect(r.level).toBe('suspicious');
+    expect(r.signals.some(s => s.id === 'authority_threat')).toBe(true);
+  });
+
+  test('secrecy + off-platform shift -> suspicious', () => {
+    const r = analyzeMessage('Please keep this confidential between us. Do not tell anyone. Contact me on WhatsApp to continue this matter.');
+    expect(r.level).toBe('suspicious');
+    expect(r.signals.some(s => s.id === 'secrecy')).toBe(true);
+    expect(r.signals.some(s => s.id === 'channel_shift')).toBe(true);
+  });
+
+  test('mild urgency alone -> low, not suspicious', () => {
+    const r = analyzeMessage('Friendly reminder that the survey closes soon, so please act now if you want to take part. Thanks!');
+    expect(r.level).toBe('low');
+  });
+
+  test('ordinary conversation -> none', () => {
+    const r = analyzeMessage('Hey, thanks for the recipe! I tried the pasta last night and it turned out great. See you at dinner on Friday?');
+    expect(r.level).toBe('none');
+    expect(r.score).toBe(0);
+  });
+
+  test('short text is skipped entirely', () => {
+    expect(analyzeMessage('send money now').level).toBe('none');
+    expect(analyzeMessage('').level).toBe('none');
+  });
+
+  test('crypto "guaranteed returns" pitch -> dangerous', () => {
+    const r = analyzeMessage('Exclusive investment opportunity: double your money in 7 days with our guaranteed profit crypto wallet. No risk, act now!');
+    expect(r.level).toBe('dangerous');
+  });
+
+  test('topSignals ranks by weight, limited to n', () => {
+    const r = analyzeMessage('You have won a prize! Send money via wire transfer immediately and confirm your password.');
+    const top = topSignals(r, 2);
+    expect(top).toHaveLength(2);
+    expect(top[0]).toBe('Requests credentials or codes'); // weight 40, ties with payment
+  });
+});

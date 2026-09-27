@@ -13,7 +13,8 @@
     "AEGIS": "readonly",
     "AEGIS_ENGINE": "readonly",
     "AEGIS_FAKE": "readonly",
-    "AEGIS_VAULT": "readonly"
+    "AEGIS_VAULT": "readonly",
+    "AEGIS_SENTINEL": "readonly"
   },
   "parserOptions": {
     "ecmaVersion": 2022,

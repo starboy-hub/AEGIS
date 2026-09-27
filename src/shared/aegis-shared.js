@@ -38,7 +38,8 @@
     monitorClipboard: true,
     theme: 'light',
     notificationSize: 'standard',
-    vaultRestore: true
+    vaultRestore: true,
+    sentinelEnabled: true
   };
 
   function mergeSettings(stored) {

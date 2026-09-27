@@ -22,6 +22,7 @@ function t(key) { return TRANSLATIONS[currentLang]?.[key] || TRANSLATIONS.en[key
 
 let ollamaAvailable = false;
 let vaultCorpus = [], vaultMatchers = [], vaultPseudos = {}, vaultById = {};
+let sentinelAnalyzed = new Set(), sentinelBannerEl = null, sentinelBannerLevel = '';
 let settings = { aiEnabled: true, regexEnabled: true, useFakeData: true, sensitivity: 'medium', customPatterns: '', trustedSites: [], monitorClipboard: true, notificationSize: 'standard' };
 let isWhitelisted = false, isPaused = false, pauseTimer = null, protectionHistory = [], totalProtected = 0, allTimeProtected = 0, ignoredTexts = new Set(), currentTheme = 'light';
 function tc(light, dark) { return (typeof currentTheme === 'undefined' || currentTheme === 'dark') ? dark : light; }
@@ -108,8 +109,7 @@ function scanVaultText(text, alerts, redactions, seen) {
 }
 
 function restoreVaultInResponses() {
-  if (!settings.vaultRestore || !vaultCorpus.length || !Object.keys(vaultPseudos).length) return;
-  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+  if (!settings.vaultRestore || !vaultCorpus.length || !Object.keys(vaultPseudos).length) return;  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
       const p = node.parentElement;
       if (!p) return NodeFilter.FILTER_REJECT;
@@ -130,6 +130,71 @@ function restoreVaultInResponses() {
       if (fake && v.includes(fake)) v = v.split(fake).join(entry.value);
     }
     if (v !== node.nodeValue) node.nodeValue = v;
+  });
+}
+
+// ---- Sentinel: inbound scam/phishing analysis (AI vs AI) ----
+
+function showSentinelBanner(result, sample) {
+  const danger = result.level === 'dangerous';
+  if (sentinelBannerEl && sentinelBannerLevel === 'dangerous') return; // strongest warning already showing
+  if (sentinelBannerEl) sentinelBannerEl.remove();
+  sentinelBannerLevel = result.level;
+  sentinelBannerEl = document.createElement('div');
+  sentinelBannerEl.setAttribute('data-aegis', 'sentinel-banner');
+  sentinelBannerEl.style.cssText = 'position:fixed!important;top:0!important;left:0!important;right:0!important;z-index:2147483646!important;display:flex;align-items:center;gap:10px;padding:10px 16px;font-family:-apple-system,sans-serif;font-size:13px;color:#fff!important;background:' + (danger ? '#c62828' : '#ef6c00') + '!important;box-shadow:0 2px 8px rgba(0,0,0,.3)';
+  const signals = AEGIS_SENTINEL.topSignals(result, 2).join(' + ');
+  const label = document.createElement('span');
+  label.style.fontWeight = '700';
+  label.textContent = danger ? '🚨 Sentinel: likely scam' : '⚠️ Sentinel: suspicious message';
+  const desc = document.createElement('span');
+  desc.style.cssText = 'flex:1;opacity:.95;';
+  desc.textContent = (signals ? signals + ' — ' : '') + result.advice;
+  const btn = document.createElement('button');
+  btn.textContent = 'Dismiss';
+  btn.style.cssText = 'background:rgba(255,255,255,.2);border:none;color:white;padding:4px 10px;border-radius:4px;cursor:pointer;font-weight:600;';
+  btn.addEventListener('click', () => { if (sentinelBannerEl) sentinelBannerEl.remove(); sentinelBannerEl = null; sentinelBannerLevel = ''; });
+  sentinelBannerEl.appendChild(label);
+  sentinelBannerEl.appendChild(desc);
+  sentinelBannerEl.appendChild(btn);
+  document.body.appendChild(sentinelBannerEl);
+  console.info('🛡️ Sentinel:', result.level, result.score, sample ? sample.slice(0, 120) : '');
+}
+
+function sentinelPass() {
+  if (!settings.sentinelEnabled) return;
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      const p = node.parentElement;
+      if (!p) return NodeFilter.FILTER_REJECT;
+      if (p.closest('input,textarea') || p.isContentEditable) return NodeFilter.FILTER_REJECT;
+      if (p.closest('[data-aegis]')) return NodeFilter.FILTER_REJECT;
+      return (node.nodeValue || '').trim().length >= 30 ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+    }
+  });
+  const nodes = [];
+  while (walker.nextNode()) nodes.push(walker.currentNode);
+  nodes.forEach(node => {
+    const text = node.nodeValue.trim();
+    const hash = AEGIS.strHash(text);
+    if (sentinelAnalyzed.has(hash)) return;
+    sentinelAnalyzed.add(hash);
+    const result = AEGIS_SENTINEL.analyzeMessage(text);
+    if (result.level === 'none' || result.level === 'low') return;
+    // AI-vs-AI second opinion for gray-zone messages (local model)
+    if (result.level === 'suspicious' && ollamaAvailable && settings.aiEnabled) {
+      try {
+        chrome.runtime.sendMessage({ type: 'SENTINEL_LLM', text }, (res) => {
+          if (res && res.verdict === 'scam') {
+            result.level = 'dangerous';
+            result.signals.push({ id: 'llm_verdict', label: 'AI analysis: scam', weight: 50 });
+            showSentinelBanner(result, text);
+          }
+        });
+      } catch (e) {}
+    }
+    showSentinelBanner(result, text);
+    try { historyStore.add({ original: 'inbound message', fake: AEGIS_SENTINEL.topSignals(result, 2).join(', '), type: 'SENTINEL' }); } catch (e) {}
   });
 }
 
@@ -472,8 +537,8 @@ async function init() {
   popup = new AEGISPopup();
   document.addEventListener('input', handleInputEvent, true); document.addEventListener('keyup', handleInputEvent, true);
   document.addEventListener('focusin', (e) => { const el = e.target; if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.getAttribute('contenteditable') === 'true')) handleInputEvent(); }, true);
-  _scanInterval = setInterval(() => { if (!document.hidden) { performScan(); restoreVaultInResponses(); } }, 2000);
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) { performScan(); restoreVaultInResponses(); } });
+  _scanInterval = setInterval(() => { if (!document.hidden) { performScan(); restoreVaultInResponses(); sentinelPass(); } }, 2000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { performScan(); restoreVaultInResponses(); sentinelPass(); } });
   document.addEventListener('mousemove', (e) => popup.onDrag(e)); document.addEventListener('mouseup', () => popup.endDrag());
   setupKeyboardShortcuts(); setupSubmissionGuard(); setupAttachmentGuard();
   if (isWhitelisted) { popup.minimize(); return; }
