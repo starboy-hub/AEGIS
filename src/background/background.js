@@ -1,5 +1,6 @@
 importScripts('aegis-shared.js');
 importScripts('aegis-vault.js');
+importScripts('reality-engine.js');
 
 const DEFAULT_SETTINGS = AEGIS.DEFAULT_SETTINGS;
 
@@ -10,6 +11,30 @@ const vaultStorage = {
   remove: (keys) => new Promise((res) => chrome.storage.local.remove(keys, res))
 };
 const vault = AEGIS_VAULT.createVault(vaultStorage, crypto);
+
+// ---- Reality Check: right-click image -> scan bytes for AI provenance ----
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.contextMenus.removeAll(() => {
+    chrome.contextMenus.create({
+      id: 'aegis-reality-check',
+      title: '🛡️ AEGIS Reality Check this image',
+      contexts: ['image']
+    });
+  });
+});
+
+chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+  if (info.menuItemId !== 'aegis-reality-check' || !info.srcUrl || !tab || !tab.id) return;
+  let findings;
+  try {
+    const resp = await fetch(info.srcUrl);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    findings = AEGIS_REALITY.analyzeImageBytes(new Uint8Array(await resp.arrayBuffer()));
+  } catch (e) {
+    findings = { verdict: 'unknown', generator: null, signals: [], disclaimer: 'Could not fetch the image bytes (' + (e.message || 'blocked') + '). Try saving the image first.' };
+  }
+  try { chrome.tabs.sendMessage(tab.id, { type: 'REALITY_RESULT', findings }); } catch (e) {}
+});
 
 // Track pending responses to avoid port errors
 let ollamaCheckPending = false;

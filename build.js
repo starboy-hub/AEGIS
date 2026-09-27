@@ -18,6 +18,7 @@ console.log(`✓ Wrote dist/manifest.json (version ${pkg.version} from package.j
 const files = [
   { src: 'src/shared/aegis-shared.js', dest: 'dist/aegis-shared.js' },
   { src: 'src/background/aegis-vault.js', dest: 'dist/aegis-vault.js' },
+  { src: 'src/background/reality-engine.js', dest: 'dist/reality-engine.js' },
   { src: 'src/content/modules/fake-data.js', dest: 'dist/fake-data.js' },
   { src: 'src/content/modules/detection-engine.js', dest: 'dist/detection-engine.js' },
   { src: 'src/content/modules/sentinel-engine.js', dest: 'dist/sentinel-engine.js' },

@@ -2,6 +2,24 @@
 
 All notable changes to AEGIS will be documented in this file.
 
+## [6.6.0] - 2026-09-27
+
+### Added — 🧬 Reality Check: synthetic-media provenance
+
+- Right-click any image → **"AEGIS Reality Check this image"** — the
+  background fetches the image bytes and scans them for AI-provenance
+  metadata: C2PA/JUMBF content-credential manifests, IPTC
+  digital-source-type labels (trainedAlgorithmicMedia), generator software
+  signatures (Stable Diffusion, Midjourney, DALL·E, Firefly, Imagen, Flux,
+  "Made with AI"…), and diffusion-model parameter blocks (Steps/Sampler)
+- Verdict banner with the detected generator name and an honest disclaimer:
+  metadata proves AI origin when present; its absence does NOT prove an
+  image is real (metadata is often stripped)
+- Editor-only software tags (Photoshop/GIMP) are reported as informational
+  and never escalate to "AI-generated"
+- New `contextMenus` permission (image context menu only); engine is a pure
+  module with byte-fixture tests. 105 tests passing (was 98)
+
 ## [6.5.0] - 2026-09-27
 
 ### Added — 🛡️ Injection Firewall: prompt-injection detection

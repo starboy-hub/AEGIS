@@ -272,6 +272,37 @@ function injectionPass() {
   });
 }
 
+// ---- Reality Check: verdict banner for image provenance scans ----
+
+function showRealityBanner(findings) {
+  if (!findings) return;
+  const old = document.querySelector('[data-aegis="reality-banner"]');
+  if (old) old.remove();
+  const el = document.createElement('div');
+  el.setAttribute('data-aegis', 'reality-banner');
+  const isAI = findings.verdict === 'ai-generated';
+  el.style.cssText = 'position:fixed!important;top:0!important;left:0!important;right:0!important;z-index:2147483646!important;display:flex;align-items:center;gap:10px;padding:10px 16px;font-family:-apple-system,sans-serif;font-size:13px;color:#fff!important;background:' + (isAI ? '#00695c' : '#455a64') + '!important;box-shadow:0 2px 8px rgba(0,0,0,.3)';
+  const label = document.createElement('span');
+  label.style.fontWeight = '700';
+  label.textContent = isAI ? '🧬 Reality Check: AI-generated image' + (findings.generator ? ' — ' + findings.generator : '') : '🧬 Reality Check: no AI metadata found';
+  const desc = document.createElement('span');
+  desc.style.cssText = 'flex:1;opacity:.95;';
+  const sigText = (findings.signals || []).map(s => s.label).join(' • ');
+  desc.textContent = (sigText ? sigText + ' — ' : '') + (findings.disclaimer || '');
+  const btn = document.createElement('button');
+  btn.textContent = 'Dismiss';
+  btn.style.cssText = 'background:rgba(255,255,255,.2);border:none;color:white;padding:4px 10px;border-radius:4px;cursor:pointer;font-weight:600;';
+  btn.addEventListener('click', () => el.remove());
+  el.appendChild(label);
+  el.appendChild(desc);
+  el.appendChild(btn);
+  document.body.appendChild(el);
+}
+
+chrome.runtime.onMessage.addListener((request) => {
+  if (request.type === 'REALITY_RESULT') showRealityBanner(request.findings);
+});
+
 async function scanText(text) {
   const ct = AEGIS_ENGINE.cleanText(text);
   const alerts = [], redactions = [], seen = new Set();
