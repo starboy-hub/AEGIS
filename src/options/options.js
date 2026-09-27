@@ -5,9 +5,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const customInput = document.getElementById('customPatternsInput');
   const trustedInput = document.getElementById('trustedSitesInput');
 
-  chrome.storage.sync.get(['settings', 'manualLanguage'], (result) => {
+  chrome.storage.sync.get(['settings', 'manualLanguage', 'theme'], (result) => {
     const s = result.settings || {};
-    if (s.theme === 'dark') { document.body.classList.add('dark'); document.getElementById('toggleTheme').classList.add('active'); }
+    const theme = result.theme || s.theme;
+    if (theme === 'dark') { document.body.classList.add('dark'); document.getElementById('toggleTheme').classList.add('active'); }
     if (s.regexEnabled !== false) document.getElementById('toggleRegex').classList.add('active');
     if (s.useFakeData !== false) document.getElementById('toggleFakeData').classList.add('active');
     if (langSelect) langSelect.value = result.manualLanguage || 'auto';
@@ -24,7 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const isActive = el.classList.contains('active');
       chrome.storage.sync.get(['settings'], (result) => {
         const s = result.settings || {};
-        if (id === 'toggleTheme') { s.theme = isActive ? 'dark' : 'light'; if (isActive) document.body.classList.add('dark'); else document.body.classList.remove('dark'); }
+        if (id === 'toggleTheme') { s.theme = isActive ? 'dark' : 'light'; if (isActive) document.body.classList.add('dark'); else document.body.classList.remove('dark'); chrome.storage.sync.set({ theme: s.theme }); }
         if (id === 'toggleRegex') s.regexEnabled = isActive;
         if (id === 'toggleFakeData') s.useFakeData = isActive;
         chrome.storage.sync.set({ settings: s });

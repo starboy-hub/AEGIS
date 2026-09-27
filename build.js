@@ -12,6 +12,7 @@ console.log('✓ Copied src/manifest.json to dist/manifest.json');
 
 // Copy and flatten source files
 const files = [
+  { src: 'src/shared/aegis-shared.js', dest: 'dist/aegis-shared.js' },
   { src: 'src/background/background.js', dest: 'dist/background.js' },
   { src: 'src/content/content.js', dest: 'dist/content.js' },
   { src: 'src/popup/popup.html', dest: 'dist/popup.html' },
