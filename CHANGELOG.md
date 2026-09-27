@@ -2,6 +2,19 @@
 
 All notable changes to AEGIS will be documented in this file.
 
+## [6.2.1] - 2026-09-27
+
+### Fixed
+- Context matches consumed trailing whitespace when the capture allowed it
+  (the diagnosis pattern's class includes \s), so "diagnosed with type 2
+  diabetes" redacted to "migraines2 seasonal depression" — the space before
+  the next word vanished. Matches are now trimmed before redaction;
+  spacing around replacements is preserved exactly
+
+### Note
+- Credit-card detection requires a valid Luhn checksum (v6.2.0), so the old
+  demo card number is intentionally ignored — test with 4111 1111 1111 1111
+
 ## [6.2.0] - 2026-09-27
 
 Polish sprint — the popup's "coming soon" era ends.

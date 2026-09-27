@@ -172,6 +172,16 @@ describe('AEGIS Detection Engine', () => {
       expect(emp.redactions[0].context).toContain('I work at');
     });
 
+    test('context matches never eat surrounding whitespace ("type 2" spacing survives)', () => {
+      const raw = 'I was diagnosed with type 2 diabetes last year';
+      const cleaned = engine.cleanText(raw);
+      const { redactions } = engine.scanWithContext(cleaned);
+      expect(redactions.every(r => r.text === r.text.trim())).toBe(true);
+      const { text } = require('../src/content/modules/fake-data.js')
+        .redactText(raw, redactions, false);
+      expect(text).toBe('[REDACTED-MEDICAL] 2 [REDACTED-MEDICAL] last year');
+    });
+
     test('employment capture is bounded — stops at lowercase words (no line eating)', () => {
       const cleaned = 'I work at TechCorp in Seattle - My friend Sarah Mitchell recommended this';
       const { redactions } = engine.scanWithContext(cleaned);

@@ -101,8 +101,13 @@
         if (match[0].length === 0) { regex.lastIndex++; continue; }
         // valueGroup patterns (salary amounts, drug names, employer names):
         // swap only the captured value so the surrounding sentence stays
-        // readable; everything else swaps the full match.
-        const t = valueGroup && match[1] !== undefined ? match[1] : match[0];
+        // readable; everything else swaps the full match. Trailing/leading
+        // whitespace must not be consumed — greedy captures that allow \s
+        // would otherwise eat the space before the next word ("type 2" ->
+        // "migraines2")
+        let t = valueGroup && match[1] !== undefined ? match[1] : match[0];
+        t = t.trim();
+        if (!t) { regex.lastIndex++; continue; }
         if (seen.has(t)) continue; seen.add(t);
         alerts.push({ type, source: 'context', severity: 'medium' }); redactions.push({ text: t, type, context: match[0] });
       }
