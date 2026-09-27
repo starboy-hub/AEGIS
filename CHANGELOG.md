@@ -2,6 +2,34 @@
 
 All notable changes to AEGIS will be documented in this file.
 
+## [6.1.2] - 2026-09-27
+
+Refinements from the second manual test pass:
+
+### Changed
+- **Credentials now get a realistic random password** instead of the
+  `[REDACTED-CREDENTIALS]` placeholder (14+ chars, mixed case, digits, symbols)
+- **Value-only redaction extended to context patterns** where the sensitive
+  part is a sub-value, keeping sentences readable:
+  - "I am taking metformin daily" → "I am taking loratadine daily" (was
+    "loratadine daily")
+  - "my salary is $150,000 per year" → "my salary is $75,000 per year" (was
+    "$75,000 per year")
+  - "I work at TechCorp in Seattle" → "I work at Acme Corp in Seattle"
+- **Employment capture is bounded** — stops at the company name instead of
+  greedily consuming the rest of the message (previously swallowed trailing
+  sentences like "- My friend Sarah Mitchell recommended this" into the
+  replacement)
+
+### Fixed
+- Double "MRN MRN" in redacted medical records — the fake pool carried its
+  own "MRN" prefix while value-only redaction already preserves the label;
+  pool values are now bare digits
+
+### Added
+- Tests: valueGroup semantics (drug/amount/employer), bounded employment
+  capture, random password shape, bare MRN fakes — 55 passing (was 51)
+
 ## [6.1.1] - 2026-09-27
 
 Fixes found by the first full manual test pass (paste of a 16-line sample

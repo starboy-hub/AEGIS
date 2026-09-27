@@ -24,7 +24,7 @@
     meds: ['famotidine', 'loratadine', 'ibuprofen', 'acetaminophen', 'omeprazole', 'cetirizine', 'amoxicillin', 'metformin', 'lisinopril'],
     companies: ['Acme Corp', 'Global Solutions Inc', 'Tech Innovations LLC', 'Prime Services Ltd', 'Nexus Industries', 'Apex Dynamics', 'Stellar Systems', 'Quantum Labs'],
     salaries: ['$75,000', '€60,000', '£55,000', '₽150,000', '¥50,000', 'ر.س 20,000', 'R$5,000', '$85,000', '€70,000', '¥80,000', 'R$8,000'],
-    medicalRecords: ['MRN 84739201', 'MRN 92837465', 'MRN 10293847', 'MRN 56473829'],
+    medicalRecords: ['84739201', '92837465', '10293847', '56473829'],
     passports: ['A93847562', 'B10293847', 'C83746592', 'D92837465'],
     driverLicenses: ['DL-8374-9201', 'DL-1029-3847', 'DL-5647-3829', 'DL-9283-7465'],
     bankAccounts: ['9384756201', '1029384756', '8374659201', '9283746501'],
@@ -61,6 +61,14 @@
         const conditions = ['diagnosed', 'diabetes', 'cancer', 'tengo', 'sufro', 'leide', 'soffro', 'ansiedad', 'asthma', 'migraine', 'hypertension', 'depression', 'depresión', 'dépression', 'depressa', 'диабет', '抑郁', 'اكتئاب'];
         if (conditions.some(c => t.includes(c))) return pick(FAKE_DATA.medicals);
         return pick(FAKE_DATA.meds);
+      }
+      case 'CREDENTIALS': {
+        // Realistic random credential — no fixed pool for secrets
+        const sets = ['abcdefghijkmnpqrstuvwxyz', 'ABCDEFGHJKLMNPQRSTUVWXYZ', '23456789', '!@#$%&*?'];
+        let out = sets.map(s => pick(s)).join('');
+        const all = sets.join('');
+        while (out.length < 14) out += pick(all);
+        return out;
       }
       case 'EMPLOYMENT': {
         const companyKeywords = ['corp', 'inc', 'ltd', 'llc', 'company', 'solutions', 'industries'];

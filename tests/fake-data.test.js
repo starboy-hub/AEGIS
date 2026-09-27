@@ -91,6 +91,18 @@ describe('Fake Data Generator', () => {
       expect(getFakeData('EMPLOYMENT', 'my boss said hi')).toMatch(/^\[REDACTED-/);
     });
 
+    test('generates realistic random passwords for CREDENTIALS', () => {
+      const p1 = getFakeData('CREDENTIALS', 'my password is x');
+      const p2 = getFakeData('CREDENTIALS', 'my password is x');
+      expect(p1).toMatch(/^[A-Za-z0-9!@#$%&*?]{14,20}$/); // password-shaped
+      expect(p1).not.toBe(p2);                            // random, not a pool
+      expect(/[a-z]/.test(p1) && /[A-Z]/.test(p1) && /[0-9]/.test(p1) && /[!@#$%&*?]/.test(p1)).toBe(true);
+    });
+
+    test('Medical Record fakes are bare digits (label now preserved by value-only redaction)', () => {
+      expect(getFakeData('Medical Record', 'medical record MRN 84739201')).toMatch(/^\d{6,10}$/);
+    });
+
     test('content.js no longer carries an inline FAKE_DATA copy (single source of truth)', () => {
       expect(contentSrc).not.toContain('FAKE_DATA = {');
       expect(contentSrc).toContain('AEGIS_FAKE.getFakeData(');

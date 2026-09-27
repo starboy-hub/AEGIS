@@ -105,6 +105,9 @@ describe('AEGIS Detection Engine', () => {
       // Context types detected (incl. the one that silently failed before)
       expect(ctx.alerts.some(a => a.type === 'EMPLOYMENT')).toBe(true);
       expect(ctx.alerts.some(a => a.type === 'FINANCIAL')).toBe(true);
+      // valueGroup redactions swap only the value
+      expect(ctx.redactions.find(r => r.type === 'EMPLOYMENT').text).toBe('TechCorp');
+      expect(ctx.redactions.find(r => r.type === 'FINANCIAL').text).toBe('$150,000');
       // The secret is covered
       expect(all.some(r => r.text.toLowerCase().includes('hunter2secret'))).toBe(true);
       // Every redaction must be matchable in the RAW text via flexible whitespace
@@ -133,6 +136,28 @@ describe('AEGIS Detection Engine', () => {
       const { alerts, redactions } = engine.scanWithContext('My password is hunter2secret');
       expect(alerts.some(a => a.type === 'CREDENTIALS')).toBe(true);
       expect(redactions.some(r => r.text.toLowerCase().includes('hunter2secret'))).toBe(true);
+    });
+
+    test('valueGroup patterns swap only the value, keeping the sentence readable', () => {
+      const med = engine.scanWithContext('I am taking metformin daily');
+      expect(med.redactions[0].text).toBe('metformin');
+      expect(med.redactions[0].context).toContain('I am taking');
+
+      const fin = engine.scanWithContext('my salary is $150,000 per year');
+      expect(fin.redactions[0].text).toBe('$150,000');
+      expect(fin.redactions[0].context).toContain('my salary is');
+
+      const emp = engine.scanWithContext('I work at TechCorp in Seattle and I like it');
+      expect(emp.redactions[0].text).toBe('TechCorp');
+      expect(emp.redactions[0].context).toContain('I work at');
+    });
+
+    test('employment capture is bounded — stops at lowercase words (no line eating)', () => {
+      const cleaned = 'I work at TechCorp in Seattle - My friend Sarah Mitchell recommended this';
+      const { redactions } = engine.scanWithContext(cleaned);
+      const emp = redactions.find(r => r.type === 'EMPLOYMENT');
+      expect(emp.text).toBe('TechCorp');
+      expect(emp.text).not.toContain('Sarah');
     });
 
     test('credentials: catches API keys and logins with values', () => {

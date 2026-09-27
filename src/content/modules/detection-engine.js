@@ -26,13 +26,13 @@
     { type: 'MEDICAL', pattern: /(?:I have|I've been diagnosed with|I suffer from|I was diagnosed with|my diagnosis is|tengo|me diagnosticaron|sufro de|fui diagnosticado|j'ai|on m'a diagnostiqué|je souffre de|ich habe|mir wurde diagnostiziert|leide unter|eu tenho|fui diagnosticado|sofro de|mi è stato diagnosticato|soffro di|у меня|мне поставили диагноз|я страдаю от|我被诊断出|我患有|我有|لدي|تم تشخيصي بـ|أعاني من)\s+([a-zA-ZÀ-ÿа-яА-Я\u4e00-\u9fa5\u0600-\u06FF\s-]{2,50})/gi },
     { type: 'MEDICAL', pattern: /\b(?:pregnant|pregnancy|miscarriage|fertility|IVF|chemotherapy|radiation|dialysis|embarazada|embarazo|enceinte|schwanger|grávida|incinta|беременная|怀孕|حامل)\b/gi },
     { type: 'MEDICAL', pattern: /\b(?:diabetes|cancer|HIV|AIDS|hepatitis|tuberculosis|depression|anxiety|bipolar|schizophrenia|PTSD|addiction|alcoholism|opioid|diabète|diabete|depresión|dépression|depressa|депрессия|抑郁|اكتئاب|ansiedad|asthma|migraine|hypertension)\b/gi },
-    { type: 'MEDICAL', pattern: /\b(?:I am taking|I'm taking|I take|taking my|I am on|I'm on|on my|using my|estoy tomando|tomo mi|je prends mon|ich nehme mein|eu tomo meu|prendo il mio|я принимаю|我在吃|أنا آخذ)\s+(?:metformin|insulin|lisinopril|adderall|xanax|oxycodone|vicodin|percocet|ambien|prozac|zoloft|lexapro|cetirizine|loratadine|ibuprofen|acetaminophen|aspirin|naproxen|omeprazole|atorvastatin|amlodipine|gabapentin|hydrocodone|tramadol|morphine|fentanyl|methadone|suboxone|klonopin|valium|ativan|restoril|sonata|lunesta|metformina|ibuprofeno|paracetamol|aspirina)\b/gi },
-    { type: 'FINANCIAL', pattern: /(?:my salary is|I earn|I make|annual income|yearly income|mi salario es|gano|mi sueldo es|mon salaire est|je gagne|mein gehalt ist|ich verdiene|meu salário é|ganho|il mio stipendio è|guadagno|моя зарплата|я зарабатываю|我的工资是|我赚|我的年薪|راتبي هو|أكسب|دخلي السنوي)\s*[$€£₽¥₹ر.سR$]?\s*\d+(?:[.,]\d+)*/gi },
+    { type: 'MEDICAL', pattern: /\b(?:I am taking|I'm taking|I take|taking my|I am on|I'm on|on my|using my|estoy tomando|tomo mi|je prends mon|ich nehme mein|eu tomo meu|prendo il mio|я принимаю|我在吃|أنا آخذ)\s+((?:metformin|insulin|lisinopril|adderall|xanax|oxycodone|vicodin|percocet|ambien|prozac|zoloft|lexapro|cetirizine|loratadine|ibuprofen|acetaminophen|aspirin|naproxen|omeprazole|atorvastatin|amlodipine|gabapentin|hydrocodone|tramadol|morphine|fentanyl|methadone|suboxone|klonopin|valium|ativan|restoril|sonata|lunesta|metformina|ibuprofeno|paracetamol|aspirina)\b)/gi, valueGroup: true },
+    { type: 'FINANCIAL', pattern: /(?:my salary is|I earn|I make|annual income|yearly income|mi salario es|gano|mi sueldo es|mon salaire est|je gagne|mein gehalt ist|ich verdiene|meu salário é|ganho|il mio stipendio è|guadagno|моя зарплата|я зарабатываю|我的工资是|我赚|我的年薪|راتبي هو|أكسب|دخلي السنوي)\s*([$€£₽¥₹ر.سR$]?\s*\d+(?:[.,]\d+)*)/gi, valueGroup: true },
     { type: 'FINANCIAL', pattern: /\b(?:filed for bankruptcy|declared bankruptcy|foreclosure|evicted|defaulted on|debt collector|credit score is|bad credit)\b/gi },
     { type: 'LEGAL', pattern: /\b(?:my lawyer|my attorney|suing|lawsuit|arrested|charged with|convicted|parole|probation|court case|divorce proceedings)\b/gi },
     { type: 'CREDENTIALS', pattern: /\b(?:my\s+)?(?:password|pwd|pass(?:word)?|login|api[-\s]?key|secret(?:\s+key)?|private\s+key|access\s+token)\s*(?:is|:|=)\s*\S+/gi },
     { type: 'PERSONAL', pattern: /\b(?:getting divorced|cheating|affair|domestic violence|abuse|custody battle)\b/gi },
-    { type: 'EMPLOYMENT', pattern: /\b(?:I work at|I work for|employed at|employed by|my employer is|my boss)\s+([A-Z][a-zA-Z\s-]+?)(?:\.|,|and|but|as|et|und|。|，|و|أو|$)/g },
+    { type: 'EMPLOYMENT', pattern: /\b(?:I work at|I work for|employed at|employed by|my employer is|my boss)\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+){0,2})/g, valueGroup: true },
     { type: 'EMPLOYMENT', pattern: /\b(?:fired|laid off|let go|terminated|quit my job|resigned)\b/gi }
   ];
 
@@ -75,12 +75,17 @@
   function scanWithContext(text) {
     if (!text || text.length < 5) return { alerts: [], redactions: [] };
     const alerts = [], redactions = [], seen = new Set();
-    CONTEXT_PATTERNS.forEach(({ type, pattern }) => {
+    CONTEXT_PATTERNS.forEach(({ type, pattern, valueGroup }) => {
       const regex = new RegExp(pattern.source, pattern.flags);
       let match;
       while ((match = regex.exec(text)) !== null) {
-        const t = match[0]; if (seen.has(t)) continue; seen.add(t);
-        alerts.push({ type, source: 'context', severity: 'medium' }); redactions.push({ text: t, type });
+        if (match[0].length === 0) { regex.lastIndex++; continue; }
+        // valueGroup patterns (salary amounts, drug names, employer names):
+        // swap only the captured value so the surrounding sentence stays
+        // readable; everything else swaps the full match.
+        const t = valueGroup && match[1] !== undefined ? match[1] : match[0];
+        if (seen.has(t)) continue; seen.add(t);
+        alerts.push({ type, source: 'context', severity: 'medium' }); redactions.push({ text: t, type, context: match[0] });
       }
     });
     return { alerts, redactions };
