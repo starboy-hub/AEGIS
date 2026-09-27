@@ -2,7 +2,7 @@
 
 > **Stop feeding your sensitive data to AI.**
 
-![Version](https://img.shields.io/badge/version-5.5.0-blue.svg)
+![Version](https://img.shields.io/badge/version-6.0.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Languages](https://img.shields.io/badge/languages-9-orange.svg)
 ![Privacy](https://img.shields.io/badge/privacy-100%25_local-red.svg)
@@ -241,6 +241,10 @@ Post-redaction review modal includes:
 # Clone the repository
 git clone https://github.com/starboy-hub/AEGIS.git
 cd AEGIS
+
+# Build the extension (requires Node.js 18+)
+npm install
+npm run build
 
 # Load into your browser:
 # 1. Open chrome://extensions/

@@ -1,7 +1,18 @@
-```
 # Dependencies
 node_modules/
 
-# Compiled and build artifacts
+# Build output
 dist/
-```
+coverage/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor
+.vscode/
+.idea/
