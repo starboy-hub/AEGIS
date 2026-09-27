@@ -1,6 +1,8 @@
 importScripts('aegis-shared.js');
 importScripts('aegis-vault.js');
 importScripts('reality-engine.js');
+importScripts('signing-engine.js');
+importScripts('threat-store.js');
 
 const DEFAULT_SETTINGS = AEGIS.DEFAULT_SETTINGS;
 
@@ -11,6 +13,8 @@ const vaultStorage = {
   remove: (keys) => new Promise((res) => chrome.storage.local.remove(keys, res))
 };
 const vault = AEGIS_VAULT.createVault(vaultStorage, crypto);
+const signer = AEGIS_SIGNING.createSigner(vaultStorage, crypto);
+const threats = AEGIS_THREATS.createThreatStore(vaultStorage, AEGIS);
 
 // ---- Reality Check: right-click image -> scan bytes for AI provenance ----
 chrome.runtime.onInstalled.addListener(() => {
@@ -232,6 +236,50 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           } catch (e) { sendResponse({ verdict: 'unclear', reason: 'parse' }); }
         })
         .catch(() => sendResponse({ verdict: 'unclear', reason: 'timeout' }));
+      return true;
+    }
+
+    // ---- Signing (content provenance) ----
+    if (request.type === 'SIGN_SIGN') {
+      signer.signText(request.text)
+        .then(async (block) => sendResponse({ ok: true, block: AEGIS_SIGNING.formatSignedMessage(request.text, block) }))
+        .catch((e) => sendResponse({ ok: false, error: e.message }));
+      return true;
+    }
+    if (request.type === 'SIGN_VERIFY') {
+      signer.verifySignedMessage(request.blockText)
+        .then((result) => sendResponse(result))
+        .catch((e) => sendResponse({ valid: false, reason: e.message }));
+      return true;
+    }
+
+    // ---- Swarm defense (threat signature store) ----
+    if (request.type === 'THREAT_CHECK') {
+      threats.isKnown(request.hash)
+        .then((known) => sendResponse({ known }))
+        .catch(() => sendResponse({ known: false }));
+      return true;
+    }
+    if (request.type === 'THREAT_RECORD') {
+      threats.record(request.hash)
+        .then(() => sendResponse({ ok: true }))
+        .catch(() => sendResponse({ ok: false }));
+      return true;
+    }
+    if (request.type === 'THREAT_EXPORT') {
+      threats.exportPack()
+        .then((pack) => sendResponse({ pack }))
+        .catch((e) => sendResponse({ error: e.message }));
+      return true;
+    }
+    if (request.type === 'THREAT_IMPORT') {
+      threats.importPack(request.pack)
+        .then((result) => sendResponse(result))
+        .catch((e) => sendResponse({ added: 0, error: e.message }));
+      return true;
+    }
+    if (request.type === 'THREAT_COUNT') {
+      threats.count().then((count) => sendResponse({ count }));
       return true;
     }
 

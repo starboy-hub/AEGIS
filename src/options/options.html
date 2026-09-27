@@ -102,6 +102,26 @@ textarea{width:100%;height:120px;font-family:monospace;font-size:13px;resize:ver
   <button id="saveTrustedSitesBtn" class="save-btn">Save</button>
 </div>
 
+<div class="setting-row" style="flex-direction:column;align-items:flex-start">
+  <div class="setting-info" style="width:100%"><div class="setting-label">✍️ Sign & Verify</div><div class="setting-desc">Prove text is yours and unmodified — signed with your device key. Anyone with AEGIS can verify it.</div></div>
+  <textarea id="signInput" style="height:70px" placeholder="Type the message to sign…"></textarea>
+  <button id="signBtn" class="save-btn">✍️ Sign message</button>
+  <textarea id="signOutput" style="height:90px" placeholder="Signed block appears here — copy it anywhere."></textarea>
+  <textarea id="verifyInput" style="height:90px" placeholder="Paste an AEGIS signed block to verify…"></textarea>
+  <button id="verifyBtn" class="save-btn">🔍 Verify</button>
+  <div id="verifyResult" style="width:100%;margin-top:8px;font-size:13px"></div>
+</div>
+
+<div class="setting-row" style="flex-direction:column;align-items:flex-start;border-bottom:none">
+  <div class="setting-info" style="width:100%"><div class="setting-label">🐝 Swarm Defense</div><div class="setting-desc">Share scam signatures between AEGIS installs — hashes only, never message text. Export your pack and import it on a loved one's browser.</div></div>
+  <div style="display:flex;gap:8px;margin-top:8px;align-items:center;">
+    <button id="exportPackBtn" class="save-btn">⬇️ Export pack</button>
+    <button id="importPackBtn" class="save-btn">⬆️ Import pack</button>
+    <input type="file" id="importPackFile" accept=".json,application/json" style="display:none">
+    <span id="swarmStatus" style="font-size:12px;color:#999"></span>
+  </div>
+</div>
+
 <div class="footer">AEGIS • 100% Local</div>
 <script src="aegis-shared.js"></script>
 <script src="options.js"></script>

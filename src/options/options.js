@@ -195,6 +195,78 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  // ==========================================
+  // SIGN & VERIFY (content provenance)
+  // ==========================================
+  document.getElementById('signBtn').addEventListener('click', () => {
+    const text = document.getElementById('signInput').value;
+    if (!text.trim()) return;
+    chrome.runtime.sendMessage({ type: 'SIGN_SIGN', text }, (res) => {
+      if (res && res.ok) document.getElementById('signOutput').value = res.block;
+    });
+  });
+
+  document.getElementById('verifyBtn').addEventListener('click', () => {
+    const blockText = document.getElementById('verifyInput').value;
+    const out = document.getElementById('verifyResult');
+    if (!blockText.trim()) { out.textContent = 'Paste a signed block first.'; out.style.color = '#999'; return; }
+    chrome.runtime.sendMessage({ type: 'SIGN_VERIFY', blockText }, (res) => {
+      if (res && res.valid) {
+        out.textContent = '✅ Verified — this exact text was signed on ' + (res.ts || 'unknown date') + ' and has not been modified.';
+        out.style.color = '#28a745';
+      } else {
+        out.textContent = '❌ FAILED verification — the content was tampered with, forged, or the signature is malformed.';
+        out.style.color = '#dc3545';
+      }
+    });
+  });
+
+  // ==========================================
+  // SWARM DEFENSE (threat signature packs)
+  // ==========================================
+  function refreshSwarmStatus() {
+    chrome.runtime.sendMessage({ type: 'THREAT_COUNT' }, (res) => {
+      document.getElementById('swarmStatus').textContent = (res && typeof res.count === 'number') ? res.count + ' signatures' : '';
+    });
+  }
+
+  document.getElementById('exportPackBtn').addEventListener('click', () => {
+    chrome.runtime.sendMessage({ type: 'THREAT_EXPORT' }, (res) => {
+      if (!res || !res.pack) return;
+      const blob = new Blob([JSON.stringify(res.pack, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `aegis-threat-pack-${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+  });
+
+  document.getElementById('importPackBtn').addEventListener('click', () => {
+    document.getElementById('importPackFile').click();
+  });
+
+  document.getElementById('importPackFile').addEventListener('change', (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      let pack;
+      try { pack = JSON.parse(reader.result); } catch (err) {
+        document.getElementById('swarmStatus').textContent = 'Invalid pack file';
+        return;
+      }
+      chrome.runtime.sendMessage({ type: 'THREAT_IMPORT', pack }, (res) => {
+        document.getElementById('swarmStatus').textContent = (res && res.added) ? '+' + res.added + ' signatures imported' : 'No new signatures';
+        refreshSwarmStatus();
+      });
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  });
+
+  refreshSwarmStatus();
   refreshTrustedList();
   refreshVaultList();
 });

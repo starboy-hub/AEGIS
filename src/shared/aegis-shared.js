@@ -25,7 +25,10 @@
     VAULT_KEY: 'vault_key',
     VAULT_DATA: 'vault_data',
     VAULT_VERSION: 'vault_version',
-    PSEUDO_MAP: 'aegis_pseudo_map'
+    PSEUDO_MAP: 'aegis_pseudo_map',
+    // Signing + swarm defense
+    SIGNING_KEY: 'signing_key',
+    THREAT_SIGS: 'threat_signatures'
   };
 
   const DEFAULT_SETTINGS = {
@@ -108,7 +111,19 @@
     return h >>> 0;
   }
 
-  const AEGIS = { KEYS, DEFAULT_SETTINGS, mergeSettings, statsFromHistory, isSameDay, flexiblePattern, maskSensitive, strHash };
+  /**
+   * Normalize text for threat-signature hashing: defeats trivial variation
+   * (case, whitespace, punctuation) while keeping the wording identifiable.
+   */
+  function normalizeForSignature(text) {
+    return String(text || '')
+      .toLowerCase()
+      .replace(/[^\w\s@.]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  const AEGIS = { KEYS, DEFAULT_SETTINGS, mergeSettings, statsFromHistory, isSameDay, flexiblePattern, maskSensitive, strHash, normalizeForSignature };
   root.AEGIS = AEGIS;
   if (typeof module !== 'undefined' && module.exports) module.exports = AEGIS;
 })(typeof self !== 'undefined' ? self : globalThis);

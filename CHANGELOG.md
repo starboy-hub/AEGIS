@@ -2,6 +2,38 @@
 
 All notable changes to AEGIS will be documented in this file.
 
+## [6.8.0] - 2026-09-27
+
+### Added — ✍️ Content Signing + 🐝 Swarm Defense (swarm-ready)
+
+**Content signing — prove text is yours, unmodified:**
+
+- Every AEGIS install now has a device-local ECDSA P-256 signing keypair
+  (JWK in chrome.storage.local, generated on first use)
+- Options → **Sign & Verify**: sign any text into a portable
+  `-----BEGIN AEGIS SIGNED MESSAGE-----` block; anyone with AEGIS can
+  verify it — the exact text, signed on the exact date, unmodified
+- Content script: signed blocks found on pages are verified live — a
+  **failed** signature (tampered or forged content) triggers a red warning
+  banner; this is what makes AI-forged "signed" impersonations detectable
+
+**Swarm defense — swarm-ready threat signatures:**
+
+- Dangerous messages flagged by Sentinel are recorded as anonymized
+  normalized-text hashes (never the message text) in a local threat store
+- Sentinel checks every inbound message against known signatures first —
+  known scams get a "🐝 known scam signature" tag on the banner
+- Options → **Swarm Defense**: export/import threat packs (JSON, hashes
+  only by construction) — hand-carry immunity between AEGIS installs today
+  (e.g. parent → grandparent), federate via a relay when there are users
+- Signature normalization defeats trivial variation (case, whitespace,
+  punctuation); packs deduplicate on import and are size-capped
+
+### Technical
+- `signing-engine.js`: `createSigner(storage, crypto)` — ES256 sign/verify,
+  portable block format, tamper detection; `threat-store.js`:
+  `createThreatStore` with pack export/import; 120 unit tests (was 112)
+
 ## [6.7.0] - 2026-09-27
 
 ### Added — 🏦 Trust Graph + 👨‍👩‍👧 Family Guardian Mode

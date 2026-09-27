@@ -164,6 +164,26 @@ function showSentinelBanner(result, sample) {
   console.info('🛡️ Sentinel:', result.level, result.score, sample ? sample.slice(0, 120) : '');
 }
 
+function showSignatureWarning(reason) {
+  const el = document.createElement('div');
+  el.setAttribute('data-aegis', 'signature-warning');
+  el.style.cssText = 'position:fixed!important;top:0!important;left:0!important;right:0!important;z-index:2147483646!important;display:flex;align-items:center;gap:10px;padding:10px 16px;font-family:-apple-system,sans-serif;font-size:13px;color:#fff!important;background:#b71c1c!important;box-shadow:0 2px 8px rgba(0,0,0,.3)';
+  const label = document.createElement('span');
+  label.style.fontWeight = '700';
+  label.textContent = '✍️ AEGIS: signed content FAILED verification';
+  const desc = document.createElement('span');
+  desc.style.cssText = 'flex:1;opacity:.95;';
+  desc.textContent = 'The signature on this page does not match its content — it was tampered with or forged. (' + reason + ')';
+  const btn = document.createElement('button');
+  btn.textContent = 'Dismiss';
+  btn.style.cssText = 'background:rgba(255,255,255,.2);border:none;color:white;padding:4px 10px;border-radius:4px;cursor:pointer;font-weight:600;';
+  btn.addEventListener('click', () => el.remove());
+  el.appendChild(label);
+  el.appendChild(desc);
+  el.appendChild(btn);
+  document.body.appendChild(el);
+}
+
 function sentinelPass() {
   if (!settings.sentinelEnabled) return;
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
@@ -182,6 +202,15 @@ function sentinelPass() {
     const hash = AEGIS.strHash(text);
     if (sentinelAnalyzed.has(hash)) return;
     sentinelAnalyzed.add(hash);
+    // Signed content: verify provenance — failed signatures are loud
+    if (text.indexOf('-----BEGIN AEGIS SIGNED MESSAGE-----') !== -1) {
+      try {
+        chrome.runtime.sendMessage({ type: 'SIGN_VERIFY', blockText: text }, (res) => {
+          if (res && res.valid === false) showSignatureWarning(res.reason || 'invalid');
+        });
+      } catch (e) {}
+      return;
+    }
     const result = AEGIS_SENTINEL.analyzeMessage(text);
     // Trust-graph escalation: pressure message naming YOUR org = impersonation
     let trustedHits = [];
@@ -208,6 +237,25 @@ function sentinelPass() {
     }
     showSentinelBanner(result, text);
     try { historyStore.add({ original: 'inbound message', fake: AEGIS_SENTINEL.topSignals(result, 2).join(', '), type: 'SENTINEL' }); } catch (e) {}
+    // Swarm defense: check the shared signature store, record new threats
+    const sigHash = AEGIS.strHash('sig|' + AEGIS.normalizeForSignature(text));
+    try {
+      chrome.runtime.sendMessage({ type: 'THREAT_CHECK', hash: sigHash }, (res) => {
+        if (res && res.known && sentinelBannerEl) {
+          const note = sentinelBannerEl.querySelector('[data-aegis-swarm-note]');
+          if (!note) {
+            const tag = document.createElement('span');
+            tag.setAttribute('data-aegis-swarm-note', '');
+            tag.style.cssText = 'font-weight:700;white-space:nowrap;';
+            tag.textContent = '🐝 known scam signature';
+            sentinelBannerEl.insertBefore(tag, sentinelBannerEl.lastChild);
+          }
+        }
+      });
+    } catch (e) {}
+    if (result.level === 'dangerous') {
+      try { chrome.runtime.sendMessage({ type: 'THREAT_RECORD', hash: sigHash }, () => {}); } catch (e) {}
+    }
   });
 }
 
