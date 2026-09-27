@@ -2,6 +2,39 @@
 
 All notable changes to AEGIS will be documented in this file.
 
+## [6.3.0] - 2026-09-27
+
+### Added — 🔐 The Identity Vault
+
+AEGIS now knows who to protect. You teach it your real details once; from
+then on it catches, pseudonymizes, and un-masks them — all locally.
+
+- **Encrypted local vault** (Options → Identity Vault): store your name,
+  email, phone, and any custom values (address, employer, IDs). Encrypted at
+  rest with AES-256-GCM using a device-local key — plaintext never touches
+  storage, and the vault never syncs or leaves the machine
+- **Vault-aware detection**: user-taught values are detected in typed text at
+  any sensitivity — plain names, any phone formatting, flexible whitespace —
+  closing the biggest gap in pattern-only detection
+- **Deterministic pseudonyms**: each vault value gets one stable fake per
+  site (persisted), so "Sarah Mitchell" is always the same person within a
+  conversation and the AI's answers stay coherent
+- **Reversibility**: when an AI response contains one of your pseudonyms,
+  AEGIS restores your real value in the displayed text (toggle: "Un-mask in
+  responses"). Sendable fields are never touched, so restore cannot leak
+  anything outbound
+- Vault values are flagged `critical` and recorded in the audit history;
+  exports still mask originals
+
+### Technical
+- `src/background/aegis-vault.js`: `createVault(storage, crypto)` factory
+  (AES-GCM, WebCrypto) + `buildMatchers` — fully unit-tested with in-memory
+  storage, including encryption-at-rest assertions
+- New background message API: VAULT_LIST/ADD/REMOVE/CLEAR/CORPUS,
+  PSEUDO_RECORD/GET_MAP
+- `aegis-shared.strHash` (FNV-1a) for deterministic pool picks; new
+  `vaultRestore` setting (default on)
+
 ## [6.2.1] - 2026-09-27
 
 ### Fixed

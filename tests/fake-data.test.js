@@ -44,6 +44,12 @@ describe('redactText (the Protect path)', () => {
     expect(text).toBe('id [REDACTED-Y] end');
   });
 
+  test('vaultFake is used verbatim when provided (Identity Vault pseudonyms)', () => {
+    const { text, replacements } = redactText('hi Sarah Mitchell here', [{ text: 'Sarah Mitchell', type: 'Vault Name', vaultFake: 'James Wilson' }], false);
+    expect(text).toBe('hi James Wilson here');
+    expect(replacements[0].fake).toBe('James Wilson');
+  });
+
   test('currency context drives the fake salary', () => {
     const { text, replacements } = redactText('my salary is ₽150,000 ok', [{ text: '150,000', type: 'FINANCIAL', context: 'my salary is ₽150,000' }], true);
     expect(text).toContain('my salary is ₽');

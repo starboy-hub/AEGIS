@@ -17,6 +17,7 @@ console.log(`✓ Wrote dist/manifest.json (version ${pkg.version} from package.j
 // Copy and flatten source files
 const files = [
   { src: 'src/shared/aegis-shared.js', dest: 'dist/aegis-shared.js' },
+  { src: 'src/background/aegis-vault.js', dest: 'dist/aegis-vault.js' },
   { src: 'src/content/modules/fake-data.js', dest: 'dist/fake-data.js' },
   { src: 'src/content/modules/detection-engine.js', dest: 'dist/detection-engine.js' },
   { src: 'src/background/background.js', dest: 'dist/background.js' },

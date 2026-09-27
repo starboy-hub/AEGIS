@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-  const toggles = ['toggleTheme', 'toggleRegex', 'toggleFakeData'];
+  const toggles = ['toggleTheme', 'toggleRegex', 'toggleFakeData', 'toggleVaultRestore'];
   const langSelect = document.getElementById('selectLanguage');
   const sensitivitySelect = document.getElementById('selectSensitivity');
   const customInput = document.getElementById('customPatternsInput');
@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (theme === 'dark') { document.body.classList.add('dark'); document.getElementById('toggleTheme').classList.add('active'); }
     if (s.regexEnabled !== false) document.getElementById('toggleRegex').classList.add('active');
     if (s.useFakeData !== false) document.getElementById('toggleFakeData').classList.add('active');
+    if (s.vaultRestore !== false) document.getElementById('toggleVaultRestore').classList.add('active');
     if (langSelect) langSelect.value = result.manualLanguage || 'auto';
     if (sensitivitySelect) sensitivitySelect.value = s.sensitivity || 'medium';
     if (customInput && s.customPatterns) customInput.value = s.customPatterns;
@@ -28,6 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (id === 'toggleTheme') { s.theme = isActive ? 'dark' : 'light'; if (isActive) document.body.classList.add('dark'); else document.body.classList.remove('dark'); chrome.storage.sync.set({ theme: s.theme }); }
         if (id === 'toggleRegex') s.regexEnabled = isActive;
         if (id === 'toggleFakeData') s.useFakeData = isActive;
+        if (id === 'toggleVaultRestore') s.vaultRestore = isActive;
         chrome.storage.sync.set({ settings: s });
       });
     });
@@ -66,6 +68,71 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     });
   });
+
+  // ==========================================
+  // IDENTITY VAULT
+  // ==========================================
+  function refreshVaultList() {
+    chrome.runtime.sendMessage({ type: 'VAULT_LIST' }, (res) => {
+      const list = document.getElementById('vaultList');
+      if (!list) return;
+      const entries = (res && res.entries) || [];
+      if (!entries.length) {
+        list.innerHTML = '<div class="vault-empty">Vault is empty — add your details above and AEGIS will consistently pseudonymize them.</div>';
+        return;
+      }
+      list.innerHTML = '';
+      entries.forEach(e => {
+        const row = document.createElement('div');
+        row.className = 'vault-item';
+        const label = document.createElement('span');
+        const kindSpan = document.createElement('span');
+        kindSpan.className = 'kind';
+        kindSpan.textContent = e.kind;
+        label.appendChild(kindSpan);
+        label.appendChild(document.createTextNode(AEGIS.maskSensitive(e.value)));
+        const remove = document.createElement('button');
+        remove.className = 'vault-remove';
+        remove.textContent = '✕';
+        remove.title = 'Remove from vault';
+        remove.addEventListener('click', () => {
+          chrome.runtime.sendMessage({ type: 'VAULT_REMOVE', id: e.id }, () => refreshVaultList());
+        });
+        row.appendChild(label);
+        row.appendChild(remove);
+        list.appendChild(row);
+      });
+    });
+  }
+
+  document.getElementById('saveVaultBtn').addEventListener('click', () => {
+    const adds = [];
+    const name = document.getElementById('vaultNameInput').value.trim();
+    const email = document.getElementById('vaultEmailInput').value.trim();
+    const phone = document.getElementById('vaultPhoneInput').value.trim();
+    if (name) adds.push({ kind: 'name', value: name });
+    if (email) adds.push({ kind: 'email', value: email });
+    if (phone) adds.push({ kind: 'phone', value: phone });
+    document.getElementById('vaultCustomInput').value.split('\n').forEach(line => {
+      const v = line.trim();
+      if (v) adds.push({ kind: 'custom', value: v });
+    });
+    if (!adds.length) return;
+    let pending = adds.length;
+    adds.forEach(a => {
+      chrome.runtime.sendMessage({ type: 'VAULT_ADD', ...a }, () => {
+        if (--pending === 0) {
+          ['vaultNameInput', 'vaultEmailInput', 'vaultPhoneInput', 'vaultCustomInput'].forEach(id => { document.getElementById(id).value = ''; });
+          const btn = document.getElementById('saveVaultBtn');
+          btn.textContent = 'In the Vault! 🔐';
+          setTimeout(() => btn.textContent = '🔐 Save to Vault', 2000);
+          refreshVaultList();
+        }
+      });
+    });
+  });
+
+  refreshVaultList();
 });
 
 

@@ -1,6 +1,15 @@
 importScripts('aegis-shared.js');
+importScripts('aegis-vault.js');
 
 const DEFAULT_SETTINGS = AEGIS.DEFAULT_SETTINGS;
+
+// Identity Vault: encrypted storage + per-site pseudonym map
+const vaultStorage = {
+  get: (keys) => new Promise((res) => chrome.storage.local.get(keys, res)),
+  set: (obj) => new Promise((res) => chrome.storage.local.set(obj, res)),
+  remove: (keys) => new Promise((res) => chrome.storage.local.remove(keys, res))
+};
+const vault = AEGIS_VAULT.createVault(vaultStorage, crypto);
 
 // Track pending responses to avoid port errors
 let ollamaCheckPending = false;
@@ -123,7 +132,43 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       sendResponse({ success: true });
       return false;
     }
-    
+
+    // ---- Identity Vault ----
+    if (request.type === 'VAULT_LIST' || request.type === 'VAULT_CORPUS') {
+      vault.listEntries().then((entries) => sendResponse({ entries }));
+      return true;
+    }
+    if (request.type === 'VAULT_ADD') {
+      vault.addEntry(request.kind, request.value)
+        .then((entry) => sendResponse({ ok: !!entry, entry }))
+        .catch((e) => sendResponse({ ok: false, error: e.message }));
+      return true;
+    }
+    if (request.type === 'VAULT_REMOVE') {
+      vault.removeEntry(request.id)
+        .then(() => sendResponse({ ok: true }))
+        .catch((e) => sendResponse({ ok: false, error: e.message }));
+      return true;
+    }
+    if (request.type === 'VAULT_CLEAR') {
+      vault.clearAll()
+        .then(() => sendResponse({ ok: true }))
+        .catch((e) => sendResponse({ ok: false, error: e.message }));
+      return true;
+    }
+    if (request.type === 'PSEUDO_RECORD') {
+      vault.recordPseudo(request.entryId, request.site, request.fake)
+        .then(() => sendResponse({ ok: true }))
+        .catch((e) => sendResponse({ ok: false, error: e.message }));
+      return true;
+    }
+    if (request.type === 'PSEUDO_GET_MAP') {
+      vault.getPseudoMap()
+        .then((map) => sendResponse({ map: map[request.site] || {} }))
+        .catch(() => sendResponse({ map: {} }));
+      return true;
+    }
+
     sendResponse({ error: 'unknown_request_type' });
     return false;
   } catch (error) {

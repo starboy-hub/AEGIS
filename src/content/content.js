@@ -21,12 +21,16 @@ function t(key) { return TRANSLATIONS[currentLang]?.[key] || TRANSLATIONS.en[key
 
 
 let ollamaAvailable = false;
+let vaultCorpus = [], vaultMatchers = [], vaultPseudos = {}, vaultById = {};
 let settings = { aiEnabled: true, regexEnabled: true, useFakeData: true, sensitivity: 'medium', customPatterns: '', trustedSites: [], monitorClipboard: true, notificationSize: 'standard' };
 let isWhitelisted = false, isPaused = false, pauseTimer = null, protectionHistory = [], totalProtected = 0, allTimeProtected = 0, ignoredTexts = new Set(), currentTheme = 'light';
 function tc(light, dark) { return (typeof currentTheme === 'undefined' || currentTheme === 'dark') ? dark : light; }
 function loadTheme() { return new Promise((resolve) => { chrome.storage.sync.get([AEGIS.KEYS.THEME], (r) => { currentTheme = r[AEGIS.KEYS.THEME] || 'light'; resolve(currentTheme); }); }); }
 
 chrome.storage.onChanged.addListener((changes, ns) => {
+  if (ns === 'local') {
+    if (changes[AEGIS.KEYS.VAULT_VERSION] || changes[AEGIS.KEYS.PSEUDO_MAP]) refreshVault();
+  }
   if (ns === 'sync') {
     if (changes.settings) {
       settings = AEGIS.mergeSettings(changes.settings.newValue);
@@ -58,6 +62,76 @@ const historyStore = new HistoryStore();
 async function loadSettings() { return new Promise((resolve) => { chrome.runtime.sendMessage({ type: 'GET_SETTINGS' }, (response) => { if (response && response.settings) { settings = response.settings; if (!settings.trustedSites) settings.trustedSites = []; if (settings.useFakeData === undefined) settings.useFakeData = true; if (settings.monitorClipboard === undefined) settings.monitorClipboard = true; if (settings.notificationSize === undefined) settings.notificationSize = 'standard'; if (settings.sensitivity === undefined) settings.sensitivity = 'medium'; if (settings.customPatterns === undefined) settings.customPatterns = ''; const host = window.location.hostname.toLowerCase(); isWhitelisted = settings.trustedSites.some(t => host === t || host.endsWith('.' + t)); } resolve(settings); }); }); }
 async function checkOllama() { return new Promise((resolve) => { chrome.runtime.sendMessage({ type: 'CHECK_OLLAMA' }, (response) => { ollamaAvailable = response && response.available; resolve(ollamaAvailable); }); }); }
 async function classifyWithAI(text) { if (!ollamaAvailable || !settings.aiEnabled) return { categories: [], redactions: [] }; const ct = AEGIS_ENGINE.cleanText(text); if (ct.length < 15 || ct.length > 300) return { categories: [], redactions: [] }; return new Promise((resolve) => { chrome.runtime.sendMessage({ type: 'CLASSIFY_TEXT', text: ct }, (response) => { resolve(response || { categories: [], redactions: [] }); }); }); }
+
+async function refreshVault() {
+  try {
+    const res = await chrome.runtime.sendMessage({ type: 'VAULT_CORPUS' });
+    vaultCorpus = (res && res.entries) || [];
+    vaultMatchers = AEGIS_VAULT.buildMatchers(vaultCorpus);
+    vaultById = {};
+    vaultCorpus.forEach(e => { vaultById[e.id] = e.value; });
+    const mapRes = await chrome.runtime.sendMessage({ type: 'PSEUDO_GET_MAP', site: location.hostname });
+    vaultPseudos = (mapRes && mapRes.map) || {};
+  } catch (e) { console.warn('🛡️ AEGIS: vault unavailable:', e.message); }
+}
+
+function pickVaultFake(kind, entryId) {
+  const pools = { name: 'names', email: 'emails', phone: 'phones' };
+  const pool = AEGIS_FAKE.FAKE_DATA[pools[kind]];
+  const seed = AEGIS.strHash(entryId + '|' + location.hostname);
+  if (pool && pool.length) return pool[seed % pool.length];
+  return '[Private-' + seed.toString(36) + ']';
+}
+
+function vaultKindLabel(kind) {
+  return 'Vault ' + kind.charAt(0).toUpperCase() + kind.slice(1);
+}
+
+function scanVaultText(text, alerts, redactions, seen) {
+  if (!vaultMatchers.length) return;
+  for (const m of vaultMatchers) {
+    const re = new RegExp(m.regex.source, m.regex.flags);
+    let vm;
+    while ((vm = re.exec(text)) !== null) {
+      if (vm[0].length === 0) { re.lastIndex++; continue; }
+      const matched = vm[0];
+      const typeLabel = vaultKindLabel(m.kind);
+      if (!alerts.find(x => x.source === 'vault' && x.type === typeLabel)) {
+        alerts.push({ type: typeLabel, source: 'vault', severity: 'critical' });
+      }
+      if (!seen.has(matched)) {
+        redactions.push({ text: matched, type: typeLabel, vaultId: m.entryId, vaultKind: m.kind, context: matched });
+        seen.add(matched);
+      }
+    }
+  }
+}
+
+function restoreVaultInResponses() {
+  if (!settings.vaultRestore || !vaultCorpus.length || !Object.keys(vaultPseudos).length) return;
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      const p = node.parentElement;
+      if (!p) return NodeFilter.FILTER_REJECT;
+      // Never touch inputs or anything the user might submit — restoring
+      // real values into a sendable field would leak them
+      if (p.closest('input,textarea') || p.isContentEditable) return NodeFilter.FILTER_REJECT;
+      if (p.closest('[data-aegis]')) return NodeFilter.FILTER_REJECT;
+      return NodeFilter.FILTER_ACCEPT;
+    }
+  });
+  const nodes = [];
+  while (walker.nextNode()) nodes.push(walker.currentNode);
+  nodes.forEach(node => {
+    let v = node.nodeValue;
+    if (!v || v.length < 4) return;
+    for (const entry of vaultCorpus) {
+      const fake = vaultPseudos[entry.id];
+      if (fake && v.includes(fake)) v = v.split(fake).join(entry.value);
+    }
+    if (v !== node.nodeValue) node.nodeValue = v;
+  });
+}
 
 async function scanText(text) {
   const ct = AEGIS_ENGINE.cleanText(text);
@@ -107,6 +181,9 @@ async function scanText(text) {
       }
     }
     
+    // Vault values are user-taught — always detected, at any sensitivity
+    scanVaultText(ct, alerts, redactions, seen);
+
     if (settings.customPatterns) {
       const customPatterns = AEGIS_ENGINE.parseCustomPatterns(settings.customPatterns);
       const custom = AEGIS_ENGINE.scanWithCustomPatterns(ct, customPatterns);
@@ -173,7 +250,19 @@ function removeInlineIndicator() { document.querySelectorAll('.aegis-inline-indi
 function performRedaction(element, redactions) {
   if (!redactions || redactions.length === 0) return { originalText: null, replacements: [] };
   const cur = element.tagName === 'INPUT' || element.tagName === 'TEXTAREA' ? element.value : (element.innerText || '');
-  const result = AEGIS_FAKE.redactText(cur, redactions, settings.useFakeData);
+  // Vault entries get their stable per-site pseudonym here (assigned once,
+  // persisted, then reused so conversations stay coherent)
+  const enriched = redactions.map(r => {
+    if (!r.vaultId) return r;
+    let fake = vaultPseudos[r.vaultId];
+    if (!fake) {
+      fake = pickVaultFake(r.vaultKind, r.vaultId);
+      vaultPseudos[r.vaultId] = fake;
+      try { chrome.runtime.sendMessage({ type: 'PSEUDO_RECORD', entryId: r.vaultId, site: location.hostname, fake }, () => {}); } catch (e) {}
+    }
+    return { ...r, vaultFake: fake };
+  });
+  const result = AEGIS_FAKE.redactText(cur, enriched, settings.useFakeData);
   const txt = result.text; const reps = result.replacements; const orig = cur;
   if (txt !== orig) {
     if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
@@ -371,8 +460,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 async function init() {
-  console.log('🛡️ AEGIS v5.5: Complete Final Build starting...');
-  await historyStore.load(); await loadSettings(); await loadTheme();
+  console.log('🛡️ AEGIS: Complete Build starting...');
+  await historyStore.load(); await loadSettings(); await loadTheme(); await refreshVault();
   chrome.storage.sync.get(['manualLanguage'], (result) => {
     const manualLang = result.manualLanguage || 'auto';
     if (manualLang !== 'auto' && TRANSLATIONS[manualLang]) { currentLang = manualLang; }
@@ -383,8 +472,8 @@ async function init() {
   popup = new AEGISPopup();
   document.addEventListener('input', handleInputEvent, true); document.addEventListener('keyup', handleInputEvent, true);
   document.addEventListener('focusin', (e) => { const el = e.target; if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.getAttribute('contenteditable') === 'true')) handleInputEvent(); }, true);
-  _scanInterval = setInterval(() => { if (!document.hidden) performScan(); }, 2000);
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) performScan(); });
+  _scanInterval = setInterval(() => { if (!document.hidden) { performScan(); restoreVaultInResponses(); } }, 2000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { performScan(); restoreVaultInResponses(); } });
   document.addEventListener('mousemove', (e) => popup.onDrag(e)); document.addEventListener('mouseup', () => popup.endDrag());
   setupKeyboardShortcuts(); setupSubmissionGuard(); setupAttachmentGuard();
   if (isWhitelisted) { popup.minimize(); return; }

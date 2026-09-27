@@ -97,7 +97,7 @@
     const replacements = [];
     [...redactions].sort((a, b) => (b.text || '').length - (a.text || '').length).forEach(r => {
       if (!r.text || r.text.length === 0) return;
-      const rep = useFakeData ? getFakeData(r.type, r.context || r.text) : '[REDACTED-' + r.type + ']';
+      const rep = r.vaultFake || (useFakeData ? getFakeData(r.type, r.context || r.text) : '[REDACTED-' + r.type + ']');
       if (!shared) return;
       const flexible = shared.flexiblePattern(r.text);
       if (flexible.test(txt)) {

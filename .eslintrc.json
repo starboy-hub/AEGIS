@@ -12,7 +12,8 @@
     "chrome": "readonly",
     "AEGIS": "readonly",
     "AEGIS_ENGINE": "readonly",
-    "AEGIS_FAKE": "readonly"
+    "AEGIS_FAKE": "readonly",
+    "AEGIS_VAULT": "readonly"
   },
   "parserOptions": {
     "ecmaVersion": 2022,

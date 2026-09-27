@@ -20,7 +20,12 @@
     HISTORY: 'aegis_history',           // [{ timestamp, site, type, original, fake }]
     HISTORY_SUMMARY: 'aegis_summary',   // { allTime, lastUpdated }
     ONBOARDED: 'onboarded',
-    POPUP_POSITION: 'popupPosition'
+    POPUP_POSITION: 'popupPosition',
+    // Vault (background-owned; encrypted blob + plaintext pseudonym map)
+    VAULT_KEY: 'vault_key',
+    VAULT_DATA: 'vault_data',
+    VAULT_VERSION: 'vault_version',
+    PSEUDO_MAP: 'aegis_pseudo_map'
   };
 
   const DEFAULT_SETTINGS = {
@@ -32,7 +37,8 @@
     trustedSites: [],
     monitorClipboard: true,
     theme: 'light',
-    notificationSize: 'standard'
+    notificationSize: 'standard',
+    vaultRestore: true
   };
 
   function mergeSettings(stored) {
@@ -86,7 +92,20 @@
     return s.slice(0, 2) + '•'.repeat(Math.min(Math.max(s.length - 2, 4), 8));
   }
 
-  const AEGIS = { KEYS, DEFAULT_SETTINGS, mergeSettings, statsFromHistory, isSameDay, flexiblePattern, maskSensitive };
+  /**
+   * FNV-1a 32-bit string hash — used for deterministic pseudonym picks
+   * (same entry + same site must always produce the same fake).
+   */
+  function strHash(s) {
+    let h = 2166136261;
+    for (let i = 0; i < s.length; i++) {
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return h >>> 0;
+  }
+
+  const AEGIS = { KEYS, DEFAULT_SETTINGS, mergeSettings, statsFromHistory, isSameDay, flexiblePattern, maskSensitive, strHash };
   root.AEGIS = AEGIS;
   if (typeof module !== 'undefined' && module.exports) module.exports = AEGIS;
 })(typeof self !== 'undefined' ? self : globalThis);

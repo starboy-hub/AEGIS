@@ -18,6 +18,11 @@ select,textarea{padding:8px 12px;border-radius:6px;border:1px solid var(--border
 textarea{width:100%;height:120px;font-family:monospace;font-size:13px;resize:vertical;margin-top:8px}
 .save-btn{padding:8px 16px;background:var(--primary);color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;margin-top:8px}
 .footer{margin-top:40px;text-align:center;font-size:12px;color:#999}
+.vault-input{width:100%;padding:8px 12px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:14px;margin-top:8px}
+.vault-item{display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:var(--card);border:1px solid var(--border);border-radius:6px;margin-top:4px;font-size:13px}
+.vault-item .kind{color:var(--primary);font-weight:600;margin-right:8px}
+.vault-remove{background:none;border:none;color:#e05252;cursor:pointer;font-size:14px;padding:2px 6px}
+.vault-empty{font-size:12px;color:#999;margin-top:8px}
 </style></head><body>
 <h1>🛡️ AEGIS Settings</h1>
 <div class="subtitle">Configure your AI privacy shield</div>
@@ -59,6 +64,21 @@ textarea{width:100%;height:120px;font-family:monospace;font-size:13px;resize:ver
 </div>
 
 <div class="setting-row" style="flex-direction:column;align-items:flex-start">
+  <div class="setting-info" style="width:100%"><div class="setting-label">🔐 Identity Vault</div><div class="setting-desc">AEGIS detects and consistently pseudonymizes these values everywhere — encrypted, never leaves this device</div></div>
+  <input id="vaultNameInput" class="vault-input" placeholder="Your full name (e.g. Sarah Mitchell)">
+  <input id="vaultEmailInput" class="vault-input" placeholder="Your email">
+  <input id="vaultPhoneInput" class="vault-input" placeholder="Your phone (any format)">
+  <textarea id="vaultCustomInput" style="height:70px" placeholder="Anything else, one per line — address, employer, national ID…"></textarea>
+  <button id="saveVaultBtn" class="save-btn">🔐 Save to Vault</button>
+  <div id="vaultList" style="width:100%;margin-top:8px"></div>
+</div>
+
+<div class="setting-row">
+  <div class="setting-info"><div class="setting-label">🔓 Un-mask in responses</div><div class="setting-desc">Show your real values when an AI reply contains their pseudonym</div></div>
+  <div id="toggleVaultRestore" class="toggle"></div>
+</div>
+
+<div class="setting-row" style="flex-direction:column;align-items:flex-start">
   <div class="setting-info" style="width:100%"><div class="setting-label">🔧 Custom Regex</div><div class="setting-desc">Format: TYPE:/regex/flags</div></div>
   <textarea id="customPatternsInput" placeholder="EMPLOYEE_ID:/EMP-\d{5}/g"></textarea>
   <button id="saveCustomPatternsBtn" class="save-btn">Save</button>
@@ -70,6 +90,6 @@ textarea{width:100%;height:120px;font-family:monospace;font-size:13px;resize:ver
   <button id="saveTrustedSitesBtn" class="save-btn">Save</button>
 </div>
 
-<div class="footer">AEGIS v5.5 • 100% Local</div>
+<div class="footer">AEGIS • 100% Local</div>
 <script src="options.js"></script>
 </body></html>
