@@ -2,6 +2,20 @@
 
 All notable changes to AEGIS will be documented in this file.
 
+## [6.4.1] - 2026-09-27
+
+### Added — 🧪 E2E test net (Playwright)
+
+- Five end-to-end tests driving the *real built extension* in real Chromium
+  against a mock AI-chat page (`e2e/`): extension load + dashboard, outbound
+  PII detection + Protect swap, submission-guard block/cancel, the full Vault
+  journey (teach via Options → detect plain name → deterministic pseudonym),
+  and the Sentinel scam banner
+- `npm run test:e2e` (Playwright 1.44, pinned for macOS 12 support);
+  extensions require headed Chromium, so CI runs the suite under xvfb as a
+  dedicated job
+- 87 unit tests unchanged and green
+
 ## [6.4.0] - 2026-09-27
 
 ### Added — 🚨 Sentinel: inbound scam defense (AI vs AI)

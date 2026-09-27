@@ -30,3 +30,25 @@ jobs:
 
       - name: Verify dist is complete
         run: node scripts/verify-dist.js
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium (with system deps)
+        run: npx playwright install --with-deps chromium
+
+      - name: Build extension
+        run: npm run build
+
+      - name: Run E2E (headed Chromium under xvfb — extensions need headed mode)
+        run: xvfb-run --auto-servernum npx playwright test
