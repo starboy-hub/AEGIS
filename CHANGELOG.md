@@ -2,6 +2,16 @@
 
 All notable changes to AEGIS will be documented in this file.
 
+## [6.3.1] - 2026-09-27
+
+### Fixed
+- Vault was unavailable on pages: aegis-vault.js was missing from the content
+  script list in the manifest (background loaded it, pages did not) —
+  "AEGIS_VAULT is not defined" at startup, vault detection and restore
+  silently disabled. Now loaded before content.js
+- Options page crashed rendering the vault list: aegis-shared.js was never
+  loaded there (AEGIS.maskSensitive undefined)
+
 ## [6.3.0] - 2026-09-27
 
 ### Added — 🔐 The Identity Vault

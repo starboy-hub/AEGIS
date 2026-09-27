@@ -3,7 +3,7 @@
 (function() {
   'use strict';
 
-console.log('🛡️ AEGIS v6.0: Enterprise Build Loaded');
+console.log('🛡️ AEGIS: Content script loaded');
 
 const TRANSLATIONS = {
   en: { sensitiveDetected: 'Sensitive Data Detected', proceed: 'Are you sure you want to proceed?', cancel: 'Cancel', sendAnyway: 'Send Anyway', protectTip: 'Tip: Click Protect in the AEGIS popup to replace sensitive data first', imageUpload: 'Image Upload Detected', aiCanRead: 'AI can read text and faces in images. Does this file contain IDs or sensitive info?', privacyRisk: 'Privacy Risk: Once uploaded, you cannot control who accesses this file.', cancelUpload: 'Cancel Upload', uploadAnyway: 'Upload Anyway', sensitiveFilename: 'Sensitive Filename', containsKeywords: 'contains sensitive keywords.', welcome: 'Welcome to AEGIS!', welcomeText: 'I\'ll protect your sensitive data as you type.', quickProtect: 'Tip: Press ⌘+Enter to quick-protect', gotIt: 'Got it!' },
