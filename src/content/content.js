@@ -23,6 +23,7 @@ function t(key) { return TRANSLATIONS[currentLang]?.[key] || TRANSLATIONS.en[key
 let ollamaAvailable = false;
 let vaultCorpus = [], vaultMatchers = [], vaultPseudos = {}, vaultById = {};
 let sentinelAnalyzed = new Set(), sentinelBannerEl = null, sentinelBannerLevel = '';
+let injectionSeen = new Set(), injectionBannerEl = null;
 let settings = { aiEnabled: true, regexEnabled: true, useFakeData: true, sensitivity: 'medium', customPatterns: '', trustedSites: [], monitorClipboard: true, notificationSize: 'standard' };
 let isWhitelisted = false, isPaused = false, pauseTimer = null, protectionHistory = [], totalProtected = 0, allTimeProtected = 0, ignoredTexts = new Set(), currentTheme = 'light';
 function tc(light, dark) { return (typeof currentTheme === 'undefined' || currentTheme === 'dark') ? dark : light; }
@@ -195,6 +196,79 @@ function sentinelPass() {
     }
     showSentinelBanner(result, text);
     try { historyStore.add({ original: 'inbound message', fake: AEGIS_SENTINEL.topSignals(result, 2).join(', '), type: 'SENTINEL' }); } catch (e) {}
+  });
+}
+
+// ---- Injection Firewall: hidden/prompt-injection detection (AI vs AI) ----
+
+function isInvisibleText(el) {
+  const style = getComputedStyle(el);
+  if (style.display === 'none' || style.visibility === 'hidden') return true;
+  if (parseFloat(style.opacity) === 0) return true;
+  if (style.color === 'transparent') return true;
+  // color that fades out (rgba(..., 0))
+  if (/rgba\([\d\s,.]+,\s*0\)$/.test(style.color)) return true;
+  // white-on-white style concealment
+  if (style.color === style.backgroundColor && style.backgroundColor !== 'rgba(0, 0, 0, 0)') return true;
+  if (parseFloat(style.fontSize) <= 1) return true;
+  if (parseInt(style.textIndent, 10) <= -500) return true;
+  const rect = el.getBoundingClientRect();
+  if (rect.right < -100 || rect.bottom < -100) return true;
+  return false;
+}
+
+function showInjectionBanner(result, hidden) {
+  if (injectionBannerEl) injectionBannerEl.remove();
+  injectionBannerEl = document.createElement('div');
+  injectionBannerEl.setAttribute('data-aegis', 'injection-banner');
+  const top = sentinelBannerEl ? sentinelBannerEl.offsetHeight + 'px' : '0px';
+  injectionBannerEl.style.cssText = 'position:fixed!important;top:' + top + '!important;left:0!important;right:0!important;z-index:2147483646!important;display:flex;align-items:center;gap:10px;padding:10px 16px;font-family:-apple-system,sans-serif;font-size:13px;color:#fff!important;background:' + (result.level === 'dangerous' ? '#7b1fa2' : '#8d6e63') + '!important;box-shadow:0 2px 8px rgba(0,0,0,.3)';
+  const signals = AEGIS_INJECTION.topSignals(result, 2).join(' + ');
+  const label = document.createElement('span');
+  label.style.fontWeight = '700';
+  label.textContent = (result.level === 'dangerous' ? '🛑 Injection Firewall: hidden AI instructions' : '🛡️ Injection Firewall: AI-directed text') + (hidden ? ' (invisible on page)' : '');
+  const desc = document.createElement('span');
+  desc.style.cssText = 'flex:1;opacity:.95;';
+  desc.textContent = (signals ? signals + ' — ' : '') + result.advice;
+  const btn = document.createElement('button');
+  btn.textContent = 'Dismiss';
+  btn.style.cssText = 'background:rgba(255,255,255,.2);border:none;color:white;padding:4px 10px;border-radius:4px;cursor:pointer;font-weight:600;';
+  btn.addEventListener('click', () => { if (injectionBannerEl) injectionBannerEl.remove(); injectionBannerEl = null; });
+  injectionBannerEl.appendChild(label);
+  injectionBannerEl.appendChild(desc);
+  injectionBannerEl.appendChild(btn);
+  document.body.appendChild(injectionBannerEl);
+  console.info('🛡️ Injection Firewall:', result.level, result.score, hidden ? '(hidden text)' : '(visible text)');
+}
+
+function injectionPass() {
+  if (!settings.injectionFirewall) return;
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      const p = node.parentElement;
+      if (!p) return NodeFilter.FILTER_REJECT;
+      if (p.closest('input,textarea') || p.isContentEditable) return NodeFilter.FILTER_REJECT;
+      if (p.closest('[data-aegis]')) return NodeFilter.FILTER_REJECT;
+      return (node.nodeValue || '').trim().length >= 15 ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+    }
+  });
+  const nodes = [];
+  while (walker.nextNode() && nodes.length < 400) nodes.push(walker.currentNode);
+  nodes.forEach(node => {
+    const text = node.nodeValue.trim();
+    const hash = AEGIS.strHash(text);
+    if (injectionSeen.has(hash)) return;
+    injectionSeen.add(hash);
+    let hidden = false;
+    try { hidden = isInvisibleText(node.parentElement); } catch (e) {}
+    const result = AEGIS_INJECTION.analyzeInjection(text);
+    const patterned = result.level === 'dangerous' || result.level === 'suspicious' || result.level === 'low';
+    // Visible text must show clear injection patterns; hidden text is
+    // suspicious on its own when it carries AI-directed language or length
+    if (!hidden && (!patterned || result.level === 'low')) return;
+    if (hidden && result.level === 'none' && text.length < 100) return;
+    showInjectionBanner(result, hidden);
+    try { historyStore.add({ original: hidden ? 'hidden page text' : 'page text', fake: AEGIS_INJECTION.topSignals(result, 2).join(', '), type: 'INJECTION' }); } catch (e) {}
   });
 }
 
@@ -537,8 +611,8 @@ async function init() {
   popup = new AEGISPopup();
   document.addEventListener('input', handleInputEvent, true); document.addEventListener('keyup', handleInputEvent, true);
   document.addEventListener('focusin', (e) => { const el = e.target; if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.getAttribute('contenteditable') === 'true')) handleInputEvent(); }, true);
-  _scanInterval = setInterval(() => { if (!document.hidden) { performScan(); restoreVaultInResponses(); sentinelPass(); } }, 2000);
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) { performScan(); restoreVaultInResponses(); sentinelPass(); } });
+  _scanInterval = setInterval(() => { if (!document.hidden) { performScan(); restoreVaultInResponses(); sentinelPass(); injectionPass(); } }, 2000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { performScan(); restoreVaultInResponses(); sentinelPass(); injectionPass(); } });
   document.addEventListener('mousemove', (e) => popup.onDrag(e)); document.addEventListener('mouseup', () => popup.endDrag());
   setupKeyboardShortcuts(); setupSubmissionGuard(); setupAttachmentGuard();
   if (isWhitelisted) { popup.minimize(); return; }

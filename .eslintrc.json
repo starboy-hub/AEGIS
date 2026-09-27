@@ -14,7 +14,8 @@
     "AEGIS_ENGINE": "readonly",
     "AEGIS_FAKE": "readonly",
     "AEGIS_VAULT": "readonly",
-    "AEGIS_SENTINEL": "readonly"
+    "AEGIS_SENTINEL": "readonly",
+    "AEGIS_INJECTION": "readonly"
   },
   "parserOptions": {
     "ecmaVersion": 2022,

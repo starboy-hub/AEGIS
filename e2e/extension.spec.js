@@ -103,3 +103,10 @@ test('sentinel: a scam message on the page triggers the warning banner', async (
   await expect(page.locator('[data-aegis="sentinel-banner"]')).toContainText('Sentinel');
   await context.close();
 });
+
+test('injection firewall: hidden prompt-injection text triggers the banner', async () => {
+  const { context, page } = await launchWithExtension();
+  await page.waitForSelector('[data-aegis="injection-banner"]', { timeout: 25000 });
+  await expect(page.locator('[data-aegis="injection-banner"]')).toContainText('Injection Firewall');
+  await context.close();
+});

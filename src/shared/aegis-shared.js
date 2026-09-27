@@ -39,7 +39,8 @@
     theme: 'light',
     notificationSize: 'standard',
     vaultRestore: true,
-    sentinelEnabled: true
+    sentinelEnabled: true,
+    injectionFirewall: true
   };
 
   function mergeSettings(stored) {

@@ -1,12 +1,12 @@
 {
   "manifest_version": 3,
   "name": "AEGIS: Universal AI Privacy Shield",
-  "version": "6.4.1",
+  "version": "6.5.0",
   "description": "Open-source endpoint DLP. Intercepts and redacts PII before it reaches AI platforms. 100% local.",
   "permissions": ["activeTab", "storage"],
   "host_permissions": ["<all_urls>"],
   "background": { "service_worker": "background.js" },
-  "content_scripts": [{ "matches": ["<all_urls>"], "js": ["aegis-shared.js", "aegis-vault.js", "fake-data.js", "detection-engine.js", "sentinel-engine.js", "content.js"], "run_at": "document_end" }],
+  "content_scripts": [{ "matches": ["<all_urls>"], "js": ["aegis-shared.js", "aegis-vault.js", "fake-data.js", "detection-engine.js", "sentinel-engine.js", "injection-engine.js", "content.js"], "run_at": "document_end" }],
   "action": {
     "default_popup": "popup.html",
     "default_icon": { "16": "icons/icon16.png", "48": "icons/icon48.png", "128": "icons/icon128.png" }

@@ -2,6 +2,34 @@
 
 All notable changes to AEGIS will be documented in this file.
 
+## [6.5.0] - 2026-09-27
+
+### Added — 🛡️ Injection Firewall: prompt-injection detection
+
+AEGIS now detects content crafted to hijack AI systems — the attack surface
+of the agentic-AI era.
+
+- **Injection engine** (`src/content/modules/injection-engine.js`): weighted
+  detection of instruction-override phrases, fake system/role markers
+  (`System:`, `[INST]`, `<|im_start|>`), system-prompt extraction attempts,
+  data-exfiltration instructions, safety-bypass phrases, encoded-payload
+  tricks, and AI-directed language — scored like Sentinel
+- **Hidden-text detection — the signature capability**: injection payloads
+  are typically invisible to humans (transparent color, white-on-white,
+  1px fonts, `text-indent: -9999px`, off-screen positioning, `display:none`)
+  but fully readable by AI scrapers and agents. AEGIS compares DOM text
+  against rendered styles and flags invisible instruction text; legitimate
+  screen-reader text stays whitelisted (it must carry injection patterns or
+  be substantial AI-directed text to flag)
+- **Page banner** (stacks with the Sentinel banner), audit-history recording
+  (message text never stored), and a dedicated `injectionFirewall` setting
+  (default on)
+- False-positive guards verified: ordinary phrases ("You are now leaving our
+  website", "send the data to the server", recipe instructions) do not flag
+- **6th E2E journey**: planted hidden injection text in the mock page must
+  trigger the banner; `npm run test:e2e` now rebuilds dist first (E2E always
+  tests the current build). 98 unit tests passing (was 87)
+
 ## [6.4.1] - 2026-09-27
 
 ### Added — 🧪 E2E test net (Playwright)

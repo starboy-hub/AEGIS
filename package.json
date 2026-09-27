@@ -1,13 +1,13 @@
 {
   "name": "aegis-extension",
-  "version": "6.4.1",
+  "version": "6.5.0",
   "description": "AEGIS Data Cloak - Universal AI privacy shield browser extension",
   "main": "build.js",
   "scripts": {
     "build": "node build.js",
     "lint": "eslint \"src/**/*.js\" \"tests/**/*.js\"",
     "test": "jest --coverage",
-    "test:e2e": "playwright test",
+    "test:e2e": "npm run build && playwright test",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage --reporters=default --reporters=html"
   },
