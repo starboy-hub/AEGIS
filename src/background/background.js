@@ -1,17 +1,13 @@
-const DEFAULT_SETTINGS = {
-  aiEnabled: true, 
-  regexEnabled: true, 
-  useFakeData: true,
-  sensitivity: 'medium', 
-  customPatterns: '', 
-  trustedSites: [],
-  monitorClipboard: true, 
-  theme: 'light',
-  notificationSize: 'standard'
-};
+importScripts('aegis-shared.js');
+
+const DEFAULT_SETTINGS = AEGIS.DEFAULT_SETTINGS;
+const KEYS = AEGIS.KEYS;
 
 // Track pending responses to avoid port errors
 let ollamaCheckPending = false;
+// Last known Ollama availability, updated by CHECK_OLLAMA so CLASSIFY_TEXT
+// can trust it instead of referencing an undefined variable
+let ollamaAvailable = false;
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.storage.sync.get(['settings'], (result) => {
@@ -60,6 +56,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       ollamaCheckPending = true;
       const timeoutId = setTimeout(() => {
         ollamaCheckPending = false;
+        ollamaAvailable = false;
         sendResponse({ available: false, reason: 'timeout' });
       }, 3000);
       
@@ -70,11 +67,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         .then(r => {
           clearTimeout(timeoutId);
           ollamaCheckPending = false;
+          ollamaAvailable = r.ok;
           sendResponse({ available: r.ok });
         })
         .catch(() => {
           clearTimeout(timeoutId);
           ollamaCheckPending = false;
+          ollamaAvailable = false;
           sendResponse({ available: false, reason: 'unreachable' });
         });
       return true;

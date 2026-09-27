@@ -1,14 +1,19 @@
 /**
  * AEGIS Fake Data Generator
- * Generates realistic fake PII data for redaction
+ * Generates realistic fake PII data for redaction.
+ *
+ * Safety rules (keep in sync with the inline copy in src/content/content.js):
+ *   - Credit cards are realistic-looking but deliberately FAIL the Luhn
+ *     checksum, so they can never be mistaken for a real, chargeable card.
+ *   - SSNs use areas that are never issued by the SSA (000, 666, 900-999).
  */
 
 const FAKE_DATA = {
   names: ['James Wilson', 'Sarah Chen', 'Michael Brown', 'Emily Davis', 'Robert Taylor', 'Lisa Anderson', 'Carlos García', 'María Rodríguez', 'Jean Dupont', 'Marie Laurent', 'Hans Müller', 'Anna Schmidt', 'João Silva', 'Ana Costa', 'Marco Rossi', 'Giulia Bianchi', 'Ivan Ivanov', 'Maria Petrova', 'Wei Zhang', 'Li Wang', 'Mohammed Al-Sayed', 'Fatima Hassan', 'Yuki Tanaka', 'Kenji Sato', 'Olga Sokolova', 'Dmitry Volkov', 'Ahmed Ali', 'Layla Mansour', 'Chen Wei', 'Liu Yang', 'Sofia Popov', 'Andrei Novak', 'Elena Rossi', 'Lucas Silva', 'Isabella Costa', 'Noah Williams', 'Emma Johnson', 'David Kim', 'Priya Patel', 'Omar Hassan'],
   emails: ['user_8f7a2@example.com', 'contact_3k9x1@sample.net', 'info_5m2p4@test.org', 'hello_7j6n8@demo.io', 'admin_9b2c3@mock.com', 'support_1a4d5@fake.net', 'dev_6e8f9@test.io', 'team_2x5y7@sample.org', 'hello_4k8m1@demo.com', 'info_9p3q2@mock.net', 'contact_7h3j9@example.org', 'user_2m5n8@sample.io', 'mail_3b7c1@test.com', 'dev_8x2y4@mock.io', 'info_5k9m2@sample.net'],
   phones: ['555-0147-8234', '555-0183-9472', '555-0129-6358', '555-0164-2791', '555-0192-3847', '555-0156-7293', '555-0138-4920', '555-0174-8392', '555-0111-2233', '555-0144-5566', '555-0177-8899', '555-0100-1122'],
-  ssns: ['073-64-2918', '557-16-2417', '219-48-7362', '482-91-5634', '128-39-4756', '647-28-1935', '935-71-2846', '384-62-9175', '519-83-4726', '274-91-5836', '836-42-1957', '691-53-2847'],
-  creditCards: ['6011-1111-1111-1117', '4916-3389-0472-1158', '5425-2334-8876-9921', '4532-8871-2934-1156', '5193-7742-9918-3345', '6011-4429-8817-2234', '4916-1122-3344-5566', '5425-7788-9900-1122'],
+  ssns: ['000-12-3456', '000-45-6789', '666-98-7654', '666-54-3210', '999-11-2222', '999-33-4444', '000-77-8899', '666-12-9034', '999-88-7766', '000-31-7549', '666-47-8213', '999-52-6041'],
+  creditCards: ['4532-8871-2934-1150', '4916-3389-0472-1150', '5425-2334-8876-9920', '5193-7742-9918-3340', '6011-1111-1111-1110', '4532-9871-5534-8860', '4916-8811-7742-2291', '5425-6699-3311-0040'],
   ips: ['10.20.30.40', '192.168.99.99', '172.16.0.1', '10.0.0.99', '192.0.2.1', '198.51.100.1', '203.0.113.1'],
   medicals: ['seasonal allergies', 'mild asthma', 'common cold', 'myopia', 'hypertension', 'migraines', 'vitamin D deficiency', 'mild anxiety', 'seasonal depression'],
   meds: ['famotidine', 'loratadine', 'ibuprofen', 'acetaminophen', 'omeprazole', 'cetirizine', 'amoxicillin', 'metformin', 'lisinopril'],
@@ -63,4 +68,4 @@ function getFakeData(type, originalText = '') {
     default: return '[REDACTED-' + type + ']';
   }
 }
-module.exports = { getFakeData };
+module.exports = { getFakeData, FAKE_DATA };
