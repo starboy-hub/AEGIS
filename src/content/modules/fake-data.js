@@ -84,7 +84,32 @@
     }
   }
 
-  const AEGIS_FAKE = { FAKE_DATA, getFakeData };
+  /**
+   * Pure Protect-path: apply redactions to a raw text value. Detections are
+   * computed on whitespace-normalized text, so matching is whitespace-
+   * tolerant; longest matches apply first; each applied swap is recorded.
+   * @returns {{text: string, replacements: Array<{original, fake, type, timestamp}>}}
+   */
+  function redactText(text, redactions, useFakeData) {
+    if (!text || !redactions || redactions.length === 0) return { text, replacements: [] };
+    const shared = root.AEGIS || (typeof require === 'function' ? require('../../shared/aegis-shared.js') : null);
+    let txt = text;
+    const replacements = [];
+    [...redactions].sort((a, b) => (b.text || '').length - (a.text || '').length).forEach(r => {
+      if (!r.text || r.text.length === 0) return;
+      const rep = useFakeData ? getFakeData(r.type, r.context || r.text) : '[REDACTED-' + r.type + ']';
+      if (!shared) return;
+      const flexible = shared.flexiblePattern(r.text);
+      if (flexible.test(txt)) {
+        flexible.lastIndex = 0;
+        replacements.push({ original: r.text, fake: rep, type: r.type, timestamp: new Date().toISOString() });
+        txt = txt.replace(flexible, rep);
+      }
+    });
+    return { text: txt, replacements };
+  }
+
+  const AEGIS_FAKE = { FAKE_DATA, getFakeData, redactText };
   root.AEGIS_FAKE = AEGIS_FAKE;
   if (typeof module !== 'undefined' && module.exports) module.exports = AEGIS_FAKE;
 })(typeof self !== 'undefined' ? self : globalThis);

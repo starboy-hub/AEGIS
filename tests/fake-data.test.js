@@ -2,9 +2,54 @@
  * Tests for AEGIS Fake Data Generator
  */
 
-const { getFakeData, FAKE_DATA } = require('../src/content/modules/fake-data.js');
+const { getFakeData, FAKE_DATA, redactText } = require('../src/content/modules/fake-data.js');
 const contentSrc = require('fs').readFileSync(
   require('path').join(__dirname, '..', 'src', 'content', 'content.js'), 'utf8');
+
+describe('redactText (the Protect path)', () => {
+  test('swaps a detected value for fake data and records the replacement', () => {
+    const { text, replacements } = redactText('my email is john@x.com ok', [{ text: 'john@x.com', type: 'Email' }], true);
+    expect(text).toBe('my email is ' + replacements[0].fake + ' ok');
+    expect(replacements).toHaveLength(1);
+    expect(replacements[0].original).toBe('john@x.com');
+    expect(replacements[0].type).toBe('Email');
+  });
+
+  test('useFakeData=false produces [REDACTED-TYPE] placeholders', () => {
+    const { text } = redactText('ssn 123-45-6789', [{ text: '123-45-6789', type: 'SSN' }], false);
+    expect(text).toBe('ssn [REDACTED-SSN]');
+  });
+
+  test('matches across line breaks (detection ran on normalized text)', () => {
+    const redactions = [{ text: 'I work at TechCorp in Seattle', type: 'EMPLOYMENT', context: 'I work at TechCorp in Seattle' }];
+    const raw = 'I work at TechCorp in Seattle\n- more text';
+    const { text, replacements } = redactText(raw, redactions, true);
+    expect(replacements).toHaveLength(1);
+    expect(text).toContain('- more text');
+    expect(text).not.toContain('TechCorp');
+  });
+
+  test('no matches -> text unchanged, nothing recorded', () => {
+    const { text, replacements } = redactText('nothing here', [{ text: 'missing-value', type: 'SSN' }], true);
+    expect(text).toBe('nothing here');
+    expect(replacements).toHaveLength(0);
+  });
+
+  test('longer redactions apply first (no partial-clobbering)', () => {
+    const redactions = [
+      { text: '456', type: 'X' },
+      { text: '123456', type: 'Y' }
+    ];
+    const { text } = redactText('id 123456 end', redactions, false);
+    expect(text).toBe('id [REDACTED-Y] end');
+  });
+
+  test('currency context drives the fake salary', () => {
+    const { text, replacements } = redactText('my salary is ₽150,000 ok', [{ text: '150,000', type: 'FINANCIAL', context: 'my salary is ₽150,000' }], true);
+    expect(text).toContain('my salary is ₽');
+    expect(replacements[0].fake).toMatch(/^₽/);
+  });
+});
 
 // Luhn checksum — fake cards must FAIL it so they can never be charged
 function luhnValid(numStr) {
@@ -105,7 +150,7 @@ describe('Fake Data Generator', () => {
 
     test('content.js no longer carries an inline FAKE_DATA copy (single source of truth)', () => {
       expect(contentSrc).not.toContain('FAKE_DATA = {');
-      expect(contentSrc).toContain('AEGIS_FAKE.getFakeData(');
+      expect(contentSrc).toContain('AEGIS_FAKE.redactText(');
     });
   });
 });

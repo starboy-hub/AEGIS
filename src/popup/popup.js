@@ -75,7 +75,33 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  document.getElementById('exportLogs').addEventListener('click', () => {
-    alert('Audit logs export feature coming soon in v6.1!');
+  // Real audit-log export: downloads the protection history as JSON.
+  // Originals are masked (2-char prefix) — an audit file must never leak
+  // the secrets it helped protect.
+  document.getElementById('exportLogs').addEventListener('click', async () => {
+    try {
+      const local = await chrome.storage.local.get([AEGIS.KEYS.HISTORY, AEGIS.KEYS.HISTORY_SUMMARY]);
+      const history = local[AEGIS.KEYS.HISTORY] || [];
+      const payload = {
+        exported: new Date().toISOString(),
+        summary: local[AEGIS.KEYS.HISTORY_SUMMARY] || { allTime: 0 },
+        items: history.map(h => ({
+          timestamp: h.timestamp,
+          type: h.type,
+          site: h.site,
+          original: AEGIS.maskSensitive(h.original),
+          fake: h.fake
+        }))
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `aegis-audit-${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('AEGIS popup: export failed:', err);
+    }
   });
 });

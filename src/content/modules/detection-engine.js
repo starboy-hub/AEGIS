@@ -51,6 +51,22 @@
     return parsed;
   }
 
+  /**
+   * Luhn checksum — real card numbers pass it; ordinary 16-digit numbers
+   * (order IDs, tracking codes) usually fail. Fake cards deliberately fail.
+   */
+  function luhnValid(value) {
+    const digits = String(value).replace(/[^0-9]/g, '');
+    if (digits.length < 12) return false;
+    let sum = 0, alt = false;
+    for (let i = digits.length - 1; i >= 0; i--) {
+      let d = digits.charCodeAt(i) - 48;
+      if (alt) { d *= 2; if (d > 9) d -= 9; }
+      sum += d; alt = !alt;
+    }
+    return sum % 10 === 0;
+  }
+
   function scanWithRegex(text) {
     if (!text || text.length < 5) return { alerts: [], redactions: [] };
     const alerts = [], redactions = [];
@@ -65,6 +81,9 @@
         // labels like "Date of Birth is" survive; m[0] is kept as context
         // so fake-data can stay currency/keyword-aware.
         const value = m[1] !== undefined ? m[1] : m[0];
+        // Credit cards must pass Luhn — a random 16-digit number is an
+        // order/tracking ID, not a card
+        if (name === 'Credit Card' && !luhnValid(value)) continue;
         if (!seenTypes.has(name)) { seenTypes.add(name); alerts.push({ type: name, source: 'regex', severity: 'high' }); }
         redactions.push({ text: value, type: name, context: m[0] });
       }
@@ -116,7 +135,7 @@
 
   function cleanText(t) { return t.replace(/\{[^}]*\}/g,'').replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/g,'').replace(/\s+/g,' ').trim(); }
 
-  const AEGIS_ENGINE = { PII_PATTERNS, CONTEXT_PATTERNS, parseCustomPatterns, scanWithRegex, scanWithContext, scanWithCustomPatterns, findNamesHeuristic, cleanText };
+  const AEGIS_ENGINE = { PII_PATTERNS, CONTEXT_PATTERNS, parseCustomPatterns, scanWithRegex, scanWithContext, scanWithCustomPatterns, findNamesHeuristic, cleanText, luhnValid };
   root.AEGIS_ENGINE = AEGIS_ENGINE;
   if (typeof module !== 'undefined' && module.exports) module.exports = AEGIS_ENGINE;
 })(typeof self !== 'undefined' ? self : globalThis);

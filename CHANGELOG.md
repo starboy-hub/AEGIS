@@ -2,6 +2,33 @@
 
 All notable changes to AEGIS will be documented in this file.
 
+## [6.2.0] - 2026-09-27
+
+Polish sprint — the popup's "coming soon" era ends.
+
+### Added
+- **Real audit-log export** from the toolbar popup: downloads the protection
+  history as `aegis-audit-<date>.json` (summary + every entry with type,
+  site, timestamp). Originals are masked to a 2-character prefix — an audit
+  file must never leak the secrets it helped protect
+- **Luhn pre-check on credit-card detection**: a 16-digit number is only
+  flagged when it passes the checksum, so order IDs and tracking codes stop
+  triggering critical alerts. `luhnValid` is exported for reuse/testing
+- **`redactText`** in fake-data.js: the Protect path (longest-first,
+  whitespace-tolerant replacement with recorded swaps) is now a pure,
+  unit-tested function; content.js `performRedaction` delegates to it
+
+### Changed
+- In-page JSON/CSV exports now mask originals too (previously dumped raw
+  secrets to file)
+- Dropped unused dependencies (React, Vite, TypeScript, ts-jest and friends)
+  — installs are dramatically smaller; jest config simplified to plain JS
+
+### Note
+- With Luhn pre-check, test/demo card numbers must be checksum-valid —
+  e.g. `4111 1111 1111 1111`. The old sample card intentionally fails Luhn
+  and is (correctly) no longer flagged
+
 ## [6.1.3] - 2026-09-27
 
 From the third manual test pass (all v6.1.2 fixes verified working):

@@ -1,11 +1,7 @@
 module.exports = {
   testEnvironment: 'jsdom',
-  transform: {
-    '^.+\\.jsx?$': 'babel-jest',
-    '^.+\\.tsx?$': 'ts-jest'
-  },
-  testMatch: ['**/tests/**/*.test.js', '**/tests/**/*.test.ts'],
-  moduleFileExtensions: ['js', 'jsx', 'ts', 'tsx'],
+  testMatch: ['**/tests/**/*.test.js'],
+  moduleFileExtensions: ['js'],
   collectCoverageFrom: [
     'src/**/*.js',
     '!src/**/*.test.js'

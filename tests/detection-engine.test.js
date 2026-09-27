@@ -13,14 +13,26 @@ describe('AEGIS Detection Engine', () => {
     });
 
     test('detects credit card (with dashes)', () => {
-      const { alerts, redactions } = engine.scanWithRegex('card 4532-8871-2934-1150 please');
+      const { alerts, redactions } = engine.scanWithRegex('card 4111-1111-1111-1111 please');
       expect(alerts.some(a => a.type === 'Credit Card')).toBe(true);
-      expect(redactions[0].text).toBe('4532-8871-2934-1150');
+      expect(redactions[0].text).toBe('4111-1111-1111-1111');
     });
 
     test('detects credit card (with spaces)', () => {
-      const { redactions } = engine.scanWithRegex('card 4532 8871 2934 1150 please');
-      expect(redactions.some(r => r.text === '4532 8871 2934 1150')).toBe(true);
+      const { redactions } = engine.scanWithRegex('card 4111 1111 1111 1111 please');
+      expect(redactions.some(r => r.text === '4111 1111 1111 1111')).toBe(true);
+    });
+
+    test('skips 16-digit numbers that FAIL Luhn (order IDs, tracking codes)', () => {
+      const { alerts, redactions } = engine.scanWithRegex('order 4532 8871 2934 1150 shipped today ok');
+      expect(alerts.some(a => a.type === 'Credit Card')).toBe(false);
+      expect(redactions.some(r => r.type === 'Credit Card')).toBe(false);
+    });
+
+    test('luhnValid accepts known-valid test cards, rejects others', () => {
+      expect(engine.luhnValid('4111-1111-1111-1111')).toBe(true);
+      expect(engine.luhnValid('4532-8871-2934-1150')).toBe(false);
+      expect(engine.luhnValid('12345')).toBe(false);
     });
 
     test('detects email', () => {
@@ -59,11 +71,11 @@ describe('AEGIS Detection Engine', () => {
     });
 
     test('value-only redaction for groupless patterns (SSN, card, email)', () => {
-      const { redactions } = engine.scanWithRegex('SSN 123-45-6789 card 4532-8871-2934-1150 mail me@x.com ok');
+      const { redactions } = engine.scanWithRegex('SSN 123-45-6789 card 4111-1111-1111-1111 mail me@x.com ok');
       const ssn = redactions.find(r => r.type === 'SSN');
       expect(ssn.text).toBe('123-45-6789');
       expect(ssn.context).toBe('123-45-6789');
-      expect(redactions.find(r => r.type === 'Credit Card').text).toBe('4532-8871-2934-1150');
+      expect(redactions.find(r => r.type === 'Credit Card').text).toBe('4111-1111-1111-1111');
       expect(redactions.find(r => r.type === 'Email').text).toBe('me@x.com');
     });
 
@@ -79,7 +91,7 @@ describe('AEGIS Detection Engine', () => {
         '- My email is john.doe@example.com',
         '- My phone number is 555-123-4567',
         '- My SSN is 123-45-6789',
-        '- My credit card is 4532 8871 2934 1150, expires 12/27, CVV 123',
+        '- My credit card is 4111 1111 1111 1111, expires 12/27, CVV 123',
         '- My IP address is 192.168.1.100',
         '- My Date of Birth is 04/15/1990',
         '- My passport: X1234567',

@@ -56,6 +56,23 @@ describe('AEGIS shared module', () => {
     });
   });
 
+  describe('maskSensitive', () => {
+    const { maskSensitive } = require('../src/shared/aegis-shared.js');
+
+    test('keeps a short recognizable prefix, never the full secret', () => {
+      const masked = maskSensitive('hunter2secret');
+      expect(masked.startsWith('hu')).toBe(true);
+      expect(masked).not.toContain('hunter2secret');
+      expect(masked.length).toBeLessThan('hunter2secret'.length);
+    });
+
+    test('handles empty and short values', () => {
+      expect(maskSensitive('')).toBe('');
+      expect(maskSensitive(undefined)).toBe('');
+      expect(maskSensitive('abc').startsWith('ab')).toBe(true);
+    });
+  });
+
   describe('flexiblePattern', () => {
     const { flexiblePattern } = require('../src/shared/aegis-shared.js');
 

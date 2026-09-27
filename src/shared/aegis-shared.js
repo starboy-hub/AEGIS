@@ -76,7 +76,17 @@
     return new RegExp(escaped.replace(/ /g, '\\s+'), flags || 'g');
   }
 
-  const AEGIS = { KEYS, DEFAULT_SETTINGS, mergeSettings, statsFromHistory, isSameDay, flexiblePattern };
+  /**
+   * Mask a sensitive value for audit exports: keep a 2-char prefix so the
+   * entry is recognizable, never the full secret.
+   */
+  function maskSensitive(value) {
+    const s = String(value == null ? '' : value);
+    if (!s) return '';
+    return s.slice(0, 2) + '•'.repeat(Math.min(Math.max(s.length - 2, 4), 8));
+  }
+
+  const AEGIS = { KEYS, DEFAULT_SETTINGS, mergeSettings, statsFromHistory, isSameDay, flexiblePattern, maskSensitive };
   root.AEGIS = AEGIS;
   if (typeof module !== 'undefined' && module.exports) module.exports = AEGIS;
 })(typeof self !== 'undefined' ? self : globalThis);

@@ -50,8 +50,8 @@ class HistoryStore {
   async save() { if (protectionHistory.length > this.MAX_ITEMS) protectionHistory = protectionHistory.slice(-this.MAX_ITEMS); const summary = { allTime: allTimeProtected, lastUpdated: new Date().toISOString() }; return new Promise((resolve) => { chrome.storage.local.set({ [this.STORAGE_KEY]: protectionHistory, [this.SUMMARY_KEY]: summary }, resolve); }); }
   add(item) { item.timestamp = item.timestamp || new Date().toISOString(); protectionHistory.push(item); allTimeProtected++; totalProtected = protectionHistory.filter(h => new Date(h.timestamp).toDateString() === new Date().toDateString()).length; this.save(); }
   async clear() { protectionHistory = []; allTimeProtected = 0; totalProtected = 0; await this.save(); }
-  exportJSON() { const data = JSON.stringify({ exported: new Date().toISOString(), total: protectionHistory.length, items: protectionHistory }, null, 2); const blob = new Blob([data], { type: 'application/json' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `aegis-history-${new Date().toISOString().split('T')[0]}.json`; a.click(); URL.revokeObjectURL(url); }
-  exportCSV() { if (protectionHistory.length === 0) return; let csv = 'Timestamp,Type,Original,Fake,Site\n'; protectionHistory.forEach(h => { csv += `"${h.timestamp}","${h.type}","${(h.original||'').replace(/"/g,'""')}","${(h.fake||'').replace(/"/g,'""')}","${h.site||''}"\n`; }); const blob = new Blob([csv], { type: 'text/csv' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `aegis-history-${new Date().toISOString().split('T')[0]}.csv`; a.click(); URL.revokeObjectURL(url); }
+  exportJSON() { const data = JSON.stringify({ exported: new Date().toISOString(), total: protectionHistory.length, items: protectionHistory.map(h => ({ ...h, original: AEGIS.maskSensitive(h.original) })) }, null, 2); const blob = new Blob([data], { type: 'application/json' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `aegis-history-${new Date().toISOString().split('T')[0]}.json`; a.click(); URL.revokeObjectURL(url); }
+  exportCSV() { if (protectionHistory.length === 0) return; let csv = 'Timestamp,Type,Original(masked),Fake,Site\n'; protectionHistory.forEach(h => { csv += `"${h.timestamp}","${h.type}","${AEGIS.maskSensitive(h.original).replace(/"/g,'""')}","${(h.fake||'').replace(/"/g,'""')}","${h.site||''}"\n`; }); const blob = new Blob([csv], { type: 'text/csv' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `aegis-history-${new Date().toISOString().split('T')[0]}.csv`; a.click(); URL.revokeObjectURL(url); }
 }
 const historyStore = new HistoryStore();
 
@@ -173,19 +173,8 @@ function removeInlineIndicator() { document.querySelectorAll('.aegis-inline-indi
 function performRedaction(element, redactions) {
   if (!redactions || redactions.length === 0) return { originalText: null, replacements: [] };
   const cur = element.tagName === 'INPUT' || element.tagName === 'TEXTAREA' ? element.value : (element.innerText || '');
-  const orig = cur; let txt = cur; const reps = [];
-  [...redactions].sort((a,b) => b.text.length - a.text.length).forEach(r => {
-    if (!r.text || r.text.length === 0) return;
-    const rep = settings.useFakeData ? AEGIS_FAKE.getFakeData(r.type, r.context || r.text) : '[REDACTED-' + r.type + ']';
-    // Detections are computed on whitespace-normalized text; the raw value
-    // may still contain newlines, so match flexibly instead of includes()
-    const flexible = AEGIS.flexiblePattern(r.text);
-    if (flexible.test(txt)) {
-      reps.push({ original: r.text, fake: rep, type: r.type, timestamp: new Date().toISOString() });
-      flexible.lastIndex = 0;
-      txt = txt.replace(flexible, rep);
-    }
-  });
+  const result = AEGIS_FAKE.redactText(cur, redactions, settings.useFakeData);
+  const txt = result.text; const reps = result.replacements; const orig = cur;
   if (txt !== orig) {
     if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
       const valueProto = element.tagName === 'TEXTAREA' ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype;
