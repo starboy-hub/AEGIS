@@ -23,6 +23,7 @@ function t(key) { return TRANSLATIONS[currentLang]?.[key] || TRANSLATIONS.en[key
 let ollamaAvailable = false;
 let vaultCorpus = [], vaultMatchers = [], vaultPseudos = {}, vaultById = {};
 let trustMatchers = [];
+let ollamaModel = null;
 let sentinelAnalyzed = new Set(), sentinelNoted = false;
 let injectionSeen = new Set(), injectionNoted = false;
 let settings = { aiEnabled: true, regexEnabled: true, useFakeData: true, sensitivity: 'medium', customPatterns: '', trustedSites: [], monitorClipboard: true, notificationSize: 'standard' };
@@ -63,7 +64,7 @@ class HistoryStore {
 const historyStore = new HistoryStore();
 
 async function loadSettings() { return new Promise((resolve) => { chrome.runtime.sendMessage({ type: 'GET_SETTINGS' }, (response) => { if (response && response.settings) { settings = response.settings; if (!settings.trustedSites) settings.trustedSites = []; if (settings.useFakeData === undefined) settings.useFakeData = true; if (settings.monitorClipboard === undefined) settings.monitorClipboard = true; if (settings.notificationSize === undefined) settings.notificationSize = 'standard'; if (settings.sensitivity === undefined) settings.sensitivity = 'medium'; if (settings.customPatterns === undefined) settings.customPatterns = ''; const host = window.location.hostname.toLowerCase(); isWhitelisted = settings.trustedSites.some(t => host === t || host.endsWith('.' + t)); } resolve(settings); }); }); }
-async function checkOllama() { return new Promise((resolve) => { chrome.runtime.sendMessage({ type: 'CHECK_OLLAMA' }, (response) => { ollamaAvailable = response && response.available; resolve(ollamaAvailable); }); }); }
+async function checkOllama() { return new Promise((resolve) => { chrome.runtime.sendMessage({ type: 'CHECK_OLLAMA' }, (response) => { ollamaAvailable = !!(response && response.available); ollamaModel = (response && response.model) || null; resolve(ollamaAvailable); }); }); }
 async function classifyWithAI(text) { if (!ollamaAvailable || !settings.aiEnabled) return { categories: [], redactions: [] }; const ct = AEGIS_ENGINE.cleanText(text); if (ct.length < 15 || ct.length > 300) return { categories: [], redactions: [] }; return new Promise((resolve) => { chrome.runtime.sendMessage({ type: 'CLASSIFY_TEXT', text: ct }, (response) => { resolve(response || { categories: [], redactions: [] }); }); }); }
 
 async function refreshVault() {
@@ -745,12 +746,6 @@ function showAttachmentWarning(title, message, fileName, fileSize, fileType) {
   modal.onclick = function(e) { if (e.target === modal) { modal.remove(); attachmentGuardEnabled = false; setTimeout(() => { attachmentGuardEnabled = true; }, 1000); } };
 }
 
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.type === 'TOGGLE_AEGIS') { isPaused = !isPaused; if (popup) popup.render(); sendResponse({ paused: isPaused }); }
-  if (request.type === 'PAUSE_AEGIS') { isPaused = true; if (pauseTimer) clearTimeout(pauseTimer); if (request.duration > 0) { pauseTimer = setTimeout(() => { isPaused = false; if (popup) popup.render(); }, request.duration); } if (popup) popup.render(); sendResponse({ paused: true }); }
-  if (request.type === 'RESUME_AEGIS') { isPaused = false; if (pauseTimer) clearTimeout(pauseTimer); if (popup) popup.render(); sendResponse({ paused: false }); }
-});
-
 async function init() {
   console.log('🛡️ AEGIS: Complete Build starting...');
   await historyStore.load(); await loadSettings(); await loadTheme(); await refreshVault();
@@ -772,7 +767,7 @@ async function init() {
   document.addEventListener('mousemove', (e) => popup.onDrag(e)); document.addEventListener('mouseup', () => popup.endDrag());
   setupKeyboardShortcuts(); setupSubmissionGuard(); setupAttachmentGuard();
   if (isWhitelisted) { popup.minimize(); return; }
-  const hasOllama = await checkOllama(); console.log('🛡️ AEGIS: Ollama =', hasOllama);
+  const hasOllama = await checkOllama(); console.log('🛡️ AEGIS: Ollama =', hasOllama, '| model =', ollamaModel || 'none');
   if (settings.monitorClipboard) monitorClipboard();
   showOnboarding();
 }

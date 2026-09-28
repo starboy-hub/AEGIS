@@ -88,6 +88,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   $('sensitivity').addEventListener('change', (e) => updateSettings({ sensitivity: e.target.value }));
 
+  // ---- Local AI status (shows the real detected model, or how to get one) ----
+  chrome.runtime.sendMessage({ type: 'CHECK_OLLAMA' }, (res) => {
+    const desc = $('ollamaDesc');
+    if (!desc) return;
+    if (res && res.available && res.model) {
+      desc.textContent = 'Connected · ' + res.model;
+    } else if (res && res.available) {
+      desc.textContent = 'Connected · no model pulled (ollama pull llama3.2)';
+    } else {
+      desc.textContent = 'Not detected — install Ollama for AI second opinions';
+    }
+  });
+
   // ---- Tabs ----
   document.querySelectorAll('.tab').forEach(tab => {
     tab.addEventListener('click', () => {

@@ -85,6 +85,33 @@ let ollamaCheckPending = false;
 // Last known Ollama availability, updated by CHECK_OLLAMA so CLASSIFY_TEXT
 // can trust it instead of referencing an undefined variable
 let ollamaAvailable = false;
+// Auto-detected model name — the user may have any model pulled, so we
+// never hardcode one (a hardcoded name silently kills the AI layer)
+let ollamaModel = null;
+
+const MODEL_PREFERENCES = ['llama3.2', 'llama3.1', 'llama3', 'llama2', 'mistral', 'gemma', 'qwen', 'phi'];
+
+function pickModel(models) {
+  const names = (models || []).map(m => m.name || m.model).filter(Boolean);
+  for (const pref of MODEL_PREFERENCES) {
+    const hit = names.find(n => n === pref || n.startsWith(pref + ':'));
+    if (hit) return hit;
+  }
+  return names[0] || null;
+}
+
+async function detectOllamaModel() {
+  try {
+    const resp = await fetch('http://localhost:11434/api/tags', { signal: AbortSignal.timeout(2000) });
+    if (!resp.ok) { ollamaModel = null; return null; }
+    const data = await resp.json();
+    ollamaModel = pickModel(data.models);
+    return ollamaModel;
+  } catch (e) {
+    ollamaModel = null;
+    return null;
+  }
+}
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.storage.sync.get(['settings'], (result) => {
@@ -145,16 +172,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         method: 'GET',
         signal: AbortSignal.timeout(2500)
       })
-        .then(r => {
+        .then(async r => {
           clearTimeout(timeoutId);
           ollamaCheckPending = false;
           ollamaAvailable = r.ok;
-          sendResponse({ available: r.ok });
+          if (r.ok) await detectOllamaModel(); else ollamaModel = null;
+          sendResponse({ available: r.ok, model: ollamaModel });
         })
         .catch(() => {
           clearTimeout(timeoutId);
           ollamaCheckPending = false;
           ollamaAvailable = false;
+          ollamaModel = null;
           sendResponse({ available: false, reason: 'unreachable' });
         });
       return true;
@@ -174,7 +203,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'llama3',
+          model: ollamaModel || 'llama3',
           prompt: `Analyze this text for sensitive information. Return ONLY valid JSON in this exact format: {"categories":["TYPE1","TYPE2"],"redactions":[{"text":"found_text","type":"TYPE"}]}. Text: ${request.text.substring(0, 500)}`,
           stream: false
         }),
@@ -279,7 +308,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'llama3',
+          model: ollamaModel || 'llama3',
           stream: false,
           prompt,
           format: 'json'
