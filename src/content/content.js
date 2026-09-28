@@ -24,7 +24,7 @@ let ollamaAvailable = false;
 let vaultCorpus = [], vaultMatchers = [], vaultPseudos = {}, vaultById = {};
 let trustMatchers = [];
 let ollamaModel = null;
-let sentinelAnalyzed = new Set(), sentinelNoted = false;
+let sentinelAnalyzed = new Set(), sentinelNoted = false, sentinelLLMCalls = 0;
 let injectionSeen = new Set(), injectionNoted = false;
 let settings = { aiEnabled: true, regexEnabled: true, useFakeData: true, sensitivity: 'medium', customPatterns: '', trustedSites: [], monitorClipboard: true, notificationSize: 'standard' };
 let isWhitelisted = false, isPaused = false, pauseTimer = null, protectionHistory = [], totalProtected = 0, allTimeProtected = 0, ignoredTexts = new Set(), currentTheme = 'light';
@@ -290,8 +290,9 @@ function sentinelPass() {
         result.signals = escalated.signals;
       }
     }
-    if (!AEGIS_SENTINEL.shouldWarn(result.level, settings.familyMode)) return;
+    if (!AEGIS_SENTINEL.shouldWarn(result.level, settings.familyMode) && !(ollamaAvailable && settings.aiEnabled && result.level === 'low')) return;
     const present = (known) => {
+      if (result.level === 'none' && !known) return; // model cleared a weak warning
       let final = result;
       if (known) {
         final = { ...result, level: 'dangerous', signals: [...result.signals, { id: 'known_signature', label: '🐝 Known scam signature', weight: 50 }] };
@@ -313,15 +314,26 @@ function sentinelPass() {
       }
     };
     const sigHash = AEGIS.strHash('sig|' + AEGIS.normalizeForSignature(text));
-    // AI-vs-AI second opinion for gray-zone messages (local model)
-    if (result.level === 'suspicious' && ollamaAvailable && settings.aiEnabled) {
+    // Model-primary classification: when the local AI is connected, the model
+    // gets final say on gray-zone and weak-signal messages (it can escalate a
+    // keyword-free scam to dangerous, or suppress a weak false positive).
+    // Heuristics remain the instant defense when no model is available.
+    if (ollamaAvailable && settings.aiEnabled && sentinelLLMCalls < 8 && (result.level === 'low' || result.level === 'suspicious')) {
+      sentinelLLMCalls++;
       try {
         chrome.runtime.sendMessage({ type: 'SENTINEL_LLM', text }, (res) => {
-          if (res && res.verdict === 'scam') {
+          const verdict = res ? res.verdict : 'unclear';
+          const confident = res && +res.confidence >= 60;
+          if (verdict === 'scam' && (result.level === 'low' || confident)) {
             result.level = 'dangerous';
-            result.signals.push({ id: 'llm_verdict', label: 'AI analysis: scam', weight: 50 });
+            result.signals.push({ id: 'llm_verdict', label: 'AI analysis: scam' + (res.confidence ? ' (' + res.confidence + '%)' : ''), weight: 50 });
+          } else if (verdict === 'legit' && confident && result.level === 'suspicious') {
+            result.level = 'none'; // model cleared a weak heuristic warning
           }
-          present(false);
+          // Swarm check for the surviving verdict
+          try {
+            chrome.runtime.sendMessage({ type: 'THREAT_CHECK', hash: sigHash }, (r2) => present(!!(r2 && r2.known)));
+          } catch (e) { present(false); }
         });
       } catch (e) { present(false); }
       return;

@@ -2,6 +2,33 @@
 
 All notable changes to AEGIS will be documented in this file.
 
+## [7.2.0] - 2026-09-28
+
+### Fixed — 🧠 The local model is now the primary classifier (real AI vs AI)
+
+- **Critical discovery**: the background hardcoded `model: 'llama3'`. On a
+  machine where Ollama runs a different model, every AI call 404'd and
+  silently fell back to "unclear" — the AI layer never executed despite
+  Ollama running. The installed model is now **auto-detected** via
+  `/api/tags` (preference: llama3.2/3.1/3/2 → mistral → gemma → qwen → phi →
+  first available) and used for both classification calls
+- Popup "Local AI analysis" row shows the real state: "Connected ·
+  llama3.2:3b" or install guidance; startup log includes the model
+- **Model-primary classification**: with a local AI connected, the model has
+  final say on gray-zone and weak-signal messages — it escalates
+  keyword-free scams to dangerous (with confidence) and can suppress weak
+  heuristic false positives (legit verdict, ≥60% confidence). Heuristics
+  remain the instant defense without a model
+- Per-page LLM call cap (8) prevents model flooding; verdicts outside the
+  allowlist are ignored
+
+### Removed
+- Dead TOGGLE/PAUSE/RESUME_AEGIS message handlers (unused since the popup
+  rewrite)
+
+*(v7.1.1 was a version bump carrying the v7.1.1 hardening commit; no
+separate entry.)*
+
 ## [7.1.0] - 2026-09-28
 
 ### Changed — 🔇 The Quiet Guardian (UX overhaul)
