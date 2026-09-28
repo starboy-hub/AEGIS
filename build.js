@@ -31,6 +31,7 @@ const files = [
   { src: 'src/popup/popup.js', dest: 'dist/popup.js' },
   { src: 'src/popup/popup.css', dest: 'dist/popup.css' },
   { src: 'src/options/options.html', dest: 'dist/options.html' },
+  { src: 'src/options/options.css', dest: 'dist/options.css' },
   { src: 'src/options/options.js', dest: 'dist/options.js' },
   { src: 'src/install-mac.sh', dest: 'dist/install-mac.sh' },
   { src: 'src/install-windows.bat', dest: 'dist/install-windows.bat' }

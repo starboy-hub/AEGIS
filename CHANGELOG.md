@@ -2,6 +2,38 @@
 
 All notable changes to AEGIS will be documented in this file.
 
+## [6.9.0] - 2026-09-28
+
+### Changed — 🎨 Front-end redesign (popup + options)
+
+One cohesive design system across both surfaces: brand gradient
+(#667eea→#764ba2), card layout, real toggle switches, dark mode throughout.
+
+**Toolbar popup — now a guardian dashboard:**
+- Status pill showing per-site state ("Active on this site" / "Trusted site —
+  paused here" / "Standby")
+- Protection-layers panel: Shield, Sentinel, Injection Firewall, Local AI,
+  Family Guardian — every layer visible and toggleable from the popup
+- Family-mode badge; sensitivity selector; dark-mode and settings buttons
+  in the hero
+- Recent-activity feed (last 3 protections, color-coded by type)
+- Hero stat ("protected today") with all-time/sites row; destructive
+  Clear-stats demoted to a text link; Export stays primary
+- Version now read from the manifest at runtime — never stale again
+
+**Options page — grouped cards instead of one long list:**
+- Sticky gradient header with live version chip; seven sections: Detection,
+  Guardian, Identity Vault, Trust Graph, Trusted Sites, Sign & Verify,
+  Swarm Defense
+- Ollama status as a proper chip ("● Connected" / "○ Not running")
+- Consistent toggle switches, inputs, list items; dark mode everywhere
+
+**Tooling:**
+- verify-dist.js now also validates every stylesheet/script referenced by
+  the HTML pages (the redesign's failure class can never ship silently)
+- No logic changes; all element IDs preserved — 120 unit + 7 E2E journeys
+  green against the new UI
+
 ## [6.8.0] - 2026-09-27
 
 ### Added — ✍️ Content Signing + 🐝 Swarm Defense (swarm-ready)

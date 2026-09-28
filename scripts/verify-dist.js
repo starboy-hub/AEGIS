@@ -19,4 +19,16 @@ if (missing.length) {
   console.error('MISSING from dist:', missing);
   process.exit(1);
 }
+
+// HTML asset links (stylesheets/scripts) must also exist in dist
+for (const page of ['popup.html', 'options.html']) {
+  const html = fs.readFileSync('dist/' + page, 'utf8');
+  const assets = [...html.matchAll(/(?:href|src)="([^"#][^"]*)"/g)].map(m => m[1])
+    .filter(u => !u.startsWith('http') && !u.startsWith('chrome'));
+  const pageMissing = assets.filter(u => !fs.existsSync('dist/' + u));
+  if (pageMissing.length) {
+    console.error(`MISSING assets referenced by ${page}:`, pageMissing);
+    process.exit(1);
+  }
+}
 console.log('dist complete, version', m.version);

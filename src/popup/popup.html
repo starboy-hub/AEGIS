@@ -3,46 +3,87 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AEGIS Dashboard</title>
+  <title>AEGIS</title>
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-  <div class="container">
-    <header>
-      <h1>🛡️ AEGIS v6.0</h1>
-      <p class="subtitle">Enterprise Privacy Shield</p>
-    </header>
+  <div class="app">
 
-    <section class="stats-section">
-      <h2>Protection Stats</h2>
-      <div class="stats-grid">
-        <div class="stat-card">
-          <span class="stat-number" id="totalProtected">0</span>
-          <span class="stat-label">Items Protected</span>
+    <header class="hero">
+      <div class="hero-left">
+        <span class="hero-shield">🛡️</span>
+        <div class="hero-title">
+          <h1>AEGIS</h1>
+          <span class="status-pill" id="statusPill"><span class="dot"></span><span id="statusText">Active</span></span>
         </div>
-        <div class="stat-card">
-          <span class="stat-number" id="todayProtected">0</span>
-          <span class="stat-label">Today</span>
+      </div>
+      <div class="hero-actions">
+        <label class="icon-toggle" title="Dark mode">
+          <input type="checkbox" id="themeToggle">
+          <span class="icon-btn">🌙</span>
+        </label>
+        <button class="icon-btn" id="openOptions" title="Settings">⚙️</button>
+      </div>
+    </header>
+    <div class="family-badge" id="familyBadge" hidden>👨‍👩‍👧 Family Guardian active — maximum protection</div>
+
+    <section class="card stats-card">
+      <div class="stat-hero">
+        <span class="stat-hero-number" id="todayProtected">0</span>
+        <span class="stat-hero-label">protected today</span>
+      </div>
+      <div class="stat-row">
+        <div class="stat-mini">
+          <span class="stat-mini-number" id="totalProtected">0</span>
+          <span class="stat-mini-label">All time</span>
         </div>
-        <div class="stat-card">
-          <span class="stat-number" id="sitesVisited">0</span>
-          <span class="stat-label">Sites Visited</span>
+        <div class="stat-divider"></div>
+        <div class="stat-mini">
+          <span class="stat-mini-number" id="sitesVisited">0</span>
+          <span class="stat-mini-label">Sites</span>
         </div>
       </div>
     </section>
 
-    <section class="settings-section">
-      <h2>Quick Settings</h2>
-      <div class="setting-item">
-        <label for="themeToggle">Dark Mode</label>
-        <input type="checkbox" id="themeToggle">
+    <section class="card">
+      <h2 class="card-title">Protection layers</h2>
+      <div class="switch-row">
+        <div class="switch-info">
+          <span class="switch-label">🛡️ Shield</span>
+          <span class="switch-desc">Detect &amp; swap PII as you type</span>
+        </div>
+        <label class="switch"><input type="checkbox" id="shieldToggle"><span class="track"></span></label>
       </div>
-      <div class="setting-item">
-        <label for="ollamaToggle">Ollama AI Detection</label>
-        <input type="checkbox" id="ollamaToggle">
+      <div class="switch-row">
+        <div class="switch-info">
+          <span class="switch-label">🚨 Sentinel</span>
+          <span class="switch-desc">Scan incoming messages for scams</span>
+        </div>
+        <label class="switch"><input type="checkbox" id="sentinelToggle"><span class="track"></span></label>
       </div>
-      <div class="setting-item">
-        <label for="sensitivity">Sensitivity Level</label>
+      <div class="switch-row">
+        <div class="switch-info">
+          <span class="switch-label">🛑 Injection Firewall</span>
+          <span class="switch-desc">Catch hidden AI-hijack instructions</span>
+        </div>
+        <label class="switch"><input type="checkbox" id="firewallToggle"><span class="track"></span></label>
+      </div>
+      <div class="switch-row">
+        <div class="switch-info">
+          <span class="switch-label">🧠 Local AI analysis</span>
+          <span class="switch-desc" id="ollamaDesc">Second opinion via Ollama</span>
+        </div>
+        <label class="switch"><input type="checkbox" id="ollamaToggle"><span class="track"></span></label>
+      </div>
+      <div class="switch-row">
+        <div class="switch-info">
+          <span class="switch-label">👨‍👩‍👧 Family Guardian</span>
+          <span class="switch-desc">Strictest protection for loved ones</span>
+        </div>
+        <label class="switch"><input type="checkbox" id="familyToggle"><span class="track"></span></label>
+      </div>
+      <div class="sensitivity-row">
+        <span class="switch-label">🎯 Sensitivity</span>
         <select id="sensitivity">
           <option value="low">Low</option>
           <option value="medium">Medium</option>
@@ -51,15 +92,19 @@
       </div>
     </section>
 
-    <section class="actions-section">
-      <button id="clearStats" class="btn btn-secondary">Clear Stats</button>
-      <button id="exportLogs" class="btn btn-primary">Export Audit Logs</button>
+    <section class="card activity-card">
+      <h2 class="card-title">Recent activity</h2>
+      <div id="recentActivity"><div class="activity-empty">Nothing yet — your protections will appear here</div></div>
     </section>
 
-    <footer>
-      <p>🌐 Universal AI Privacy Shield</p>
-      <p class="version">Build: Enterprise v6.0</p>
+    <footer class="footer">
+      <span class="version" id="versionText">v—</span>
+      <div class="footer-actions">
+        <button id="clearStats" class="link-btn">Clear stats</button>
+        <button id="exportLogs" class="btn-primary">Export audit log</button>
+      </div>
     </footer>
+
   </div>
   <script src="aegis-shared.js"></script>
   <script src="popup.js"></script>

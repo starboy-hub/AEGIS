@@ -281,19 +281,16 @@ function checkOllamaStatus() {
   fetch('http://localhost:11434/api/tags', { method: 'GET' })
     .then(response => {
       if (response.ok) {
-        ollamaStatus.textContent = '🟢 Active';
-        ollamaStatus.style.background = '#d4edda';
-        ollamaStatus.style.color = '#155724';
+        ollamaStatus.textContent = '● Connected';
+        ollamaStatus.classList.add('on');
       } else {
-        ollamaStatus.textContent = '⚪ Disabled';
-        ollamaStatus.style.background = '#f8f9fa';
-        ollamaStatus.style.color = '#666';
+        ollamaStatus.textContent = '○ Not running';
+        ollamaStatus.classList.remove('on');
       }
     })
     .catch(() => {
-      ollamaStatus.textContent = '⚪ Disabled';
-      ollamaStatus.style.background = '#f8f9fa';
-      ollamaStatus.style.color = '#666';
+      ollamaStatus.textContent = '○ Not running';
+      ollamaStatus.classList.remove('on');
     });
 }
 
@@ -301,6 +298,17 @@ if (ollamaStatus) {
   checkOllamaStatus();
   setInterval(checkOllamaStatus, 5000); // Check every 5 seconds
 }
+
+// ==========================================
+// VERSION (from the manifest — never stale)
+// ==========================================
+try {
+  const v = 'v' + chrome.runtime.getManifest().version;
+  const header = document.getElementById('versionText');
+  const footer = document.getElementById('footerVersion');
+  if (header) header.textContent = v;
+  if (footer) footer.textContent = v;
+} catch (e) {}
 
 
 // ==========================================

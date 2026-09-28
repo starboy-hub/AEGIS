@@ -1,128 +1,160 @@
 <!DOCTYPE html>
-<html><head><meta charset="UTF-8"><title>AEGIS Settings</title>
-<style>
-:root{--bg:#fff;--text:#333;--border:#e9ecef;--card:#f8f9fa;--primary:#667eea}
-body.dark{--bg:#1e1e1e;--text:#e0e0e0;--border:#333;--card:#2d2d2d}
-body{font-family:-apple-system,sans-serif;background:var(--bg);color:var(--text);max-width:600px;margin:0 auto;padding:24px}
-h1{font-size:24px;margin-bottom:8px}
-.subtitle{color:#666;font-size:14px;margin-bottom:32px}
-.setting-row{display:flex;justify-content:space-between;align-items:center;padding:16px 0;border-bottom:1px solid var(--border)}
-.setting-info{flex:1}
-.setting-label{font-weight:600;font-size:15px;margin-bottom:4px}
-.setting-desc{font-size:13px;color:#666}
-.toggle{width:44px;height:24px;background:#ccc;border-radius:12px;position:relative;cursor:pointer;transition:background 0.3s}
-.toggle.active{background:var(--primary)}
-.toggle::after{content:'';position:absolute;top:2px;left:2px;width:20px;height:20px;background:white;border-radius:50%;transition:transform 0.3s}
-.toggle.active::after{transform:translateX(20px)}
-select,textarea{padding:8px 12px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:14px}
-textarea{width:100%;height:120px;font-family:monospace;font-size:13px;resize:vertical;margin-top:8px}
-.save-btn{padding:8px 16px;background:var(--primary);color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;margin-top:8px}
-.footer{margin-top:40px;text-align:center;font-size:12px;color:#999}
-.vault-input{width:100%;padding:8px 12px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:14px;margin-top:8px}
-.vault-item{display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:var(--card);border:1px solid var(--border);border-radius:6px;margin-top:4px;font-size:13px}
-.vault-item .kind{color:var(--primary);font-weight:600;margin-right:8px}
-.vault-remove{background:none;border:none;color:#e05252;cursor:pointer;font-size:14px;padding:2px 6px}
-.vault-empty{font-size:12px;color:#999;margin-top:8px}
-</style></head><body>
-<h1>🛡️ AEGIS Settings</h1>
-<div class="subtitle">Configure your AI privacy shield</div>
+<html lang="en">
+<head><meta charset="UTF-8"><title>AEGIS Settings</title>
+<link rel="stylesheet" href="options.css">
+</head><body>
 
-<div class="setting-row">
-  <div class="setting-info"><div class="setting-label">🌙 Dark Mode</div><div class="setting-desc">Toggle dark interface</div></div>
-  <div id="toggleTheme" class="toggle"></div>
-</div>
-
-<div class="setting-row">
-  <div class="setting-info"><div class="setting-label">⚡ Regex Detection</div><div class="setting-desc">Detect standard PII</div></div>
-  <div id="toggleRegex" class="toggle"></div>
-</div>
-
-<div class="setting-row">
-  <div class="setting-info"><div class="setting-label">🎯 Sensitivity</div><div class="setting-desc">Detection aggressiveness</div></div>
-  <select id="selectSensitivity">
-    <option value="low">Low (Regex only)</option>
-    <option value="medium">Medium (Regex + Context)</option>
-    <option value="high">High (All layers)</option>
-  </select>
-</div>
-
-<div class="setting-row">
-  <div class="setting-info"><div class="setting-label">🎭 Use Fake Data</div><div class="setting-desc">Replace with realistic fakes</div></div>
-  <div id="toggleFakeData" class="toggle"></div>
-</div>
-
-<div class="setting-row">
-  <div class="setting-info"><div class="setting-label">🌍 Language</div><div class="setting-desc">Interface language</div></div>
-  <select id="selectLanguage">
-    <option value="auto">Auto</option>
-    <option value="en">English</option><option value="es">Español</option>
-    <option value="fr">Français</option><option value="de">Deutsch</option>
-    <option value="pt">Português</option><option value="it">Italiano</option>
-    <option value="ru">Русский</option><option value="zh">中文</option>
-    <option value="ar">العربية</option>
-  </select>
-</div>
-
-<div class="setting-row" style="flex-direction:column;align-items:flex-start">
-  <div class="setting-info" style="width:100%"><div class="setting-label">🔐 Identity Vault</div><div class="setting-desc">AEGIS detects and consistently pseudonymizes these values everywhere — encrypted, never leaves this device</div></div>
-  <input id="vaultNameInput" class="vault-input" placeholder="Your full name (e.g. Sarah Mitchell)">
-  <input id="vaultEmailInput" class="vault-input" placeholder="Your email">
-  <input id="vaultPhoneInput" class="vault-input" placeholder="Your phone (any format)">
-  <textarea id="vaultCustomInput" style="height:70px" placeholder="Anything else, one per line — address, employer, national ID…"></textarea>
-  <button id="saveVaultBtn" class="save-btn">🔐 Save to Vault</button>
-  <div id="vaultList" style="width:100%;margin-top:8px"></div>
-</div>
-
-<div class="setting-row">
-  <div class="setting-info"><div class="setting-label">🔓 Un-mask in responses</div><div class="setting-desc">Show your real values when an AI reply contains their pseudonym</div></div>
-  <div id="toggleVaultRestore" class="toggle"></div>
-</div>
-
-<div class="setting-row" style="flex-direction:column;align-items:flex-start">
-  <div class="setting-info" style="width:100%"><div class="setting-label">🏦 Trust Graph</div><div class="setting-desc">Your real organizations and contacts. If a pressure message names one of these, AEGIS escalates it as impersonation. One per line.</div></div>
-  <textarea id="trustedEntitiesInput" style="height:70px" placeholder="Global Bank&#10;Acme Corp&#10;john@family.com"></textarea>
-  <button id="saveTrustedEntitiesBtn" class="save-btn">Save Trust List</button>
-  <div id="trustedList" style="width:100%;margin-top:8px"></div>
-</div>
-
-<div class="setting-row">
-  <div class="setting-info"><div class="setting-label">👨‍👩‍👧 Family Guardian Mode</div><div class="setting-desc">Maximum protection for loved ones: all layers on, warns on even mild pressure patterns</div></div>
-  <div id="toggleFamilyMode" class="toggle"></div>
-</div>
-
-<div class="setting-row" style="flex-direction:column;align-items:flex-start">
-  <div class="setting-info" style="width:100%"><div class="setting-label">🔧 Custom Regex</div><div class="setting-desc">Format: TYPE:/regex/flags</div></div>
-  <textarea id="customPatternsInput" placeholder="EMPLOYEE_ID:/EMP-\d{5}/g"></textarea>
-  <button id="saveCustomPatternsBtn" class="save-btn">Save</button>
-</div>
-
-<div class="setting-row" style="flex-direction:column;align-items:flex-start;border-bottom:none">
-  <div class="setting-info" style="width:100%"><div class="setting-label">🤝 Trusted Sites</div><div class="setting-desc">One domain per line</div></div>
-  <textarea id="trustedSitesInput" placeholder="example.com"></textarea>
-  <button id="saveTrustedSitesBtn" class="save-btn">Save</button>
-</div>
-
-<div class="setting-row" style="flex-direction:column;align-items:flex-start">
-  <div class="setting-info" style="width:100%"><div class="setting-label">✍️ Sign & Verify</div><div class="setting-desc">Prove text is yours and unmodified — signed with your device key. Anyone with AEGIS can verify it.</div></div>
-  <textarea id="signInput" style="height:70px" placeholder="Type the message to sign…"></textarea>
-  <button id="signBtn" class="save-btn">✍️ Sign message</button>
-  <textarea id="signOutput" style="height:90px" placeholder="Signed block appears here — copy it anywhere."></textarea>
-  <textarea id="verifyInput" style="height:90px" placeholder="Paste an AEGIS signed block to verify…"></textarea>
-  <button id="verifyBtn" class="save-btn">🔍 Verify</button>
-  <div id="verifyResult" style="width:100%;margin-top:8px;font-size:13px"></div>
-</div>
-
-<div class="setting-row" style="flex-direction:column;align-items:flex-start;border-bottom:none">
-  <div class="setting-info" style="width:100%"><div class="setting-label">🐝 Swarm Defense</div><div class="setting-desc">Share scam signatures between AEGIS installs — hashes only, never message text. Export your pack and import it on a loved one's browser.</div></div>
-  <div style="display:flex;gap:8px;margin-top:8px;align-items:center;">
-    <button id="exportPackBtn" class="save-btn">⬇️ Export pack</button>
-    <button id="importPackBtn" class="save-btn">⬆️ Import pack</button>
-    <input type="file" id="importPackFile" accept=".json,application/json" style="display:none">
-    <span id="swarmStatus" style="font-size:12px;color:#999"></span>
+<header class="topbar">
+  <div class="topbar-brand">
+    <span class="topbar-shield">🛡️</span>
+    <div>
+      <h1>AEGIS Settings</h1>
+      <span class="topbar-sub">100% local · nothing ever leaves this device</span>
+    </div>
   </div>
-</div>
+  <div class="topbar-right">
+    <span class="version-chip" id="versionText">v—</span>
+    <div id="toggleTheme" class="toggle" title="Dark mode"></div>
+  </div>
+</header>
 
-<div class="footer">AEGIS • 100% Local</div>
+<main class="page">
+
+  <section class="card">
+    <div class="card-head">
+      <span class="card-icon">🎯</span>
+      <div><h2>Detection</h2><p>What AEGIS looks for as you type and browse</p></div>
+    </div>
+    <div class="row">
+      <div class="row-info"><div class="row-label">⚡ Regex detection</div><div class="row-desc">Standard PII formats — cards, SSNs, emails, phones</div></div>
+      <div id="toggleRegex" class="toggle"></div>
+    </div>
+    <div class="row">
+      <div class="row-info"><div class="row-label">🎯 Sensitivity</div><div class="row-desc">High adds name heuristics on top of context</div></div>
+      <select id="selectSensitivity">
+        <option value="low">Low — regex only</option>
+        <option value="medium">Medium — + context</option>
+        <option value="high">High — all layers</option>
+      </select>
+    </div>
+    <div class="row">
+      <div class="row-info"><div class="row-label">🌍 Language</div><div class="row-desc">Interface + detection language</div></div>
+      <select id="selectLanguage">
+        <option value="auto">Auto</option>
+        <option value="en">English</option><option value="es">Español</option>
+        <option value="fr">Français</option><option value="de">Deutsch</option>
+        <option value="pt">Português</option><option value="it">Italiano</option>
+        <option value="ru">Русский</option><option value="zh">中文</option>
+        <option value="ar">العربية</option>
+      </select>
+    </div>
+    <div class="row">
+      <div class="row-info"><div class="row-label">🧠 Local AI (Ollama)</div><div class="row-desc">Second opinion from a model running on this machine</div></div>
+      <span id="ollamaStatus" class="status-chip">…</span>
+    </div>
+    <div class="row row-column">
+      <div class="row-info"><div class="row-label">🔧 Custom patterns</div><div class="row-desc">One per line · format: TYPE:/regex/flags</div></div>
+      <textarea id="customPatternsInput" placeholder="EMPLOYEE_ID:/EMP-\d{5}/g"></textarea>
+      <button id="saveCustomPatternsBtn" class="save-btn">Save patterns</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <span class="card-icon">🛡️</span>
+      <div><h2>Guardian</h2><p>How aggressively AEGIS protects you</p></div>
+    </div>
+    <div class="row">
+      <div class="row-info"><div class="row-label">👨‍👩‍👧 Family Guardian Mode</div><div class="row-desc">All layers on, warns on even mild pressure patterns</div></div>
+      <div id="toggleFamilyMode" class="toggle"></div>
+    </div>
+    <div class="row">
+      <div class="row-info"><div class="row-label">🔓 Un-mask in responses</div><div class="row-desc">Show real values when an AI reply contains their pseudonym</div></div>
+      <div id="toggleVaultRestore" class="toggle"></div>
+    </div>
+    <div class="row">
+      <div class="row-info"><div class="row-label">🎭 Use fake data</div><div class="row-desc">Replace PII with realistic fakes instead of [REDACTED]</div></div>
+      <div id="toggleFakeData" class="toggle"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <span class="card-icon">🔐</span>
+      <div><h2>Identity Vault</h2><p>Your real values — encrypted (AES-256-GCM), detected and consistently pseudonymized everywhere</p></div>
+    </div>
+    <div class="row row-column">
+      <div class="row-info"><div class="row-label">Add your details</div><div class="row-desc">Taught values are caught at any sensitivity, even typed plainly</div></div>
+      <input id="vaultNameInput" class="text-input" placeholder="Your full name (e.g. Sarah Mitchell)">
+      <input id="vaultEmailInput" class="text-input" placeholder="Your email">
+      <input id="vaultPhoneInput" class="text-input" placeholder="Your phone (any format)">
+      <textarea id="vaultCustomInput" style="height:60px" placeholder="Anything else, one per line — address, employer, national ID…"></textarea>
+      <button id="saveVaultBtn" class="save-btn">🔐 Save to Vault</button>
+      <div id="vaultList" class="list"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <span class="card-icon">🏦</span>
+      <div><h2>Trust Graph</h2><p>Your real organizations and contacts — pressure messages naming them escalate as impersonation</p></div>
+    </div>
+    <div class="row row-column">
+      <div class="row-info"><div class="row-label">Trusted organizations &amp; contacts</div><div class="row-desc">One per line · your bank, employer, family addresses</div></div>
+      <textarea id="trustedEntitiesInput" style="height:60px" placeholder="Global Bank&#10;Acme Corp&#10;john@family.com"></textarea>
+      <button id="saveTrustedEntitiesBtn" class="save-btn">Save trust list</button>
+      <div id="trustedList" class="list"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <span class="card-icon">🤝</span>
+      <div><h2>Trusted Sites</h2><p>AEGIS stays quiet on these domains</p></div>
+    </div>
+    <div class="row row-column">
+      <textarea id="trustedSitesInput" placeholder="example.com"></textarea>
+      <button id="saveTrustedSitesBtn" class="save-btn">Save trusted sites</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <span class="card-icon">✍️</span>
+      <div><h2>Sign &amp; Verify</h2><p>Prove text is yours and unmodified — signed with your device key, verifiable by anyone with AEGIS</p></div>
+    </div>
+    <div class="row row-column">
+      <div class="row-info"><div class="row-label">Sign a message</div><div class="row-desc">Paste the result anywhere; you hold the key</div></div>
+      <textarea id="signInput" style="height:60px" placeholder="Type the message to sign…"></textarea>
+      <button id="signBtn" class="save-btn">✍️ Sign message</button>
+      <textarea id="signOutput" style="height:90px" placeholder="Signed block appears here — copy it anywhere."></textarea>
+      <div class="row-info" style="margin-top:14px"><div class="row-label">Verify a signed block</div><div class="row-desc">Failed verification means tampered or forged</div></div>
+      <textarea id="verifyInput" style="height:90px" placeholder="Paste an AEGIS signed block to verify…"></textarea>
+      <button id="verifyBtn" class="save-btn">🔍 Verify</button>
+      <div id="verifyResult" class="verify-result"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <span class="card-icon">🐝</span>
+      <div><h2>Swarm Defense</h2><p>Share scam signatures between AEGIS installs — hashes only, never message text</p></div>
+    </div>
+    <div class="row row-column">
+      <div class="row-info"><div class="row-label">Threat packs</div><div class="row-desc">Export your pack and import it on a loved one's browser — hand-carry immunity</div></div>
+      <div class="pack-row">
+        <button id="exportPackBtn" class="save-btn">⬇️ Export pack</button>
+        <button id="importPackBtn" class="save-btn">⬆️ Import pack</button>
+        <input type="file" id="importPackFile" accept=".json,application/json" style="display:none">
+        <span id="swarmStatus" class="status-chip"></span>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">AEGIS • 100% Local • <span id="footerVersion"></span></footer>
+
+</main>
+
 <script src="aegis-shared.js"></script>
 <script src="options.js"></script>
 </body></html>
