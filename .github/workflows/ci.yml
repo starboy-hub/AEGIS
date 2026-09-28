@@ -19,6 +19,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Dependency audit (critical vulnerabilities fail the build)
+        run: npm audit --audit-level=critical
+
       - name: Lint
         run: npm run lint
 

@@ -2,6 +2,26 @@
 
 All notable changes to AEGIS will be documented in this file.
 
+## [7.0.1] - 2026-09-28
+
+### Added — Security & community hardening (from external audit triage)
+
+- **Message validation**: every inbound background message is shape-checked
+  (`validateMessage`) before a handler runs — malformed internal calls get
+  rejected instead of reaching storage
+- **Security model documented**: `docs/SECURITY-MODEL.md` (vault key
+  lifecycle, trust boundaries, honest limitations) and
+  `docs/ARCHITECTURE.md` (entry points, message flow, storage model)
+- **SECURITY.md** (private vulnerability reporting) and
+  **CODE_OF_CONDUCT.md** (Contributor Covenant 2.1)
+- **Release automation**: `release.yml` — tagging `v*` builds, verifies,
+  packages and publishes a GitHub Release with the store zip
+- **Supply chain**: Dependabot (npm + actions, weekly) and `npm audit
+  --audit-level=critical` in CI
+- Thresholds extracted to constants in the Sentinel/Injection engines;
+  example comments on the highest-weight scam signals
+- `private: true` in package.json (prevents accidental npm publishing)
+
 ## [7.0.0] - 2026-09-28
 
 ### Added — Measured defense: benchmark, model protocol, distribution prep

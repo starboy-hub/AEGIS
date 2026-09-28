@@ -7,8 +7,14 @@
 (function (root) {
   'use strict';
 
+  // Score thresholds. "warn" = suspicious or dangerous (family mode: low too).
+  // Examples of what each signal matches are shown alongside the patterns.
+  const THRESHOLDS = { dangerousScore: 60, suspiciousScore: 30, lowScore: 12 };
   const SENTINEL_SIGNALS = [
+    // matches: "verify your password and card number", "provide the one-time code",
+    // "confirm your login credentials", "my password is hunter2"
     { id: 'credential_request', label: 'Requests credentials or codes', weight: 40, re: /\b(?:send|provide|confirm|enter|give|share|reveal|import|update|verify|resend|submit|reply|collect|need)[^.\n]{0,30}\b(?:password|passcode|\botp\b|one[-\s]?time (?:code|password)|verification code|security code|\bpin\b|\bcvv\b|card number|card details|seed phrase|recovery phrase|private key|login (?:credentials|details)|account details|credentials|social security number|\bssn\b)\b|\b(?:your )?(?:password|passcode|verification code|seed phrase|private key)\b[^.\n]{0,20}(?:is|are|:)\s*\S+/i },
+    // matches: "send money via wire transfer", "pay the processing fee", "gift cards", "western union"
     { id: 'payment_pressure', label: 'Demands urgent payment', weight: 40, re: /\b(?:wire transfer|wire the (?:money|funds)|gift cards?|itunes card|bitcoin|crypto(?:currency)? wallet|\busdt\b|western union|money ?gram|send (?:money|us|me) (?:\$|\d)|(?:activation|processing|release|registration|administration|administrative|customs|delivery|redelivery|unpaid|recruitment) (?:charge|fee)|release the funds|unclaimed funds)\b/i },
     { id: 'personal_info_fishing', label: 'Fishes for personal details', weight: 30, re: /\b(?:confirm|verify|provide|update|need|send|give|share|enter)[^.\n]{0,15}\byour (?:full name|date of birth|address|phone|bank|billing|identity|details|information)\b|\b(?:give|provide|confirm|share|tell) (?:me )?(?:your )?mother'?s maiden name\b/i },
     { id: 'authority_threat', label: 'Impersonates authority or threatens', weight: 25, re: /\b(?:\birs\b|tax (?:office|department)|police(?: department)?|\bfbi\b|government (?:agency|official|grant)|social security administration|immigration (?:check|status|notice))\b|\baccount (?:will be |has been )?(?:suspended|closed|terminated|frozen|deleted)\b|\blegal action\b|\blawsuit\b|\barrest warrant\b|\bdeportation\b/i },
@@ -50,9 +56,9 @@
     }
     const has = id => signals.some(s => s.id === id);
     let level = 'none';
-    if (score >= 60 || has('credential_request') || has('payment_pressure')) level = 'dangerous';
-    else if (score >= 30) level = 'suspicious';
-    else if (score >= 12) level = 'low';
+    if (score >= THRESHOLDS.dangerousScore || has('credential_request') || has('payment_pressure')) level = 'dangerous';
+    else if (score >= THRESHOLDS.suspiciousScore) level = 'suspicious';
+    else if (score >= THRESHOLDS.lowScore) level = 'low';
     return { level, score, signals, advice: LEVELS[level].advice };
   }
 

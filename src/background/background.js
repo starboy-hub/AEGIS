@@ -16,6 +16,46 @@ const vault = AEGIS_VAULT.createVault(vaultStorage, crypto);
 const signer = AEGIS_SIGNING.createSigner(vaultStorage, crypto);
 const threats = AEGIS_THREATS.createThreatStore(vaultStorage, AEGIS);
 
+// ---- Message validation: every inbound message is shape-checked before a
+// handler touches storage. Runtime messages can only originate from this
+// extension's own contexts (no externally_connectable), so this is internal
+// hygiene that prevents corruption from malformed internal calls.
+const VAULT_KINDS = ['name', 'email', 'phone', 'custom'];
+const TRUST_KINDS = ['org', 'contact'];
+const isStr = (v, max) => typeof v === 'string' && v.length > 0 && v.length <= max;
+
+function validateMessage(request) {
+  if (typeof request !== 'object' || request === null || typeof request.type !== 'string') return false;
+  switch (request.type) {
+    case 'GET_SETTINGS': case 'CHECK_OLLAMA': case 'OPEN_OPTIONS': case 'THREAT_EXPORT':
+    case 'THREAT_COUNT': case 'VAULT_LIST': case 'VAULT_CORPUS': case 'VAULT_CLEAR':
+      return true;
+    case 'SAVE_TRUSTED_SITES':
+      return Array.isArray(request.sites) && request.sites.length <= 500 &&
+        request.sites.every(s => isStr(s, 200));
+    case 'CLASSIFY_TEXT': case 'SENTINEL_LLM': case 'SIGN_SIGN':
+      return isStr(request.text, 20000);
+    case 'SIGN_VERIFY':
+      return isStr(request.blockText, 50000);
+    case 'VAULT_ADD':
+      return isStr(request.value, 1000) && VAULT_KINDS.includes(request.kind);
+    case 'VAULT_ADD_TRUSTED':
+      return isStr(request.value, 1000) && TRUST_KINDS.includes(request.kind);
+    case 'VAULT_REMOVE': case 'VAULT_REMOVE_TRUSTED':
+      return isStr(request.id, 64);
+    case 'PSEUDO_RECORD':
+      return isStr(request.entryId, 64) && isStr(request.site, 200) && isStr(request.fake, 200);
+    case 'PSEUDO_GET_MAP':
+      return isStr(request.site, 200);
+    case 'THREAT_CHECK': case 'THREAT_RECORD':
+      return isStr(request.hash, 128);
+    case 'THREAT_IMPORT':
+      return typeof request.pack === 'object' && request.pack !== null;
+    default:
+      return false;
+  }
+}
+
 // ---- Reality Check: right-click image -> scan bytes for AI provenance ----
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.removeAll(() => {
@@ -60,6 +100,10 @@ chrome.runtime.onInstalled.addListener(() => {
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   try {
+    if (!validateMessage(request)) {
+      sendResponse({ error: 'invalid_message' });
+      return false;
+    }
     if (request.type === 'GET_SETTINGS') {
       chrome.storage.sync.get(['settings'], (result) => {
         const settings = result.settings ? { ...DEFAULT_SETTINGS, ...result.settings } : DEFAULT_SETTINGS;

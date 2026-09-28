@@ -7,7 +7,11 @@
 (function (root) {
   'use strict';
 
+  // Score thresholds (mirrors Sentinel's ladder).
+  const THRESHOLDS = { dangerousScore: 55, suspiciousScore: 30, lowScore: 12 };
+
   const INJECTION_SIGNALS = [
+    // matches: "ignore all previous instructions", "disregard your training"
     { id: 'override', label: 'Tries to override AI instructions', weight: 60, re: /\b(?:ignore|disregard|forget|override) (?:all |any |the |your |previous |prior |above |earlier |original )*?(?:previous |prior |above |earlier |original |system |developer |safety |content )?(?:instructions?|prompts?|rules?|guidelines?|guardrails?|training)\b/i },
     { id: 'safety_bypass', label: 'Attempts to bypass AI safety rules', weight: 55, re: /\b(?:bypass|disable|turn off|ignore) (?:all |your |the )?(?:safety|security|content) (?:filters?|rules?|policies?|guardrails?)\b|\bdeveloper mode\b|\bdo anything now\b/i },
     { id: 'prompt_extract', label: 'Tries to extract the system prompt', weight: 50, re: /\b(?:reveal|print|repeat|show|output|disclose|leak) (?:your |the |its )?(?:exact )?(?:system (?:prompt|message)|initial (?:instructions|prompt)|rules above|instructions above)\b/i },
@@ -41,9 +45,9 @@
     }
     const has = id => signals.some(s => s.id === id);
     let level = 'none';
-    if (score >= 55 || has('override') || has('safety_bypass') || has('prompt_extract')) level = 'dangerous';
-    else if (score >= 30) level = 'suspicious';
-    else if (score >= 12) level = 'low';
+    if (score >= THRESHOLDS.dangerousScore || has('override') || has('safety_bypass') || has('prompt_extract')) level = 'dangerous';
+    else if (score >= THRESHOLDS.suspiciousScore) level = 'suspicious';
+    else if (score >= THRESHOLDS.lowScore) level = 'low';
     return { level, score, signals, advice: LEVELS[level].advice };
   }
 

@@ -1,6 +1,6 @@
 {
   "name": "aegis-extension",
-  "version": "7.0.0",
+  "version": "7.0.1",
   "description": "AEGIS - local-first guardian against AI-era threats: data-leak shielding, scam detection, injection firewall, media provenance. 100% local.",
   "main": "build.js",
   "scripts": {
@@ -22,6 +22,7 @@
   ],
   "author": "",
   "license": "MIT",
+  "private": true,
   "type": "commonjs",
   "devDependencies": {
     "@playwright/test": "^1.44.1",
