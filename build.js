@@ -21,6 +21,8 @@ const files = [
   { src: 'src/background/reality-engine.js', dest: 'dist/reality-engine.js' },
   { src: 'src/background/signing-engine.js', dest: 'dist/signing-engine.js' },
   { src: 'src/background/threat-store.js', dest: 'dist/threat-store.js' },
+  { src: 'src/background/offscreen.html', dest: 'dist/offscreen.html' },
+  { src: 'src/background/offscreen.js', dest: 'dist/offscreen.js' },
   { src: 'src/content/modules/fake-data.js', dest: 'dist/fake-data.js' },
   { src: 'src/content/modules/detection-engine.js', dest: 'dist/detection-engine.js' },
   { src: 'src/content/modules/sentinel-engine.js', dest: 'dist/sentinel-engine.js' },
@@ -45,6 +47,24 @@ files.forEach(file => {
     console.error(`✗ Missing: ${file.src}`);
   }
 });
+
+// Vendor the in-browser AI runtime (transformers.js + ONNX Runtime wasm).
+// Only copied when the package is installed — the feature is opt-in and the
+// extension works fully without these files.
+const hfDist = 'node_modules/@huggingface/transformers/dist';
+const ortDist = 'node_modules/onnxruntime-web/dist';
+if (fs.existsSync(hfDist + '/transformers.min.js')) {
+  fs.mkdirSync('dist/vendor', { recursive: true });
+  fs.copyFileSync(hfDist + '/transformers.min.js', 'dist/vendor/transformers.min.js');
+  if (fs.existsSync(ortDist)) {
+    fs.readdirSync(ortDist).filter(f => f.endsWith('.wasm') || f.endsWith('.mjs')).forEach(f => {
+      fs.copyFileSync(path.join(ortDist, f), path.join('dist/vendor', f));
+    });
+  }
+  console.log('✓ Vendored in-browser AI runtime (transformers.js + ORT wasm)');
+} else {
+  console.warn('! @huggingface/transformers not installed — in-browser AI omitted');
+}
 
 // Create icons directory and copy icons from src
 if (!fs.existsSync('dist/icons')) {

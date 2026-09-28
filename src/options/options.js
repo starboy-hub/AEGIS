@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-  const toggles = ['toggleTheme', 'toggleRegex', 'toggleFakeData', 'toggleVaultRestore', 'toggleFamilyMode'];
+  const toggles = ['toggleTheme', 'toggleRegex', 'toggleFakeData', 'toggleVaultRestore', 'toggleFamilyMode', 'toggleWebGPU'];
   const langSelect = document.getElementById('selectLanguage');
   const sensitivitySelect = document.getElementById('selectSensitivity');
   const customInput = document.getElementById('customPatternsInput');
@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (s.regexEnabled !== false) document.getElementById('toggleRegex').classList.add('active');
     if (s.useFakeData !== false) document.getElementById('toggleFakeData').classList.add('active');
     if (s.vaultRestore !== false) document.getElementById('toggleVaultRestore').classList.add('active');
+    if (s.webgpuAI) document.getElementById('toggleWebGPU').classList.add('active');
     if (s.familyMode) document.getElementById('toggleFamilyMode').classList.add('active');
     if (langSelect) langSelect.value = result.manualLanguage || 'auto';
     if (sensitivitySelect) sensitivitySelect.value = s.sensitivity || 'medium';
@@ -34,6 +35,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (id === 'toggleFamilyMode') {
           s.familyMode = isActive;
           if (isActive) { s.sentinelEnabled = true; s.injectionFirewall = true; s.vaultRestore = true; }
+        }
+        if (id === 'toggleWebGPU') {
+          s.webgpuAI = isActive;
+          if (isActive) chrome.runtime.sendMessage({ type: 'WEBGPU_WARMUP' });
         }
         chrome.storage.sync.set({ settings: s });
       });

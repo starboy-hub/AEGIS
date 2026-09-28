@@ -372,6 +372,55 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       return true;
     }
 
+    // ---- In-browser AI model (offscreen document; no Ollama required) ----
+    const OFFSCREEN_URL = 'offscreen.html';
+    let offscreenCreating = null;
+
+    const ensureOffscreen = async () => {
+      const ctxs = await chrome.runtime.getContexts({ contextTypes: ['OFFSCREEN_DOCUMENT'] });
+      if (ctxs && ctxs.length) return;
+      if (!offscreenCreating) {
+        offscreenCreating = chrome.offscreen.createDocument({
+          url: OFFSCREEN_URL,
+          reasons: ['WORKERS'],
+          justification: 'Run the local in-browser scam-classification model'
+        }).finally(() => { offscreenCreating = null; });
+      }
+      await offscreenCreating;
+    };
+
+    if (request.type === 'WEBGPU_WARMUP') {
+      // User enabled the in-browser model: start the one-time model download now
+      (async () => {
+        try {
+          await ensureOffscreen();
+          chrome.runtime.sendMessage({ type: 'WEBGPU_CLASSIFY', text: 'warmup' }, () => {});
+        } catch (e) { console.error('🛡️ AEGIS: model warmup failed:', e.message); }
+      })();
+      sendResponse({ ok: true });
+      return false;
+    }
+    if (request.type === 'SENTINEL_WEBGPU') {
+      (async () => {
+        try {
+          await ensureOffscreen();
+          const res = await new Promise((resolve) => {
+            chrome.runtime.sendMessage({ type: 'WEBGPU_CLASSIFY', text: request.text }, (r) => {
+              if (chrome.runtime.lastError) resolve({ ok: false, error: chrome.runtime.lastError.message });
+              else resolve(r || { ok: false, error: 'no response' });
+            });
+          });
+          if (!res.ok) { sendResponse({ verdict: 'unclear', reason: res.error || 'model unavailable' }); return; }
+          const verdict = res.scores.scam >= 0.6 ? 'scam' : res.scores.normal >= 0.6 ? 'legit' : 'unclear';
+          const confidence = Math.round(Math.max(res.scores.scam, res.scores.normal) * 100);
+          sendResponse({ verdict, confidence });
+        } catch (e) {
+          sendResponse({ verdict: 'unclear', reason: e.message });
+        }
+      })();
+      return true;
+    }
+
     sendResponse({ error: 'unknown_request_type' });
     return false;
   } catch (error) {

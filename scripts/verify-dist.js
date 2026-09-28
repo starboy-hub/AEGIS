@@ -21,7 +21,7 @@ if (missing.length) {
 }
 
 // HTML asset links (stylesheets/scripts) must also exist in dist
-for (const page of ['popup.html', 'options.html']) {
+for (const page of ['popup.html', 'options.html', 'offscreen.html']) {
   const html = fs.readFileSync('dist/' + page, 'utf8');
   const assets = [...html.matchAll(/(?:href|src)="([^"#][^"]*)"/g)].map(m => m[1])
     .filter(u => !u.startsWith('http') && !u.startsWith('chrome'));
@@ -30,5 +30,10 @@ for (const page of ['popup.html', 'options.html']) {
     console.error(`MISSING assets referenced by ${page}:`, pageMissing);
     process.exit(1);
   }
+}
+// The vendored in-browser AI runtime must be present if the offscreen page exists
+if (fs.existsSync('dist/offscreen.js') && !fs.existsSync('dist/vendor/transformers.min.js')) {
+  console.error('MISSING dist/vendor/transformers.min.js (required by offscreen.js)');
+  process.exit(1);
 }
 console.log('dist complete, version', m.version);

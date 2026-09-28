@@ -45,6 +45,7 @@
     sentinelEnabled: true,
     injectionFirewall: true,
     familyMode: false,
+    webgpuAI: false,
     mutedSignals: [],
     mutedSites: [],
     bubbleMode: 'alerts'

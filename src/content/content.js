@@ -338,6 +338,24 @@ function sentinelPass() {
       } catch (e) { present(false); }
       return;
     }
+    // In-browser model (no Ollama needed): same semantics as the local model
+    if (settings.webgpuAI && sentinelLLMCalls < 8 && (result.level === 'low' || result.level === 'suspicious')) {
+      sentinelLLMCalls++;
+      try {
+        chrome.runtime.sendMessage({ type: 'SENTINEL_WEBGPU', text }, (res) => {
+          const verdict = res ? res.verdict : 'unclear';
+          const confident = res && +res.confidence >= 60;
+          if (verdict === 'scam' && (result.level === 'low' || confident)) {
+            result.level = 'dangerous';
+            result.signals.push({ id: 'webgpu_verdict', label: 'AI analysis: scam' + (res.confidence ? ' (' + res.confidence + '%)' : ''), weight: 50 });
+          } else if (verdict === 'legit' && confident && result.level === 'suspicious') {
+            result.level = 'none'; // in-browser model cleared a weak warning
+          }
+          try { chrome.runtime.sendMessage({ type: 'THREAT_CHECK', hash: sigHash }, (r2) => present(!!(r2 && r2.known))); } catch (e) { present(false); }
+        });
+      } catch (e) { present(false); }
+      return;
+    }
     // Swarm defense: does this match a signature shared from another install?
     try {
       chrome.runtime.sendMessage({ type: 'THREAT_CHECK', hash: sigHash }, (res) => present(!!(res && res.known)));

@@ -2,6 +2,25 @@
 
 All notable changes to AEGIS will be documented in this file.
 
+## [7.3.0] - 2026-09-28
+
+### Added — 🌐 Phase 1.5: in-browser AI model (no Ollama required)
+
+The Sentinel model chain is now: **Ollama → in-browser model → heuristics**.
+Every user can have an AI classifier, with or without a local server.
+
+- transformers.js runs `Xenova/mobilebert-uncased-mnli` (quantized, ~25 MB)
+  in a Chrome **offscreen document** — zero page jank, WebGPU when available,
+  WASM fallback
+- **Opt-in with honest cost**: the Options toggle explains the one-time ~25 MB
+  download from the Hugging Face Hub; after that, classification is fully
+  offline and message text never leaves the device
+- Same semantics as the Ollama model: scam verdicts escalate weak warnings,
+  confident legit verdicts suppress false positives
+- New `offscreen` permission and `wasm-unsafe-eval` CSP entry (the sanctioned
+  way to run ONNX Runtime); runtime vendored into `dist/vendor/` by the build
+- verify-dist.js validates the offscreen page and the vendored runtime
+
 ## [7.2.0] - 2026-09-28
 
 ### Fixed — 🧠 The local model is now the primary classifier (real AI vs AI)
