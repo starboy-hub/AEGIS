@@ -21,6 +21,7 @@ const files = [
   { src: 'src/background/reality-engine.js', dest: 'dist/reality-engine.js' },
   { src: 'src/background/signing-engine.js', dest: 'dist/signing-engine.js' },
   { src: 'src/background/threat-store.js', dest: 'dist/threat-store.js' },
+  { src: 'src/background/offscreen-error.js', dest: 'dist/offscreen-error.js' },
   { src: 'src/background/offscreen.html', dest: 'dist/offscreen.html' },
   { src: 'src/background/offscreen.js', dest: 'dist/offscreen.js' },
   { src: 'src/content/modules/fake-data.js', dest: 'dist/fake-data.js' },

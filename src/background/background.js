@@ -27,7 +27,7 @@ const isStr = (v, max) => typeof v === 'string' && v.length > 0 && v.length <= m
 function validateMessage(request) {
   if (typeof request !== 'object' || request === null || typeof request.type !== 'string') return false;
   switch (request.type) {
-    case 'GET_SETTINGS': case 'CHECK_OLLAMA': case 'OPEN_OPTIONS': case 'THREAT_EXPORT':
+    case 'GET_SETTINGS': case 'CHECK_OLLAMA': case 'OPEN_OPTIONS': case 'THREAT_EXPORT': case 'OFFSCREEN_ERROR': case 'OFFSCREEN_LOADED': case 'WEBGPU_PROGRESS': case 'WEBGPU_WARMUP': case 'SENTINEL_WEBGPU':
     case 'THREAT_COUNT': case 'VAULT_LIST': case 'VAULT_CORPUS': case 'VAULT_CLEAR':
       return true;
     case 'SAVE_TRUSTED_SITES':
@@ -372,6 +372,26 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       return true;
     }
 
+    if (request.type === 'OFFSCREEN_ERROR') {
+      chrome.storage.local.set({ offscreen_last_error: request.message });
+      return false;
+    }
+
+    if (request.type === 'OFFSCREEN_LOADED') {
+      chrome.storage.local.set({ offscreen_loaded: Date.now() });
+      console.log('🛡️ offscreen document loaded');
+      return false;
+    }
+    if (request.type === 'OFFSCREEN_ERROR') {
+      chrome.storage.local.set({ offscreen_last_error: request.message });
+      console.error('🛡️ offscreen error:', request.message);
+      return false;
+    }
+    if (request.type === 'WEBGPU_PROGRESS') {
+      console.log('🛡️ webgpu:', request.status, request.file);
+      return false;
+    }
+
     // ---- In-browser AI model (offscreen document; no Ollama required) ----
     const OFFSCREEN_URL = 'offscreen.html';
     let offscreenCreating = null;
@@ -395,7 +415,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         try {
           await ensureOffscreen();
           chrome.runtime.sendMessage({ type: 'WEBGPU_CLASSIFY', text: 'warmup' }, () => {});
-        } catch (e) { console.error('🛡️ AEGIS: model warmup failed:', e.message); }
+        } catch (e) { console.error('🛡️ AEGIS: model warmup failed:', e.message); chrome.storage.local.set({ offscreen_create_error: e.message }); }
       })();
       sendResponse({ ok: true });
       return false;
@@ -411,7 +431,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             });
           });
           if (!res.ok) { sendResponse({ verdict: 'unclear', reason: res.error || 'model unavailable' }); return; }
-          const verdict = res.scores.scam >= 0.6 ? 'scam' : res.scores.normal >= 0.6 ? 'legit' : 'unclear';
+          const verdict = res.scores.scam >= 0.75 ? 'scam' : res.scores.normal >= 0.75 ? 'legit' : 'unclear';
           const confidence = Math.round(Math.max(res.scores.scam, res.scores.normal) * 100);
           sendResponse({ verdict, confidence });
         } catch (e) {
