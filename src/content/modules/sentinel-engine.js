@@ -44,11 +44,13 @@
    * Analyze one message/text block for scam patterns.
    * @returns {{level: string, score: number, signals: Array<{id,label,weight}>, advice: string}}
    */
-  function analyzeMessage(text) {
+  function analyzeMessage(text, muted) {
     if (!text || text.length < 25) return { level: 'none', score: 0, signals: [], advice: LEVELS.none.advice };
+    const skip = muted instanceof Set ? muted : (Array.isArray(muted) ? new Set(muted) : null);
     let score = 0;
     const signals = [];
     for (const sig of SENTINEL_SIGNALS) {
+      if (skip && skip.has(sig.id)) continue;
       if (sig.re.test(text)) {
         score += sig.weight;
         signals.push({ id: sig.id, label: sig.label, weight: sig.weight });
@@ -59,6 +61,10 @@
     if (score >= THRESHOLDS.dangerousScore || has('credential_request') || has('payment_pressure')) level = 'dangerous';
     else if (score >= THRESHOLDS.suspiciousScore) level = 'suspicious';
     else if (score >= THRESHOLDS.lowScore) level = 'low';
+    // Weak signals (urgency wording, link pressure) alone never escalate
+    // past 'low' — they only add weight alongside stronger signals.
+    const WEAK = ['urgency', 'link_pressure', 'ai_marker'];
+    if (level !== 'none' && signals.length && signals.every(s => WEAK.includes(s.id))) level = 'low';
     return { level, score, signals, advice: LEVELS[level].advice };
   }
 

@@ -44,7 +44,10 @@
     vaultRestore: true,
     sentinelEnabled: true,
     injectionFirewall: true,
-    familyMode: false
+    familyMode: false,
+    mutedSignals: [],
+    mutedSites: [],
+    bubbleMode: 'alerts'
   };
 
   function mergeSettings(stored) {

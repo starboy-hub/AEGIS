@@ -88,8 +88,94 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   $('sensitivity').addEventListener('change', (e) => updateSettings({ sensitivity: e.target.value }));
 
-  // ---- Stats + recent activity (same keys the content script writes) ----
-  const TYPE_COLORS = { SENTINEL: '#f59e0b', INJECTION: '#8b5cf6', 'Vault Name': '#667eea', 'Vault Email': '#667eea', 'Vault Phone': '#667eea' };
+  // ---- Tabs ----
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t === tab));
+      document.querySelectorAll('.tab-page').forEach(p => { p.hidden = p.id !== 'tab-' + tab.dataset.tab; });
+      if (tab.dataset.tab === 'alerts') loadAlerts();
+      if (tab.dataset.tab === 'history') renderHistory();
+    });
+  });
+
+  function loadAlerts() {
+    chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
+      if (!tab || !tab.id || !/^https?:/.test(tab.url || '')) {
+        $('alertsList').innerHTML = '<div class="activity-empty">Open a website to see findings for it</div>';
+        return;
+      }
+      chrome.tabs.sendMessage(tab.id, { type: 'GET_PAGE_ALERTS' }, (res) => {
+        const alerts = (res && res.alerts) || [];
+        const badge = $('alertsBadge');
+        badge.hidden = alerts.length === 0;
+        badge.textContent = alerts.length;
+        const list = $('alertsList');
+        if (!alerts.length) {
+          list.innerHTML = '<div class="activity-empty">Nothing flagged on this page</div>';
+          return;
+        }
+        list.innerHTML = '';
+        alerts.forEach(a => {
+          const row = document.createElement('div');
+          row.className = 'alert-item';
+          const types = document.createElement('span');
+          types.className = 'alert-types';
+          types.textContent = a.types;
+          if (a.isProtected) {
+            const ok = document.createElement('span');
+            ok.className = 'protected';
+            ok.textContent = '✓ protected';
+            row.appendChild(types);
+            row.appendChild(ok);
+          } else {
+            const ignore = document.createElement('button');
+            ignore.className = 'link-btn-sm';
+            ignore.textContent = 'Ignore';
+            ignore.title = 'Dismiss this finding';
+            ignore.addEventListener('click', () => {
+              chrome.tabs.sendMessage(tab.id, { type: 'DISMISS_PAGE_ALERT', id: a.id }, () => loadAlerts());
+            });
+            row.appendChild(types);
+            row.appendChild(ignore);
+          }
+          list.appendChild(row);
+        });
+      });
+    });
+  }
+
+  function renderHistory() {
+    chrome.storage.local.get([AEGIS.KEYS.HISTORY], (local) => {
+      const history = (local[AEGIS.KEYS.HISTORY] || []).slice(-10).reverse();
+      const list = $('historyList');
+      if (!history.length) {
+        list.innerHTML = '<div class="activity-empty">Nothing yet — your protections will appear here</div>';
+        return;
+      }
+      list.innerHTML = '';
+      history.forEach(h => {
+        const row = document.createElement('div');
+        row.className = 'activity-item';
+        const dot = document.createElement('span');
+        dot.className = 'activity-dot';
+        dot.style.background = TYPE_COLORS[h.type] || '#10b981';
+        const type = document.createElement('span');
+        type.className = 'activity-type';
+        type.textContent = h.type;
+        const site = document.createElement('span');
+        site.className = 'activity-site';
+        site.textContent = h.site || '';
+        const time = document.createElement('span');
+        time.className = 'activity-time';
+        try { time.textContent = new Date(h.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); } catch (err) { time.textContent = ''; }
+        row.appendChild(dot); row.appendChild(type); row.appendChild(site); row.appendChild(time);
+        list.appendChild(row);
+      });
+    });
+  }
+
+  // ---- Stats (overview numbers) ----
+  const TYPE_COLORS = { SENTINEL: '#f59e0b', INJECTION: '#8b5cf6', 'Vault Name': '#667eea', 'Vault Email': '#667eea', 'Vault Phone': '#667eea', 'Vault Item': '#667eea' };
 
   async function renderStats() {
     try {
@@ -98,32 +184,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       $('totalProtected').textContent = stats.totalProtected;
       $('todayProtected').textContent = stats.todayProtected;
       $('sitesVisited').textContent = stats.sitesVisited;
-
-      const history = (local[AEGIS.KEYS.HISTORY] || []).slice(-3).reverse();
-      const el = $('recentActivity');
-      if (!history.length) {
-        el.innerHTML = '<div class="activity-empty">Nothing yet — your protections will appear here</div>';
-      } else {
-        el.innerHTML = '';
-        history.forEach(h => {
-          const row = document.createElement('div');
-          row.className = 'activity-item';
-          const dot = document.createElement('span');
-          dot.className = 'activity-dot';
-          dot.style.background = TYPE_COLORS[h.type] || '#10b981';
-          const type = document.createElement('span');
-          type.className = 'activity-type';
-          type.textContent = h.type;
-          const site = document.createElement('span');
-          site.className = 'activity-site';
-          site.textContent = h.site || '';
-          const time = document.createElement('span');
-          time.className = 'activity-time';
-          try { time.textContent = new Date(h.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); } catch (err) { time.textContent = ''; }
-          row.appendChild(dot); row.appendChild(type); row.appendChild(site); row.appendChild(time);
-          el.appendChild(row);
-        });
-      }
     } catch (e) {
       console.error('AEGIS popup: error loading stats:', e);
     }

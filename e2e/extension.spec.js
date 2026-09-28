@@ -97,17 +97,15 @@ test('vault: a taught name is detected and pseudonymized deterministically', asy
   await context.close();
 });
 
-test('sentinel: a scam message on the page triggers the warning banner', async () => {
+test('sentinel: a scam message on the page triggers a quiet note', async () => {
   const { context, page } = await launchWithExtension();
-  await page.waitForSelector('[data-aegis="sentinel-banner"]', { timeout: 25000 });
-  await expect(page.locator('[data-aegis="sentinel-banner"]')).toContainText('Sentinel');
+  await page.waitForSelector('[data-aegis-note]:has-text("Sentinel")', { timeout: 30000 });
   await context.close();
 });
 
-test('injection firewall: hidden prompt-injection text triggers the banner', async () => {
+test('injection firewall: hidden prompt-injection text triggers a note', async () => {
   const { context, page } = await launchWithExtension();
-  await page.waitForSelector('[data-aegis="injection-banner"]', { timeout: 25000 });
-  await expect(page.locator('[data-aegis="injection-banner"]')).toContainText('Injection Firewall');
+  await page.waitForSelector('[data-aegis-note]:has-text("Injection Firewall")', { timeout: 30000 });
   await context.close();
 });
 
@@ -123,7 +121,6 @@ test('trust graph: a scam naming YOUR trusted organization escalates as imperson
   await options.close();
 
   // The page's scam message names Global Bank -> impersonation escalation
-  await page.waitForSelector('[data-aegis="sentinel-banner"]', { timeout: 25000 });
-  await expect(page.locator('[data-aegis="sentinel-banner"]')).toContainText('Impersonates YOUR trusted organization', { timeout: 10000 });
+  await page.waitForSelector('[data-aegis-note]:has-text("Impersonates YOUR trusted organization")', { timeout: 30000 });
   await context.close();
 });

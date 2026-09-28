@@ -23,8 +23,8 @@ function t(key) { return TRANSLATIONS[currentLang]?.[key] || TRANSLATIONS.en[key
 let ollamaAvailable = false;
 let vaultCorpus = [], vaultMatchers = [], vaultPseudos = {}, vaultById = {};
 let trustMatchers = [];
-let sentinelAnalyzed = new Set(), sentinelBannerEl = null, sentinelBannerLevel = '';
-let injectionSeen = new Set(), injectionBannerEl = null;
+let sentinelAnalyzed = new Set(), sentinelNoted = false;
+let injectionSeen = new Set(), injectionNoted = false;
 let settings = { aiEnabled: true, regexEnabled: true, useFakeData: true, sensitivity: 'medium', customPatterns: '', trustedSites: [], monitorClipboard: true, notificationSize: 'standard' };
 let isWhitelisted = false, isPaused = false, pauseTimer = null, protectionHistory = [], totalProtected = 0, allTimeProtected = 0, ignoredTexts = new Set(), currentTheme = 'light';
 function tc(light, dark) { return (typeof currentTheme === 'undefined' || currentTheme === 'dark') ? dark : light; }
@@ -136,62 +136,129 @@ function restoreVaultInResponses() {
   });
 }
 
-// ---- Sentinel: inbound scam/phishing analysis (AI vs AI) ----
+// ---- Quiet notifications: one toast, severity ladder, badge for low ----
+// Rule 1: a single notification surface — never stacked banners.
+// Rule 2: intrusiveness earned by severity (low = badge only).
+// Rule 3: dismissals are honored (per-site + per-signal mute, persisted).
 
-function showSentinelBanner(result, sample) {
-  const danger = result.level === 'dangerous';
-  if (sentinelBannerEl && sentinelBannerLevel === 'dangerous') return; // strongest warning already showing
-  if (sentinelBannerEl) sentinelBannerEl.remove();
-  sentinelBannerLevel = result.level;
-  sentinelBannerEl = document.createElement('div');
-  sentinelBannerEl.setAttribute('data-aegis', 'sentinel-banner');
-  sentinelBannerEl.style.cssText = 'position:fixed!important;top:0!important;left:0!important;right:0!important;z-index:2147483646!important;display:flex;align-items:center;gap:10px;padding:10px 16px;font-family:-apple-system,sans-serif;font-size:13px;color:#fff!important;background:' + (danger ? '#c62828' : '#ef6c00') + '!important;box-shadow:0 2px 8px rgba(0,0,0,.3)';
-  const signals = AEGIS_SENTINEL.topSignals(result, 2).join(' + ');
-  const label = document.createElement('span');
-  label.style.fontWeight = '700';
-  label.textContent = (danger ? '🚨 Sentinel: likely scam' : '⚠️ Sentinel: suspicious message') + (settings.familyMode ? ' · 👨‍👩‍👧 Family Guardian' : '');
-  const desc = document.createElement('span');
-  desc.style.cssText = 'flex:1;opacity:.95;';
-  desc.textContent = (signals ? signals + ' — ' : '') + result.advice;
-  const btn = document.createElement('button');
-  btn.textContent = 'Dismiss';
-  btn.style.cssText = 'background:rgba(255,255,255,.2);border:none;color:white;padding:4px 10px;border-radius:4px;cursor:pointer;font-weight:600;';
-  btn.addEventListener('click', () => { if (sentinelBannerEl) sentinelBannerEl.remove(); sentinelBannerEl = null; sentinelBannerLevel = ''; });
-  sentinelBannerEl.appendChild(label);
-  sentinelBannerEl.appendChild(desc);
-  sentinelBannerEl.appendChild(btn);
-  document.body.appendChild(sentinelBannerEl);
-  console.info('🛡️ Sentinel:', result.level, result.score, sample ? sample.slice(0, 120) : '');
+let noteEl = null, noteQueue = [], noteTimer = null;
+
+function siteMuted() {
+  return (settings.mutedSites || []).includes(location.hostname);
 }
 
-function showSignatureWarning(reason) {
-  const el = document.createElement('div');
-  el.setAttribute('data-aegis', 'signature-warning');
-  el.style.cssText = 'position:fixed!important;top:0!important;left:0!important;right:0!important;z-index:2147483646!important;display:flex;align-items:center;gap:10px;padding:10px 16px;font-family:-apple-system,sans-serif;font-size:13px;color:#fff!important;background:#b71c1c!important;box-shadow:0 2px 8px rgba(0,0,0,.3)';
-  const label = document.createElement('span');
-  label.style.fontWeight = '700';
-  label.textContent = '✍️ AEGIS: signed content FAILED verification';
-  const desc = document.createElement('span');
-  desc.style.cssText = 'flex:1;opacity:.95;';
-  desc.textContent = 'The signature on this page does not match its content — it was tampered with or forged. (' + reason + ')';
-  const btn = document.createElement('button');
-  btn.textContent = 'Dismiss';
-  btn.style.cssText = 'background:rgba(255,255,255,.2);border:none;color:white;padding:4px 10px;border-radius:4px;cursor:pointer;font-weight:600;';
-  btn.addEventListener('click', () => el.remove());
-  el.appendChild(label);
-  el.appendChild(desc);
-  el.appendChild(btn);
-  document.body.appendChild(el);
+function updateBubbleVisibility() {
+  if (typeof popup === 'undefined' || !popup || !popup.container) return;
+  const hasNotes = !!noteEl || noteQueue.length > 0;
+  const hasAlerts = popup.activeAlerts && popup.activeAlerts.length > 0;
+  const show = settings.bubbleMode === 'always' || settings.familyMode || hasNotes || hasAlerts;
+  popup.container.style.display = show ? '' : 'none';
+}
+
+function noteRank(level) { return { low: 0, suspicious: 1, dangerous: 2 }[level] ?? 1; }
+
+function noteBtnStyle() {
+  return 'background:rgba(255,255,255,.18);border:none;color:#fff;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;';
+}
+
+function showNote(note) {
+  // note: { level, category, title, detail, muteId?, force? }
+
+  if (noteRank(note.level) === 0 && !note.force) return; // low: badge only
+  if (noteEl) { noteQueue.push(note); return; }
+  renderNote(note);
+}
+
+function renderNote(note) {
+  const danger = note.level === 'dangerous';
+  noteEl = document.createElement('div');
+  noteEl.setAttribute('data-aegis-note', '');
+  noteEl.setAttribute('data-aegis', 'note');
+  noteEl.style.cssText = 'position:fixed!important;bottom:76px!important;right:14px!important;z-index:2147483646!important;max-width:320px;padding:12px 14px;font-family:-apple-system,sans-serif;font-size:12.5px;line-height:1.45;color:#fff!important;background:' + (danger ? '#b71c1c' : note.level === 'suspicious' ? '#ef6c00' : '#37474f') + '!important;border-radius:12px!important;box-shadow:0 6px 20px rgba(0,0,0,.35)!important;cursor:pointer;';
+  const title = document.createElement('div');
+  title.style.cssText = 'font-weight:700;margin-bottom:4px;';
+  title.textContent = note.title;
+  const detail = document.createElement('div');
+  detail.style.cssText = 'opacity:.95;';
+  detail.textContent = note.detail || '';
+  const actions = document.createElement('div');
+  actions.style.cssText = 'display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;';
+  if (note.muteId) {
+    const muteBtn = document.createElement('button');
+    muteBtn.textContent = 'Never warn about this';
+    muteBtn.style.cssText = noteBtnStyle();
+    muteBtn.addEventListener('click', (e) => { e.stopPropagation(); muteSignal(note.muteId); dismissNote(); });
+    actions.appendChild(muteBtn);
+  }
+  const siteBtn = document.createElement('button');
+  siteBtn.textContent = 'Ignore on this site';
+  siteBtn.style.cssText = noteBtnStyle();
+  siteBtn.addEventListener('click', (e) => { e.stopPropagation(); muteSite(); dismissNote(); });
+  const close = document.createElement('button');
+  close.textContent = '×';
+  close.setAttribute('aria-label', 'Dismiss');
+  close.style.cssText = noteBtnStyle() + 'min-width:0;padding:4px 8px;';
+  close.addEventListener('click', (e) => { e.stopPropagation(); dismissNote(); });
+  actions.appendChild(siteBtn);
+  actions.appendChild(close);
+  noteEl.appendChild(title);
+  noteEl.appendChild(detail);
+  noteEl.appendChild(actions);
+  noteEl.addEventListener('click', (e) => {
+    if (e.target.closest('button')) return;
+    if (typeof popup !== 'undefined' && popup) popup.expand();
+    dismissNote();
+  });
+  document.body.appendChild(noteEl);
+  clearTimeout(noteTimer);
+  noteTimer = setTimeout(dismissNote, danger ? 12000 : 6000);
+}
+
+function dismissNote() {
+  if (noteEl) noteEl.remove();
+  noteEl = null;
+  clearTimeout(noteTimer);
+  noteQueue.sort((a, b) => noteRank(b.level) - noteRank(a.level)); // most severe first
+  const next = noteQueue.shift();
+  if (next) renderNote(next); else updateBubbleVisibility();
+}
+
+function muteSite() {
+  settings.mutedSites = settings.mutedSites || [];
+  if (!settings.mutedSites.includes(location.hostname)) settings.mutedSites.push(location.hostname);
+  try {
+    chrome.storage.sync.get(['settings'], (res) => {
+      const s = res.settings || {};
+      s.mutedSites = settings.mutedSites;
+      chrome.storage.sync.set({ settings: s });
+    });
+  } catch (e) {}
+}
+
+function muteSignal(id) {
+  settings.mutedSignals = settings.mutedSignals || [];
+  if (!settings.mutedSignals.includes(id)) settings.mutedSignals.push(id);
+  try {
+    chrome.storage.sync.get(['settings'], (res) => {
+      const s = res.settings || {};
+      s.mutedSignals = settings.mutedSignals;
+      chrome.storage.sync.set({ settings: s });
+    });
+  } catch (e) {}
 }
 
 function sentinelPass() {
-  if (!settings.sentinelEnabled) return;
+  if (!settings.sentinelEnabled || siteMuted()) return;
+  const muted = new Set(settings.mutedSignals || []);
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
       const p = node.parentElement;
       if (!p) return NodeFilter.FILTER_REJECT;
       if (p.closest('input,textarea') || p.isContentEditable) return NodeFilter.FILTER_REJECT;
       if (p.closest('[data-aegis]')) return NodeFilter.FILTER_REJECT;
+      // Quoted/educational framing is not an attack — articles *about* injection
+      // quote the patterns, and code samples contain them verbatim
+      if (p.closest('blockquote,pre,code,q,cite')) return NodeFilter.FILTER_REJECT;
       return (node.nodeValue || '').trim().length >= 30 ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
     }
   });
@@ -206,12 +273,12 @@ function sentinelPass() {
     if (text.indexOf('-----BEGIN AEGIS SIGNED MESSAGE-----') !== -1) {
       try {
         chrome.runtime.sendMessage({ type: 'SIGN_VERIFY', blockText: text }, (res) => {
-          if (res && res.valid === false) showSignatureWarning(res.reason || 'invalid');
+          if (res && res.valid === false) showNote({ level: 'dangerous', category: 'signature', title: '✍️ Signed content FAILED verification', detail: 'The signature does not match its content — tampered or forged. (' + (res.reason || 'invalid') + ')', force: true });
         });
       } catch (e) {}
       return;
     }
-    const result = AEGIS_SENTINEL.analyzeMessage(text);
+    const result = AEGIS_SENTINEL.analyzeMessage(text, muted);
     // Trust-graph escalation: pressure message naming YOUR org = impersonation
     let trustedHits = [];
     if (trustMatchers.length && result.level !== 'none' && result.level !== 'low') {
@@ -223,6 +290,28 @@ function sentinelPass() {
       }
     }
     if (!AEGIS_SENTINEL.shouldWarn(result.level, settings.familyMode)) return;
+    const present = (known) => {
+      let final = result;
+      if (known) {
+        final = { ...result, level: 'dangerous', signals: [...result.signals, { id: 'known_signature', label: '🐝 Known scam signature', weight: 50 }] };
+      }
+      const strongest = [...final.signals].sort((a, b) => b.weight - a.weight)[0];
+      const title = (final.level === 'dangerous' ? '🚨 Sentinel: likely scam' : '⚠️ Sentinel: suspicious message') + (settings.familyMode ? ' · 👨‍👩‍👧 Family Guardian' : '');
+      showNote({
+        level: final.level, category: 'sentinel',
+        title,
+        detail: (AEGIS_SENTINEL.topSignals(final, 2).join(' + ') + ' — ' + final.advice),
+        muteId: strongest ? strongest.id : null
+      });
+      if (!sentinelNoted) {
+        sentinelNoted = true;
+        try { historyStore.add({ original: 'inbound message', fake: AEGIS_SENTINEL.topSignals(final, 2).join(', '), type: 'SENTINEL' }); } catch (e) {}
+      }
+      if (final.level === 'dangerous') {
+        try { chrome.runtime.sendMessage({ type: 'THREAT_RECORD', hash: sigHash }, () => {}); } catch (e) {}
+      }
+    };
+    const sigHash = AEGIS.strHash('sig|' + AEGIS.normalizeForSignature(text));
     // AI-vs-AI second opinion for gray-zone messages (local model)
     if (result.level === 'suspicious' && ollamaAvailable && settings.aiEnabled) {
       try {
@@ -230,32 +319,16 @@ function sentinelPass() {
           if (res && res.verdict === 'scam') {
             result.level = 'dangerous';
             result.signals.push({ id: 'llm_verdict', label: 'AI analysis: scam', weight: 50 });
-            showSentinelBanner(result, text);
           }
+          present(false);
         });
-      } catch (e) {}
+      } catch (e) { present(false); }
+      return;
     }
-    showSentinelBanner(result, text);
-    try { historyStore.add({ original: 'inbound message', fake: AEGIS_SENTINEL.topSignals(result, 2).join(', '), type: 'SENTINEL' }); } catch (e) {}
-    // Swarm defense: check the shared signature store, record new threats
-    const sigHash = AEGIS.strHash('sig|' + AEGIS.normalizeForSignature(text));
+    // Swarm defense: does this match a signature shared from another install?
     try {
-      chrome.runtime.sendMessage({ type: 'THREAT_CHECK', hash: sigHash }, (res) => {
-        if (res && res.known && sentinelBannerEl) {
-          const note = sentinelBannerEl.querySelector('[data-aegis-swarm-note]');
-          if (!note) {
-            const tag = document.createElement('span');
-            tag.setAttribute('data-aegis-swarm-note', '');
-            tag.style.cssText = 'font-weight:700;white-space:nowrap;';
-            tag.textContent = '🐝 known scam signature';
-            sentinelBannerEl.insertBefore(tag, sentinelBannerEl.lastChild);
-          }
-        }
-      });
-    } catch (e) {}
-    if (result.level === 'dangerous') {
-      try { chrome.runtime.sendMessage({ type: 'THREAT_RECORD', hash: sigHash }, () => {}); } catch (e) {}
-    }
+      chrome.runtime.sendMessage({ type: 'THREAT_CHECK', hash: sigHash }, (res) => present(!!(res && res.known)));
+    } catch (e) { present(false); }
   });
 }
 
@@ -277,38 +350,16 @@ function isInvisibleText(el) {
   return false;
 }
 
-function showInjectionBanner(result, hidden) {
-  if (injectionBannerEl) injectionBannerEl.remove();
-  injectionBannerEl = document.createElement('div');
-  injectionBannerEl.setAttribute('data-aegis', 'injection-banner');
-  const top = sentinelBannerEl ? sentinelBannerEl.offsetHeight + 'px' : '0px';
-  injectionBannerEl.style.cssText = 'position:fixed!important;top:' + top + '!important;left:0!important;right:0!important;z-index:2147483646!important;display:flex;align-items:center;gap:10px;padding:10px 16px;font-family:-apple-system,sans-serif;font-size:13px;color:#fff!important;background:' + (result.level === 'dangerous' ? '#7b1fa2' : '#8d6e63') + '!important;box-shadow:0 2px 8px rgba(0,0,0,.3)';
-  const signals = AEGIS_INJECTION.topSignals(result, 2).join(' + ');
-  const label = document.createElement('span');
-  label.style.fontWeight = '700';
-  label.textContent = (result.level === 'dangerous' ? '🛑 Injection Firewall: hidden AI instructions' : '🛡️ Injection Firewall: AI-directed text') + (hidden ? ' (invisible on page)' : '');
-  const desc = document.createElement('span');
-  desc.style.cssText = 'flex:1;opacity:.95;';
-  desc.textContent = (signals ? signals + ' — ' : '') + result.advice;
-  const btn = document.createElement('button');
-  btn.textContent = 'Dismiss';
-  btn.style.cssText = 'background:rgba(255,255,255,.2);border:none;color:white;padding:4px 10px;border-radius:4px;cursor:pointer;font-weight:600;';
-  btn.addEventListener('click', () => { if (injectionBannerEl) injectionBannerEl.remove(); injectionBannerEl = null; });
-  injectionBannerEl.appendChild(label);
-  injectionBannerEl.appendChild(desc);
-  injectionBannerEl.appendChild(btn);
-  document.body.appendChild(injectionBannerEl);
-  console.info('🛡️ Injection Firewall:', result.level, result.score, hidden ? '(hidden text)' : '(visible text)');
-}
-
 function injectionPass() {
-  if (!settings.injectionFirewall) return;
+  if (!settings.injectionFirewall || siteMuted()) return;
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
       const p = node.parentElement;
       if (!p) return NodeFilter.FILTER_REJECT;
       if (p.closest('input,textarea') || p.isContentEditable) return NodeFilter.FILTER_REJECT;
       if (p.closest('[data-aegis]')) return NodeFilter.FILTER_REJECT;
+      // Articles *about* injection quote the patterns — quoted/code framing is not an attack
+      if (p.closest('blockquote,pre,code,q,cite')) return NodeFilter.FILTER_REJECT;
       return (node.nodeValue || '').trim().length >= 15 ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
     }
   });
@@ -327,40 +378,51 @@ function injectionPass() {
     // suspicious on its own when it carries AI-directed language or length
     if (!hidden && (!patterned || result.level === 'low')) return;
     if (hidden && result.level === 'none' && text.length < 100) return;
-    showInjectionBanner(result, hidden);
+    // One note per page per engine — further findings only bump the badge
+    const level = injectionNoted ? 'low' : result.level;
+    showNote({
+      level, category: 'injection',
+      title: (result.level === 'dangerous' ? '🛑 Injection Firewall: hidden AI instructions' : '🛡️ Injection Firewall: AI-directed text') + (hidden ? ' (invisible on page)' : ''),
+      detail: (AEGIS_INJECTION.topSignals(result, 2).join(' + ') + ' — ' + result.advice),
+      force: !injectionNoted
+    });
+    if (!injectionNoted) injectionNoted = true;
     try { historyStore.add({ original: hidden ? 'hidden page text' : 'page text', fake: AEGIS_INJECTION.topSignals(result, 2).join(', '), type: 'INJECTION' }); } catch (e) {}
   });
 }
 
-// ---- Reality Check: verdict banner for image provenance scans ----
+// ---- Reality Check: verdict note for image provenance scans ----
 
 function showRealityBanner(findings) {
   if (!findings) return;
-  const old = document.querySelector('[data-aegis="reality-banner"]');
-  if (old) old.remove();
-  const el = document.createElement('div');
-  el.setAttribute('data-aegis', 'reality-banner');
   const isAI = findings.verdict === 'ai-generated';
-  el.style.cssText = 'position:fixed!important;top:0!important;left:0!important;right:0!important;z-index:2147483646!important;display:flex;align-items:center;gap:10px;padding:10px 16px;font-family:-apple-system,sans-serif;font-size:13px;color:#fff!important;background:' + (isAI ? '#00695c' : '#455a64') + '!important;box-shadow:0 2px 8px rgba(0,0,0,.3)';
-  const label = document.createElement('span');
-  label.style.fontWeight = '700';
-  label.textContent = isAI ? '🧬 Reality Check: AI-generated image' + (findings.generator ? ' — ' + findings.generator : '') : '🧬 Reality Check: no AI metadata found';
-  const desc = document.createElement('span');
-  desc.style.cssText = 'flex:1;opacity:.95;';
   const sigText = (findings.signals || []).map(s => s.label).join(' • ');
-  desc.textContent = (sigText ? sigText + ' — ' : '') + (findings.disclaimer || '');
-  const btn = document.createElement('button');
-  btn.textContent = 'Dismiss';
-  btn.style.cssText = 'background:rgba(255,255,255,.2);border:none;color:white;padding:4px 10px;border-radius:4px;cursor:pointer;font-weight:600;';
-  btn.addEventListener('click', () => el.remove());
-  el.appendChild(label);
-  el.appendChild(desc);
-  el.appendChild(btn);
-  document.body.appendChild(el);
+  showNote({
+    level: isAI ? 'suspicious' : 'low',
+    category: 'reality',
+    title: isAI ? '🧬 Reality Check: AI-generated image' + (findings.generator ? ' — ' + findings.generator : '') : '🧬 Reality Check: no AI metadata found',
+    detail: (sigText ? sigText + ' — ' : '') + (findings.disclaimer || ''),
+    force: true // user-invoked: always show the verdict, never badge-only
+  });
 }
 
-chrome.runtime.onMessage.addListener((request) => {
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === 'REALITY_RESULT') showRealityBanner(request.findings);
+  if (request.type === 'GET_PAGE_ALERTS') {
+    const alerts = (typeof popup !== 'undefined' && popup && popup.activeAlerts)
+      ? popup.activeAlerts.map(a => ({
+          id: a.id,
+          types: (a.alerts || []).map(x => x.type).join(', '),
+          isProtected: !!a.isProtected
+        }))
+      : [];
+    sendResponse({ alerts });
+  }
+  if (request.type === 'DISMISS_PAGE_ALERT' && typeof request.id === 'number') {
+    if (typeof popup !== 'undefined' && popup) popup.dismissAlert(request.id);
+    sendResponse({ ok: true });
+  }
+  return false;
 });
 
 async function scanText(text) {
@@ -700,6 +762,9 @@ async function init() {
     if (popup) popup.render();
   });
   popup = new AEGISPopup();
+    // Quiet guardian: the bubble only shows when there is something to say
+    const originalRender = popup.render.bind(popup);
+    popup.render = function () { originalRender(); updateBubbleVisibility(); };
   document.addEventListener('input', handleInputEvent, true); document.addEventListener('keyup', handleInputEvent, true);
   document.addEventListener('focusin', (e) => { const el = e.target; if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.getAttribute('contenteditable') === 'true')) handleInputEvent(); }, true);
   _scanInterval = setInterval(() => { if (!document.hidden) { performScan(); restoreVaultInResponses(); sentinelPass(); injectionPass(); } }, 2000);

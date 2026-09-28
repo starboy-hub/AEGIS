@@ -52,11 +52,14 @@
       <div class="row-info"><div class="row-label">🧠 Local AI (Ollama)</div><div class="row-desc">Second opinion from a model running on this machine</div></div>
       <span id="ollamaStatus" class="status-chip">…</span>
     </div>
-    <div class="row row-column">
-      <div class="row-info"><div class="row-label">🔧 Custom patterns</div><div class="row-desc">One per line · format: TYPE:/regex/flags</div></div>
-      <textarea id="customPatternsInput" placeholder="EMPLOYEE_ID:/EMP-\d{5}/g"></textarea>
-      <button id="saveCustomPatternsBtn" class="save-btn">Save patterns</button>
-    </div>
+    <details class="sub">
+      <summary>🔧 Custom patterns (advanced)</summary>
+      <div class="row row-column">
+        <div class="row-info"><div class="row-desc">One per line · format: TYPE:/regex/flags</div></div>
+        <textarea id="customPatternsInput" placeholder="EMPLOYEE_ID:/EMP-\d{5}/g"></textarea>
+        <button id="saveCustomPatternsBtn" class="save-btn">Save patterns</button>
+      </div>
+    </details>
   </section>
 
   <section class="card">
@@ -118,11 +121,11 @@
     </div>
   </section>
 
-  <section class="card">
-    <div class="card-head">
+  <details class="card">
+    <summary class="card-head">
       <span class="card-icon">✍️</span>
       <div><h2>Sign &amp; Verify</h2><p>Prove text is yours and unmodified — signed with your device key, verifiable by anyone with AEGIS</p></div>
-    </div>
+    </summary>
     <div class="row row-column">
       <div class="row-info"><div class="row-label">Sign a message</div><div class="row-desc">Paste the result anywhere; you hold the key</div></div>
       <textarea id="signInput" style="height:60px" placeholder="Type the message to sign…"></textarea>
@@ -133,13 +136,13 @@
       <button id="verifyBtn" class="save-btn">🔍 Verify</button>
       <div id="verifyResult" class="verify-result"></div>
     </div>
-  </section>
+  </details>
 
-  <section class="card">
-    <div class="card-head">
+  <details class="card">
+    <summary class="card-head">
       <span class="card-icon">🐝</span>
       <div><h2>Swarm Defense</h2><p>Share scam signatures between AEGIS installs — hashes only, never message text</p></div>
-    </div>
+    </summary>
     <div class="row row-column">
       <div class="row-info"><div class="row-label">Threat packs</div><div class="row-desc">Export your pack and import it on a loved one's browser — hand-carry immunity</div></div>
       <div class="pack-row">
@@ -149,7 +152,7 @@
         <span id="swarmStatus" class="status-chip"></span>
       </div>
     </div>
-  </section>
+  </details>
 
   <footer class="footer">AEGIS • 100% Local • <span id="footerVersion"></span></footer>
 

@@ -2,6 +2,53 @@
 
 All notable changes to AEGIS will be documented in this file.
 
+## [7.1.0] - 2026-09-28
+
+### Changed — 🔇 The Quiet Guardian (UX overhaul)
+
+The audit found eight interrupt surfaces, four colliding full-width banners,
+and no alert memory — uninstall-grade UX. This release replaces all of it
+with a single, calm notification system.
+
+**One notification surface.** The four banner systems (Sentinel, Injection,
+Reality, Signature) are gone. One compact toast appears bottom-right, queued
+one-at-a-time with the most severe first, auto-dismissing (6s, dangerous
+12s). Details live in the popup, not stacked over the page.
+
+**Severity ladder.** Low findings are badge-only — never a toast. Dangerous
+toasts turn the shield red. The submission modal remains the only blocking
+surface (by design).
+
+**Dismissals are honored.** Every toast offers "Ignore on this site" and
+"Never warn about this" (per-signal mute, persisted in settings). Site mutes
+silence Sentinel/Injection passes on that host.
+
+**The bubble earns its place.** New setting (default: "when there's
+something to say"): the floating shield is hidden until a finding, alert, or
+Family mode makes it relevant. No more permanent furniture.
+
+**Signal hygiene at the source.** Weak signals (urgency wording, link
+pressure, AI-directed language) can never produce more than a low note
+alone. Quoted/code/blockquote framing is excluded from injection scanning
+(articles *about* injection are not attacks). One note per page per engine.
+
+**Popup: three tabs.** Overview (status, layers, stats) / **Alerts** (this
+page's findings with per-item Ignore, via new GET/DISMISS_PAGE_ALERT
+messages) / History (last 10 + export/clear).
+
+**Options: advanced tools collapsed.** Custom patterns, Sign & Verify, and
+Swarm packs moved into collapsible sections — the default view is the
+guardian essentials.
+
+### Fixed
+- Injection pass now excludes quoted/blockquote/code framing (articles about
+  prompt injection no longer trigger the firewall)
+- Bubble hidden/reshown state is consistent after every render
+
+### Tests
+- E2E updated to the note surface (7/7 green); unit suite unchanged (125)
+- Bubble visibility patched through popup.render so state stays consistent
+
 ## [7.0.1] - 2026-09-28
 
 ### Added — Security & community hardening (from external audit triage)
