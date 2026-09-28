@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "AEGIS: Universal AI Privacy Shield",
-  "version": "6.9.0",
+  "version": "7.0.0",
   "description": "Open-source endpoint DLP. Intercepts and redacts PII before it reaches AI platforms. 100% local.",
   "permissions": ["activeTab", "storage", "contextMenus"],
   "host_permissions": ["<all_urls>"],

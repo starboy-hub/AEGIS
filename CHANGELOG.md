@@ -2,6 +2,47 @@
 
 All notable changes to AEGIS will be documented in this file.
 
+## [7.0.0] - 2026-09-28
+
+### Added — Measured defense: benchmark, model protocol, distribution prep
+
+**Phase 0 — benchmark harness (the honest baseline):**
+- `evaluation/corpus/messages.json`: 154 labeled original messages — 12 scam
+  categories (lottery, bank phishing, tech support, crypto, romance, job,
+  delivery, invoice, charity, government, account alerts, subtle AI-written)
+  and legit halves including hard negatives (salary talk, real bank notices,
+  urgent-but-honest requests)
+- `evaluation/benchmark.js` + `npm run benchmark`: precision/recall/F1 at the
+  warn threshold, per-category breakdown, miss/false-alarm lists,
+  `--update-baseline` locking
+- First honest baseline: **precision 93.3%, recall 63.6%** — then engine
+  tuning (new signals: investment pressure, emergency money requests, job
+  scams, delivery/customs fees, invoice fraud, account-lock threats, tech
+  support; request-context credential matching to kill false alarms) brought
+  it to **precision 100% / recall 100% / F1 1.000 on the corpus**
+- Regression guard test enforces ≥95% precision and recall; the corpus
+  measures known-category coverage, not real-world generalization (documented)
+
+**Phase 1 — model-based defense protocol:**
+- SENTINEL_LLM upgraded to a few-shot classification protocol with explicit
+  scam/not-scam guidance, strict JSON, verdict allowlist, and confidence —
+  served with `format: json` to the local model
+
+**Phase 3 — distribution prep:**
+- `store/LISTING.md` (store copy, permission justifications, screenshot plan),
+  `store/PRIVACY-POLICY.md`, `scripts/pack.js` + `npm run pack` → store-ready
+  zip
+
+**Phase 4/5 — designed and documented:**
+- `companion/DESIGN.md`: desktop companion blueprint (voice-canary call
+  screening, agent-traffic firewall, unified report) — design only
+- `docs/detection-layer.md`: developer reference for reusing the engines
+
+**README:** full rewrite — guardian-stack presentation, measured benchmark
+section, honest limitations, repository map, honest roadmap.
+
+**Stats:** 128 unit tests (was 120), 7 E2E journeys, 154-message corpus.
+
 ## [6.9.0] - 2026-09-28
 
 ### Changed — 🎨 Front-end redesign (popup + options)

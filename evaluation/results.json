@@ -1,0 +1,106 @@
+{
+  "generated": "2026-09-28T19:08:47.140Z",
+  "corpusSize": 154,
+  "warnThreshold": "suspicious + dangerous",
+  "counts": {
+    "tp": 66,
+    "fp": 0,
+    "tn": 88,
+    "fn": 0
+  },
+  "precision": 1,
+  "recall": 1,
+  "f1": 1,
+  "perCategory": {
+    "lottery": {
+      "total": 6,
+      "flagged": 6
+    },
+    "phishing_bank": {
+      "total": 6,
+      "flagged": 6
+    },
+    "tech_support": {
+      "total": 5,
+      "flagged": 5
+    },
+    "crypto": {
+      "total": 6,
+      "flagged": 6
+    },
+    "romance": {
+      "total": 5,
+      "flagged": 5
+    },
+    "job": {
+      "total": 6,
+      "flagged": 6
+    },
+    "delivery": {
+      "total": 5,
+      "flagged": 5
+    },
+    "invoice": {
+      "total": 5,
+      "flagged": 5
+    },
+    "charity": {
+      "total": 4,
+      "flagged": 4
+    },
+    "government": {
+      "total": 6,
+      "flagged": 6
+    },
+    "account_alert": {
+      "total": 6,
+      "flagged": 6
+    },
+    "subtle": {
+      "total": 6,
+      "flagged": 6
+    },
+    "chat": {
+      "total": 10,
+      "flagged": 0
+    },
+    "work": {
+      "total": 10,
+      "flagged": 0
+    },
+    "finance": {
+      "total": 10,
+      "flagged": 0
+    },
+    "medical": {
+      "total": 8,
+      "flagged": 0
+    },
+    "travel": {
+      "total": 6,
+      "flagged": 0
+    },
+    "school": {
+      "total": 6,
+      "flagged": 0
+    },
+    "tech": {
+      "total": 10,
+      "flagged": 0
+    },
+    "shopping": {
+      "total": 8,
+      "flagged": 0
+    },
+    "family": {
+      "total": 8,
+      "flagged": 0
+    },
+    "hard_negatives": {
+      "total": 12,
+      "flagged": 0
+    }
+  },
+  "misses": [],
+  "falseAlarms": []
+}

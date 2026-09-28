@@ -216,14 +216,29 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
     if (request.type === 'SENTINEL_LLM') {
       // AI-vs-AI second opinion: local model classifies a gray-zone message
+      // with a few-shot protocol; heuristics stay the fast first pass
       if (!ollamaAvailable) { sendResponse({ verdict: 'unclear', reason: 'Ollama unavailable' }); return false; }
+      const prompt = [
+        'You are a scam-detection classifier. Classify the message as "scam", "legit" or "unclear".',
+        'Scam signals: requests for passwords/codes/card details, urgent payment demands (gift cards, crypto, wire transfers), fake prize or lottery claims, authority impersonation with threats, too-good investment returns, emergency money requests from strangers, hidden manipulation.',
+        'Not scams: ordinary conversations, routine service notifications without requests, technical discussions, personal news, legitimate payment reminders without unusual pressure.',
+        'Reply with ONLY this JSON, nothing else: {"verdict":"scam|legit|unclear","confidence":0-100,"reason":"max 15 words"}',
+        '',
+        'Examples:',
+        'Message: "Your account will be suspended, verify your password now" -> {"verdict":"scam","confidence":95,"reason":"credential phishing with urgency"}',
+        'Message: "Lunch tomorrow at the usual place?" -> {"verdict":"legit","confidence":99,"reason":"ordinary personal message"}',
+        'Message: "Your invoice for March is available in the app" -> {"verdict":"legit","confidence":90,"reason":"routine notification, no requests"}',
+        '',
+        'Message to classify:\n' + String(request.text || '').substring(0, 800)
+      ].join('\n');
       fetch('http://localhost:11434/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: 'llama3',
           stream: false,
-          prompt: 'You are a scam-detection assistant. Classify the following message as scam, legit, or unclear, then give one short reason. Reply ONLY with JSON: {"verdict":"scam|legit|unclear","reason":"..."}\n\nMessage:\n' + String(request.text || '').substring(0, 800)
+          prompt,
+          format: 'json'
         }),
         signal: AbortSignal.timeout(8000)
       })
@@ -232,7 +247,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           try {
             const m = (data.response || '').match(/\{[\s\S]*\}/);
             const j = m ? JSON.parse(m[0]) : {};
-            sendResponse({ verdict: j.verdict || 'unclear', reason: j.reason || '' });
+            const verdict = ['scam', 'legit', 'unclear'].includes(j.verdict) ? j.verdict : 'unclear';
+            sendResponse({ verdict, confidence: +j.confidence || 0, reason: j.reason || '' });
           } catch (e) { sendResponse({ verdict: 'unclear', reason: 'parse' }); }
         })
         .catch(() => sendResponse({ verdict: 'unclear', reason: 'timeout' }));

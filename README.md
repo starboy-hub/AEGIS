@@ -1,481 +1,129 @@
-# 🛡️ AEGIS: Universal AI Privacy Shield
+# 🛡️ AEGIS — Local-First Guardian Against AI-Era Threats
 
-> **Stop feeding your sensitive data to AI.**
+> **AI fights in both directions: it stops your data from leaking into AI systems, and it defends you from what AI-generated attacks deliver to your screen. 100% local. No account. No telemetry. No cloud.**
 
-![Version](https://img.shields.io/badge/version-6.9.0-blue.svg)
+![Version](https://img.shields.io/badge/version-7.0.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
-![Languages](https://img.shields.io/badge/languages-9-orange.svg)
+![Tests](https://img.shields.io/badge/tests-128%20passing-brightgreen.svg)
+![E2E](https://img.shields.io/badge/E2E-7%20journeys-blueviolet.svg)
 ![Privacy](https://img.shields.io/badge/privacy-100%25_local-red.svg)
-![Ollama](https://img.shields.io/badge/Ollama-optional-purple.svg)
 
-[🚀 Quick Start](#-quick-start) • [✨ Features](#-features) • [📸 Screenshots](#-screenshots) • [🤝 Contributing](#-contributing) • [📄 License](#-license)
+AEGIS is a browser extension that acts as a **personal guardian running entirely on your machine**. It protects you in two directions against AI-era threats, with a family of engines that all run locally:
 
----
-
-## 🎯 The Problem
-
-Every day, millions of users inadvertently paste sensitive information into AI platforms:
-
-* 🔑 Passwords and API keys
-* 💳 Credit card numbers
-* 🏥 Medical records and prescriptions
-* 📊 Financial statements and salaries
-* 🆔 Social Security numbers
-* 🏢 Proprietary enterprise data
-
-Once submitted to ChatGPT, Claude, or Copilot, this data is out of your control. It may be logged, stored, reviewed by human evaluators, or used to train future foundation models.
+| Layer | What it defends against | How it works |
+|---|---|---|
+| 🛡️ **Shield** | Your data leaking into AI chats | Detects PII as you type (regex + 9-language context + your personal Vault) and swaps it with realistic fake data before anything is sent |
+| 🔐 **Identity Vault** | Your real details typed plainly | Teach it your name/email/phone once (AES-256-GCM encrypted, device-local) — it detects them at any sensitivity and replaces them with **consistent per-site pseudonyms**, so AI conversations stay coherent. AI replies containing a pseudonym are restored to your real value on-screen |
+| 🚨 **Sentinel** | AI-generated scams arriving at you | Scores every inbound message against weighted scam signals (credential requests, payment pressure, fake authority, too-good offers, emergency money requests…). Optional local-Ollama second opinion. **Trust Graph**: pressure messages naming *your* bank/employer escalate as impersonation |
+| 🛑 **Injection Firewall** | Prompt-injection hidden in pages | Detects instruction-override text, fake role markers, and **invisible injection payloads** (transparent, off-screen, 1px text) designed to hijack AI agents that read the web |
+| 🧬 **Reality Check** | Synthetic media | Right-click any image → scans its bytes for AI-provenance metadata (C2PA content credentials, generator signatures, diffusion parameters) |
+| 👨‍👩‍👧 **Family Guardian** | Scams targeting loved ones | One switch: all layers armed, strictest thresholds |
+| ✍️ **Sign & Verify** | Forged content claiming to be from you | Device-local ECDSA signing; portable signed blocks anyone with AEGIS can verify — forged signatures fail loudly |
+| 🐝 **Swarm Defense** | Repeat scams across installs | Anonymized threat-signature packs (hashes only, never message text) — export/import between installs today, federatable tomorrow |
 
 ---
 
-## 🛡️ The Solution
+## 🧪 Measured, not promised
 
-**AEGIS** is an open-source, endpoint Data Loss Prevention (DLP) browser extension that intercepts, redacts, and protects Personally Identifiable Information (PII) before it ever leaves your client environment.
+Sentinel is scored against a labeled corpus of 154 messages (scams *and* tricky legitimate messages — salary talk, real bank notices, urgent-but-honest requests). The benchmark runs on every change:
 
-When AEGIS detects sensitive data, it dynamically swaps it with realistic synthetic data — allowing you to leverage AI models at full capacity without compromising privacy.
-
----
-
-## 🎬 See It In Action
-
-```text
-You type:    "My SSN is 123-45-6789 and I work at TechCorp"
-                ↓
-AEGIS sees:  🔴 PII DETECTED (SSN, Company Name)
-                ↓
-You click:   🛡️ Protect
-                ↓
-AI receives: "My SSN is 073-64-2918 and I work at Nexus Industries"
+```
+corpus: 154 labeled messages · warn threshold: suspicious+dangerous
+precision: 100% · recall: 100% · f1: 1.000   (baseline locked, CI-enforced ≥95%)
 ```
 
-> **100% Local.** Zero data ever leaves your machine.
+**Honest read of these numbers:** the corpus is co-developed with the patterns, so it measures *coverage of known scam categories*, not real-world generalization. Real-world recall will be lower — novel scam wording is the eternal arms race. The corpus and the guard exist so the engine can never silently regress, and so every future improvement is measured. Run it yourself: `npm run benchmark`.
 
----
+## ⚠️ Honest limitations
 
-## ✨ Features
+No tool — and no app from any vendor — protects against "AI" as a whole. AEGIS defends a specific, growing slice:
 
-### 🔍 4-Layer Detection Engine
+- It sees **browser content only** — not email apps, SMS, or phone calls (webmail like Gmail/Outlook *is* covered, because it renders in the browser).
+- Its scam and injection detection is **heuristic + optional local LLM**. Novel wording can get through; that is why the benchmark and corpus exist and must grow.
+- **Reality Check reads metadata.** AI images with stripped metadata will show "no AI metadata found" — which is *not* proof of authenticity.
+- It does nothing about account takeover, malware, platform surveillance, or systemic AI risks. Those need OS hygiene, institutions, and law.
+- The vault protects your values at rest on this device (AES-256-GCM, local key) — not against an attacker with full disk access.
 
-| Layer | What It Catches | Examples |
-| :--- | :--- | :--- |
-| **Regex** | Standard PII formats | SSN, Credit Cards, Emails, Phone Numbers, IPs |
-| **Context** | Semantic meaning | `"I was diagnosed with..."`, `"My salary is..."` |
-| **Heuristics** | Names & entities | `"John Smith"`, `"Attorney Johnson"` |
-| **AI (Optional)** | Deep semantic analysis | Complex, ambiguous PII via local LLMs |
-
----
-
-### 📋 Supported PII Types
-
-#### Standard PII
-* ✅ Social Security Numbers (SSN)
-* ✅ Email addresses
-* ✅ Phone numbers
-* ✅ Credit card numbers
-* ✅ IP addresses
-
-#### Extended PII
-* ✅ Dates of birth
-* ✅ Passport numbers
-* ✅ Driver's licenses
-* ✅ Bank account numbers
-* ✅ Medical record numbers (MRN)
-
-#### Contextual PII
-* ✅ Medical conditions & prescriptions
-* ✅ Financial information (salaries, net worth, bankruptcy)
-* ✅ Legal proceedings (litigation, legal counsel)
-* ✅ Credentials (passwords, tokens, API keys)
-* ✅ Employment history & internal roles
-* ✅ Personal situations (divorce, custody, family data)
-
-#### Custom PII
-* ✅ User-defined regex patterns tailored to company-specific identifiers
-
----
-
-### 🌍 9-Language Support
-
-AEGIS provides native contextual parsing across multiple languages:
-
-| Language | Example Detection |
-| :--- | :--- |
-| 🇺🇸 **English** | `"My SSN is 123-45-6789"` |
-| 🇪🇸 **Spanish** | `"Mi salario es $60,000"` |
-| 🇫🇷 **French** | `"Je gagne 55000 euros"` |
-| 🇩🇪 **German** | `"Ich verdiene 70000 Euro"` |
-| 🇧🇷 **Portuguese** | `"Meu salário é 6000 reais"` |
-| 🇮🇹 **Italian** | `"Guadagno 48000 euro"` |
-| 🇷🇺 **Russian** | `"Моя зарплата 180000 рублей"` |
-| 🇨🇳 **Chinese** | `"我的工资是60000元"` |
-| 🇸🇦 **Arabic** | `"راتبي هو 25000 دولار"` |
-
----
-
-### 💰 Currency-Aware Fake Data
-
-Replaces financial figures with contextually appropriate synthetic values preserving format:
-
-| Original | Synthetic Replacement |
-| :--- | :--- |
-| `$95,000` | `$75,000` |
-| `€60,000` | `€75,000` |
-| `₽150,000` | `₽200,000` |
-| `¥50,000` | `¥80,000` |
-| `R$5,000` | `R$8,000` |
-
----
-
-### 🛡️ Universal Submission Guard
-
-Monitors and intercepts outbound vectors across the DOM:
-
-* ✅ Button clicks (`Send`, `Submit`, custom triggers)
-* ✅ `Enter` key form submissions
-* ✅ Standard `<form>` payloads
-* ✅ `window.fetch` API requests
-* ✅ `XMLHttpRequest` (XHR) calls
-* ✅ `FormData` serialization
-
-> If unprotected PII is about to be sent, AEGIS halts the event loop and prompts for confirmation.
-
----
-
-### 📎 Multi-Layer Attachment Guard
-
-Scans file payloads across 6 browser-level interception points:
-
-1. `File` constructor
-2. `FormData.append`
-3. `XMLHttpRequest.prototype.send`
-4. `window.fetch` requests
-5. File input `change` events
-6. Drag-and-drop dropzones
-
-**Proactive Upload Warnings:**
-* 📸 **Images:** OCR & visual leak hazards
-* 📄 **Documents:** Sensitive naming conventions (`*confidential*`, `*payroll*`)
-* 📋 **Text/Code:** Files embedding credential patterns or PII strings
-
----
-
-### 🎯 Sensitivity Control
-
-Customize detection thresholds per workflow:
-
-* **Low:** Regex only (maximum performance, lowest false-positive rate)
-* **Medium:** Regex + Contextual markers (recommended daily default)
-* **High:** All layers enabled, including heuristic classification
-
----
-
-### 🔧 Custom Regex Patterns
-
-Define project- or organization-specific patterns inside settings:
-
-```text
-EMPLOYEE_ID : /EMP-\d{5}/g
-PROJECT_CODE : /PROJ-[A-Z]{3}-\d{4}/gi
-CLIENT_REF   : /CL-[A-Z0-9]{8}/
-```
-
----
-
-### 🤝 Trust Site Management
-
-* **Instant Allowlist:** Single-click trust action from alert popups.
-* **Domain Whitelist:** Configurable domain lists via Settings.
-* **Session Memory:** Temporary suppressions for trusted workflow runs.
-* **Bi-directional Sync:** Automatic state alignment between popup and options storage.
-
----
-
-### 📊 Summary Catalogue
-
-Post-redaction review modal includes:
-* Detailed replacement badges
-* Word-by-word diff comparisons
-* `Original ➔ Synthetic` mapping tables
-* Color-coded category tags
-
----
-
-### 🎨 Premium UX
-
-* 🌙 Real-time dark mode
-* 🖱️ Draggable, non-blocking UI overlay
-* 🚦 High-contrast state indications (Red = PII Detected, Green = Secured)
-* ⌨️ Keyboard-first workflows (`⌘+Enter` / `Ctrl+Enter` to quick-protect, `Esc` to dismiss)
-* 📤 Audit history export (JSON / CSV formats)
-* 📈 Local privacy metrics and interception counters
-
----
-
-## 📸 Screenshots
-
-| View | Description |
-| :--- | :--- |
-| **Real-Time Detection** | Dynamic input underline highlighting sensitive entities. |
-| **One-Click Protection** | Instant substitution with synthetic test values. |
-| **Summary Catalogue** | Comprehensive audit log of all redacted inputs. |
-| **Attachment Guard** | Pre-flight prompt on file drag-and-drop operations. |
-| **Settings Panel** | Complete control over layers, regex rules, and allowlists. |
-
----
+For the future desktop layer (real-time call screening, agent-traffic firewall), see [companion/DESIGN.md](companion/DESIGN.md) — designed, not yet built.
 
 ## 🚀 Quick Start
 
-### Method 1: Direct Download (Recommended)
+### From a release
 
-1. Navigate to [Releases](https://github.com/starboy-hub/AEGIS/releases).
-2. Download `aegis-extension-v5.5.0.zip` and unzip it.
-3. Open your Chromium-based browser (`chrome://extensions/`, `edge://extensions/`, or `brave://extensions/`).
-4. Enable **Developer mode** (toggle in the upper right corner).
-5. Click **Load unpacked** and select the unzipped `dist` folder.
-6. The 🛡️ shield icon will now appear in your browser.
+1. Download the extension zip from [Releases](https://github.com/starboy-hub/AEGIS/releases), unzip it.
+2. Open `chrome://extensions/` (or Edge/Brave equivalents), enable **Developer mode**, click **Load unpacked**, select the unzipped folder.
+3. Click the 🛡️ icon — the dashboard shows your status. Optional: install [Ollama](https://ollama.com) locally for AI second opinions.
 
----
-
-### Method 2: Clone from GitHub
+### From source
 
 ```bash
-# Clone the repository
 git clone https://github.com/starboy-hub/AEGIS.git
 cd AEGIS
-
-# Build the extension (requires Node.js 18+)
 npm install
-npm run build
-
-# Load into your browser:
-# 1. Open chrome://extensions/
-# 2. Toggle "Developer mode" ON
-# 3. Click "Load unpacked"
-# 4. Choose the 'dist' directory
+npm run build        # dist/ appears — load it as above
+npm test             # 128 unit tests
+npm run test:e2e     # 7 Playwright journeys (real Chromium)
+npm run benchmark    # Sentinel detection benchmark
+npm run pack         # store-ready zip in releases/
 ```
 
----
+### First 5 minutes with AEGIS
 
-### Method 3: Installation Scripts
+1. **Vault** (Options → Identity Vault): add your real name and email.
+2. Open any AI chat and type "hi, I'm *your name* and my email is *your email*".
+3. Watch the Vault flag them at any sensitivity → click Protect → consistent pseudonyms replace them.
+4. When the AI's reply mentions your pseudonym, you'll see your real name again — the server never did.
+5. Optional: add your bank to the **Trust Graph** — scam messages naming it now escalate as impersonation.
 
-**Windows:**
-```cmd
-:: Double-click install-windows.bat inside the dist folder
-dist\install-windows.bat
+## 🧠 How detection works
+
+Layered, local, and measured — full developer reference in [docs/detection-layer.md](docs/detection-layer.md):
+
+- **Regex layer** — PII shapes (SSN, cards with Luhn pre-check, emails, phones, IPs, passport, bank, license, MRN)
+- **Context layer** — 9-language semantic patterns ("I was diagnosed with…", "my salary is…")
+- **Vault layer** — your taught values, matched case/format-insensitively
+- **Sentinel layer** — weighted scam signals on inbound text, with trust-graph escalation
+- **Injection layer** — prompt-injection patterns + invisible-text forensics
+- **Model layer (optional)** — local Ollama classification with a few-shot protocol as a second opinion
+
+Replacements use format-preserving fake data with safety guarantees (fake cards fail Luhn, fake SSNs use never-issued ranges) and are **reversible only by you** via the Vault mapping.
+
+## 🗂️ Repository map
+
+```
+src/shared/          storage keys, settings, shared helpers (UMD)
+src/content/         content script + detection/sentinel/injection engines
+src/background/      service worker: settings, vault, signing, threats, reality
+src/popup/           guardian dashboard UI
+src/options/         settings UI (7 grouped sections)
+evaluation/          labeled corpus + benchmark harness
+tests/               128 unit tests (jest)
+e2e/                 7 Playwright journeys against real Chromium
+store/               Web Store listing + privacy policy
+companion/           desktop app blueprint (design only)
+docs/                developer reference
 ```
 
-**macOS / Linux:**
-```bash
-chmod +x install-mac.sh
-./install-mac.sh
-```
+## 🗺️ Roadmap (honest)
 
----
-
-## 📖 How to Use
-
-### Basic Workflow
-
-1. Open your AI service of choice (ChatGPT, Claude, Gemini, Copilot, Perplexity, etc.).
-2. Type your prompt normally into the input field.
-3. When sensitive data is entered:
-   * Text receives a red indicator.
-   * An AEGIS badge appears near the active input.
-4. Click **🛡️ Protect** (or press `⌘+Enter` / `Ctrl+Enter`).
-5. All sensitive tokens are substituted with safe mock data.
-6. Submit your prompt safely.
-
----
-
-### Keyboard Shortcuts
-
-| Shortcut | Action |
-| :--- | :--- |
-| `⌘ + Enter` *(Mac)* / `Ctrl + Enter` *(Win)* | Quick-protect latest detection |
-| `Esc` | Dismiss active alert banner |
-
----
-
-### Settings & Configuration
-
-Click the ⚙️ gear icon to manage:
-
-* **Dark Mode:** System / Dark / Light theme toggles.
-* **Regex Engine:** Enable or isolate pattern sets.
-* **Sensitivity Profile:** Low / Medium / High heuristics.
-* **Substitution Strategy:** Synthetic fake generation vs. standard `[REDACTED]` tokens.
-* **Interface Language:** Active display language.
-* **Custom Regex Engine:** User-supplied token expressions.
-* **Trusted Domains:** Whitelisted target hosts.
-
----
-
-## 🤖 Optional: Ollama Integration
-
-AEGIS operates self-contained without external dependencies. If you require deep semantic inference for highly unstructured payloads, you can optionally connect a local Ollama instance.
-
-### Setup
-
-1. Install Ollama via [ollama.com](https://ollama.com).
-2. Pull a lightweight model:
-   ```bash
-   ollama pull llama3
-   ```
-3. Restart AEGIS or reload your browser tabs.
-
-### Detection Mechanism
-
-* AEGIS pings `http://localhost:11434` via background service workers.
-* **Found:** Displays `🟢 Active` in settings and routes ambiguous strings to the local model.
-* **Not Found:** Displays `⚪ Disabled` and defaults to standard heuristic and regex pipelines.
-* **Privacy Assurance:** Model inference executes strictly on `localhost`.
-
----
-
-## 🔒 Privacy First
-
-### Our Guarantees
-
-* ✅ **100% Local Execution:** Computation stays inside browser sandboxes.
-* ✅ **Zero Analytics:** No diagnostic beacons, telemetry, or remote hooks.
-* ✅ **No External Cloud Dependencies:** Fully functional in air-gapped environments.
-* ✅ **Open Source:** Permissively licensed under MIT for complete code transparency.
-
-### Architectural Boundary
-
-| What AEGIS Does NOT Do | What AEGIS Does |
-| :--- | :--- |
-| ❌ Transmit text to external validation servers | ✅ Parse DOM events in-browser |
-| ❌ Log URLs or browsing activity | ✅ Swap sensitive strings with local mock dictionaries |
-| ❌ Require third-party logins or telemetry | ✅ Preserve local audit tables via `chrome.storage.local` |
-| ❌ Dispatch remote telemetry queries | ✅ Provide offline-first privacy controls |
-
----
-
-## 🛠️ Technical Details
-
-### Tech Stack
-
-* **Core:** Vanilla JavaScript (ES6+ Modules)
-* **Standard:** Manifest V3 (MV3 compliant)
-* **Storage Layer:** `chrome.storage.local` & `chrome.storage.sync`
-* **Local AI Hook:** Ollama Local REST API (`127.0.0.1:11434`)
-* **Dependencies:** Zero runtime dependencies
-
-### Browser Compatibility
-
-| Browser | Compatibility |
-| :--- | :--- |
-| Google Chrome | ✅ Version 88+ |
-| Brave Browser | ✅ Supported |
-| Microsoft Edge | ✅ Version 88+ |
-| Arc Browser | ✅ Supported |
-| Mozilla Firefox | ⚠️ In progress (Manifest translation) |
-| Apple Safari | ⚠️ In roadmap |
-
----
-
-### Project Structure
-
-```text
-AEGIS/
-├── dist/                    # Production-ready extension artifacts
-│   ├── manifest.json       # MV3 metadata configuration
-│   ├── background.js       # Background service worker
-│   ├── content.js          # Core DOM interception engine
-│   ├── popup.html          # Extension action popup
-│   ├── popup.js            # Overlay view logic
-│   ├── options.html        # Settings dashboard
-│   ├── options.js          # Configuration persistence logic
-│   ├── install-windows.bat # Windows setup helper
-│   └── install-mac.sh      # macOS/Linux setup helper
-├── assets/
-│   └── screenshots/        # Media assets
-├── README.md               # Main project documentation
-├── LICENSE                 # MIT License details
-├── CONTRIBUTING.md         # Contribution standards
-├── CODE_OF_CONDUCT.md      # Community conduct guidelines
-├── CHANGELOG.md            # Release version history
-└── .gitignore             # Git ignore patterns
-```
-
----
-
-## 🧪 Testing
-
-### Quick Manual Test
-
-Copy and paste this test string into your target AI prompt box:
-
-```text
-My name is John Smith, my SSN is 123-45-6789, and I work at TechCorp 
-where my salary is $95,000. I was recently diagnosed with diabetes 
-and take metformin daily.
-```
-
-**Expected Results:**
-1. Detection highlight activates over SSN, employer, salary, and medical condition.
-2. AEGIS notification card lists all detected categories.
-3. Clicking **🛡️ Protect** replaces entries with randomized, semantically valid equivalents.
-4. Submission executes without standard security prompts.
-
-*(See `TESTING.md` for full automated and multi-language verification routines).*
-
----
+- [x] Shield, Vault, pseudonyms, un-masking
+- [x] Sentinel + benchmark harness
+- [x] Injection Firewall incl. hidden-text forensics
+- [x] Reality Check (metadata forensics)
+- [x] Trust Graph + Family Mode
+- [x] Content signing + swarm-ready signature packs
+- [ ] Grow the corpus to 1,000+ messages with real-world submissions
+- [ ] Web Store publication (listing prepared in [`store/`](store/LISTING.md))
+- [ ] Webmail-tuned detection profiles
+- [ ] Firefox/Edge ports
+- [ ] Local small-model classification (WebGPU/Ollama fine-tune)
+- [ ] Desktop companion: call screening + agent-traffic firewall ([design](companion/DESIGN.md))
+- [ ] Federated swarm relay (needs a user base first)
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please check out [`CONTRIBUTING.md`](CONTRIBUTING.md) to review development workflows.
-
-```bash
-# Fork & clone your repository
-git clone https://github.com/starboy-hub/AEGIS.git
-cd AEGIS
-
-# Load unpacked from the 'dist' directory in developer mode
-# Make your edits, verify functionality, and open a Pull Request!
-```
-
----
-
-## ❓ FAQ
-
-**Does AEGIS require an active internet connection?**  
-No. All core pattern matching and contextual rules execute entirely client-side. The optional Ollama engine also runs on your local system loopback.
-
-**Will this degrade browser performance?**  
-No. DOM listeners are debounced and memory-bounded to maintain sub-millisecond input handling.
-
-**Is commercial usage permitted?**  
-Yes. AEGIS is distributed under the MIT license and is free to use across both personal and enterprise environments.
-
-**Which AI platforms are supported?**  
-AEGIS hooks into universal DOM input controls, making it compatible with ChatGPT, Claude, Google Gemini, Microsoft Copilot, Perplexity, and custom internal chat interfaces.
-
----
-
-## 🗺️ Roadmap
-
-- [x] Chromium Manifest V3 baseline engine
-- [x] Multi-language semantic rules (9 languages)
-- [x] Local Ollama integration hook
-- [ ] Native Firefox Gecko extension port
-- [ ] Safari Web Extension conversion
-- [ ] Bi-directional context restoration (unmasking AI responses locally)
-- [ ] Enterprise group policy (GPO) deployment templates
-
----
+See [CONTRIBUTING.md](CONTRIBUTING.md). Good first contributions: corpus messages (real scam patterns you've seen, with personal data removed), new detection signals with benchmark evidence, translations.
 
 ## 📄 License
 
-Distributed under the **MIT License**. Refer to [`LICENSE`](LICENSE) for complete terms.
-
----
-
-## 🌟 Show Your Support
-
-If you find AEGIS useful, consider supporting the project:
-
-* ⭐ [Star the repository on GitHub](https://github.com/starboy-hub/AEGIS)
-* 🐛 [Submit an Issue](https://github.com/starboy-hub/AEGIS/issues)
-* 💡 [Suggest a Feature](https://github.com/starboy-hub/AEGIS/issues/new)
-* 📢 Share with your colleagues and community!
+MIT — see [LICENSE](LICENSE).

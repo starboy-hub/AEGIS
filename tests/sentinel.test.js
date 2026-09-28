@@ -19,10 +19,15 @@ describe('AEGIS Sentinel engine', () => {
     expect(r.signals.some(s => s.id === 'credential_request')).toBe(true);
   });
 
-  test('authority + urgency pressure -> suspicious', () => {
+  test('authority + urgency pressure -> dangerous (account-lock threat)', () => {
     const r = analyzeMessage('This is the tax department. Urgent: your account will be suspended today, act now to avoid legal action.');
-    expect(r.level).toBe('suspicious');
+    expect(r.level).toBe('dangerous');
     expect(r.signals.some(s => s.id === 'authority_threat')).toBe(true);
+  });
+
+  test('authority + urgency without account threat -> suspicious', () => {
+    const r = analyzeMessage('Urgent: act now to avoid legal action regarding your open case.');
+    expect(r.level).toBe('suspicious');
   });
 
   test('secrecy + off-platform shift -> suspicious', () => {
@@ -62,7 +67,7 @@ describe('AEGIS Sentinel engine', () => {
 
   describe('trust-graph escalation', () => {
     test('suspicious message naming YOUR org escalates to dangerous', () => {
-      const base = analyzeMessage('Urgent: your account will be suspended today, act now to avoid legal action.');
+      const base = analyzeMessage('Urgent: act now to avoid legal action regarding your open case.');
       expect(base.level).toBe('suspicious');
       const escalated = AEGIS_SENTINEL.escalateForTrust(base, ['Global Bank']);
       expect(escalated.level).toBe('dangerous');
@@ -75,7 +80,7 @@ describe('AEGIS Sentinel engine', () => {
     });
 
     test('no escalation without trust hits', () => {
-      const base = analyzeMessage('Urgent: your account will be suspended today, act now to avoid legal action.');
+      const base = analyzeMessage('Urgent: act now to avoid legal action regarding your open case.');
       expect(AEGIS_SENTINEL.escalateForTrust(base, []).level).toBe('suspicious');
     });
 

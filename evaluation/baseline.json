@@ -1,0 +1,11 @@
+{
+  "precision": 1,
+  "recall": 1,
+  "f1": 1,
+  "counts": {
+    "tp": 66,
+    "fp": 0,
+    "tn": 88,
+    "fn": 0
+  }
+}

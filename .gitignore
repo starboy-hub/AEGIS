@@ -16,3 +16,4 @@ npm-debug.log*
 # Editor
 .vscode/
 .idea/
+releases/
