@@ -39,6 +39,7 @@ test('extension loads: service worker starts and dashboard renders', async () =>
   const popup = await context.newPage();
   await popup.goto(`chrome-extension://${extensionId}/popup.html`);
   await expect(popup.locator('#totalProtected')).toBeVisible();
+  await popup.click('[data-tab="history"]');
   await expect(popup.locator('#exportLogs')).toBeVisible();
   await context.close();
 });
@@ -113,6 +114,7 @@ test('injection firewall: hidden prompt-injection text triggers a note', async (
 });
 
 test('trust graph: a scam naming YOUR trusted organization escalates as impersonation', async () => {
+  test.setTimeout(45000); // cold local-model first inference can be slow
   const { context, page, extensionId } = await launchWithExtension();
 
   // Teach the trust graph: Global Bank is the user's real bank

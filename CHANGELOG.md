@@ -41,6 +41,8 @@ All notable changes to AEGIS will be documented in this file.
 
 ### Stats
 - 143 unit tests (was 125), 8 E2E journeys (was 7), all green
+- NEW: e2e/ui.spec.js — 26 UI functional checks (every popup + options control: toggles, selects, vault, trust, sign/verify incl. tamper rejection, swarm export/import, export masking, validation gate) + service-worker engineering checks (reality forensics, vault encryption-at-rest, malicious-message rejection)
+- Companion tools verified live: voice canary challenge output; agent firewall guard-mode roundtrip (SSN + name tokenized, logged)
 
 ## [7.3.0] - 2026-09-28
 
