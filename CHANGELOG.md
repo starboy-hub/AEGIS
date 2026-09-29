@@ -2,6 +2,26 @@
 
 All notable changes to AEGIS will be documented in this file.
 
+## [7.4.1] - 2026-09-29
+
+### Changed — 🧠 One model, three engines
+
+The in-browser/Ollama model is no longer scam-only. A unified `aiClassify`
+router (Ollama first, in-browser model second) now serves **three consult
+sites**, with per-kind hypotheses and prompts:
+
+- **Sentinel**: scam-vs-normal on gray-zone messages (as before)
+- **Injection Firewall**: manipulation-vs-normal second opinion on
+  suspicious pattern findings — catches reworded injections the patterns
+  miss (kind-aware few-shot prompt in the background)
+- **Webmail**: model verdicts on flagged emails before the note shows
+
+### Fixed
+- Orphaned code fragment after the webmail pass (leftover from a prior
+  edit) — never executed, but removed
+- Shared LLM call budget across all three engines (8/page) prevents model
+  flooding
+
 ## [7.4.0] - 2026-09-29
 
 ### Added — 📧 Phase 2: Webmail Shield + 🤖🗣️ Phase 4: companion tools
