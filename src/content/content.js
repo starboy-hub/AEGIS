@@ -381,6 +381,50 @@ function isInvisibleText(el) {
   return false;
 }
 
+// ---- Webmail profiles: Gmail/Outlook sender extraction + email checks ----
+
+function webmailPass() {
+  if (!settings.sentinelEnabled || siteMuted()) return;
+  const kind = AEGIS_WEBMAIL.detectWebmail(location.hostname);
+  if (!kind) return;
+  const userEmails = vaultCorpus.filter(e => e.kind === 'email').map(e => e.value);
+  AEGIS_WEBMAIL.extractMessages(document, kind).forEach(msg => {
+    msg.el.setAttribute('data-aegis-webmail', '1');
+    if (AEGIS_WEBMAIL.isSentMail(msg, userEmails, location.hash)) return;
+    const text = (msg.el.textContent || '').trim();
+    const hash = AEGIS.strHash('wm|' + msg.senderEmail + '|' + text.slice(0, 300));
+    if (sentinelAnalyzed.has(hash)) return;
+    sentinelAnalyzed.add(hash);
+    const muted = new Set(settings.mutedSignals || []);
+    let result = AEGIS_SENTINEL.analyzeMessage(text, muted);
+    result = AEGIS_SENTINEL.applySignals(result, AEGIS_WEBMAIL.analyzeSender(msg.senderName, msg.senderEmail));
+    let trustedHits = [];
+    if (trustMatchers.length && result.level !== 'none' && result.level !== 'low') {
+      trustedHits = trustMatchers.filter(m => new RegExp(m.regex.source, m.regex.flags).test(msg.senderName + ' ' + msg.senderEmail)).map(m => m.value);
+      if (trustedHits.length) {
+        const escalated = AEGIS_SENTINEL.escalateForTrust(result, trustedHits);
+        result.level = escalated.level;
+        result.signals = escalated.signals;
+      }
+    }
+    if (!AEGIS_SENTINEL.shouldWarn(result.level, settings.familyMode)) return;
+    const strongest = [...result.signals].sort((a, b) => b.weight - a.weight)[0];
+    showNote({
+      level: result.level, category: 'webmail',
+      title: (result.level === 'dangerous' ? '🚨 Email: likely scam' : '⚠️ Email: suspicious') + ' — ' + (msg.senderEmail || msg.senderName || 'unknown sender'),
+      detail: (msg.subject ? ' + msg.subject.slice(0, 60) +  — ' : '') + AEGIS_SENTINEL.topSignals(result, 2).join(' + ') + ' — ' + result.advice,
+      muteId: strongest ? strongest.id : null
+    });
+    if (!sentinelNoted) {
+      sentinelNoted = true;
+      try { historyStore.add({ original: 'email from ' + (msg.senderEmail || 'unknown'), fake: AEGIS_SENTINEL.topSignals(result, 2).join(', '), type: 'WEBMAIL' }); } catch (e) {}
+    }
+    if (result.level === 'dangerous') {
+      try { chrome.runtime.sendMessage({ type: 'THREAT_RECORD', hash }, () => {}); } catch (e) {}
+    }
+  });
+}
+
 function injectionPass() {
   if (!settings.injectionFirewall || siteMuted()) return;
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
@@ -792,8 +836,8 @@ async function init() {
     popup.render = function () { originalRender(); updateBubbleVisibility(); };
   document.addEventListener('input', handleInputEvent, true); document.addEventListener('keyup', handleInputEvent, true);
   document.addEventListener('focusin', (e) => { const el = e.target; if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.getAttribute('contenteditable') === 'true')) handleInputEvent(); }, true);
-  _scanInterval = setInterval(() => { if (!document.hidden) { performScan(); restoreVaultInResponses(); sentinelPass(); injectionPass(); } }, 2000);
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) { performScan(); restoreVaultInResponses(); sentinelPass(); injectionPass(); } });
+  _scanInterval = setInterval(() => { if (!document.hidden) { performScan(); restoreVaultInResponses(); sentinelPass(); webmailPass(); injectionPass(); } }, 2000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { performScan(); restoreVaultInResponses(); sentinelPass(); webmailPass(); injectionPass(); } });
   document.addEventListener('mousemove', (e) => popup.onDrag(e)); document.addEventListener('mouseup', () => popup.endDrag());
   setupKeyboardShortcuts(); setupSubmissionGuard(); setupAttachmentGuard();
   if (isWhitelisted) { popup.minimize(); return; }

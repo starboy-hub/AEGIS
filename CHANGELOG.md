@@ -2,6 +2,46 @@
 
 All notable changes to AEGIS will be documented in this file.
 
+## [7.4.0] - 2026-09-29
+
+### Added — 📧 Phase 2: Webmail Shield + 🤖🗣️ Phase 4: companion tools
+
+**Webmail Shield (Gmail/Outlook):**
+- `webmail-profile.js`: DOM extraction of sender + subject per message
+  (Gmail `span[email]` rows, Outlook `aria-label` list items), with graceful
+  degradation when the webmail DOM changes
+- Email-specific sender forensics: corporate display names writing from free
+  providers (spoofing signal), lookalike/typosquat domains of 21 major brands
+  (Levenshtein distance ≤2 on 8+ char roots, gated by a corporate-ish display
+  name so job boards never trip it)
+- **Sent-mail skip**: the user's own outgoing mail is never scanned
+- Findings fold into Sentinel scoring (`applySignals`), notes name the
+  sender, history records the sender address (no body text)
+- E2E journey 8: mock-Gmail page → scam email flagged with the sender shown,
+  legit mail stays quiet
+
+**Agent Firewall (companion tool, working CLI):**
+- `companion/aegis-agent-firewall.js`: local loopback HTTP proxy for AI
+  agents — monitor / guard / lock modes; scans outbound bodies with the same
+  detection + injection engines; guard mode tokenizes configured sensitive
+  values with stable tokens; lock mode blocks injection payloads and
+  untokenized PII; verified with a live two-server roundtrip test
+
+**Voice Canary (companion tool, working CLI):**
+- `companion/aegis-canary.js`: challenge-response caller verification — the
+  anti-deepfake core. Generates personal/generic challenges a cloned voice
+  cannot answer, with the trust rules printed alongside
+- Full audio analysis remains future work (see companion/DESIGN.md)
+
+### Fixed
+- Agent firewall: rewritten bodies no longer carry the original
+  content-length (upstream hang); decision scoping bug
+- Webmail typosquats: 2-edit distances on long roots (rnicrosoft) now caught,
+  gated against false positives on legitimate similar domains
+
+### Stats
+- 143 unit tests (was 125), 8 E2E journeys (was 7), all green
+
 ## [7.3.0] - 2026-09-28
 
 ### Added — 🌐 Phase 1.5: in-browser AI model (no Ollama required)

@@ -2,10 +2,10 @@
 
 > **AI fights in both directions: it stops your data from leaking into AI systems, and it defends you from what AI-generated attacks deliver to your screen. 100% local. No account. No telemetry. No cloud.**
 
-![Version](https://img.shields.io/badge/version-7.3.0-blue.svg)
+![Version](https://img.shields.io/badge/version-7.4.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
-![Tests](https://img.shields.io/badge/tests-128%20passing-brightgreen.svg)
-![E2E](https://img.shields.io/badge/E2E-7%20journeys-blueviolet.svg)
+![Tests](https://img.shields.io/badge/tests-143%20passing-brightgreen.svg)
+![E2E](https://img.shields.io/badge/E2E-8%20journeys-blueviolet.svg)
 ![Privacy](https://img.shields.io/badge/privacy-100%25_local-red.svg)
 
 AEGIS is a browser extension that acts as a **personal guardian running entirely on your machine**. It protects you in two directions against AI-era threats, with a family of engines that all run locally:
@@ -20,6 +20,9 @@ AEGIS is a browser extension that acts as a **personal guardian running entirely
 | 👨‍👩‍👧 **Family Guardian** | Scams targeting loved ones | One switch: all layers armed, strictest thresholds |
 | ✍️ **Sign & Verify** | Forged content claiming to be from you | Device-local ECDSA signing; portable signed blocks anyone with AEGIS can verify — forged signatures fail loudly |
 | 🐝 **Swarm Defense** | Repeat scams across installs | Anonymized threat-signature packs (hashes only, never message text) — export/import between installs today, federatable tomorrow |
+| 📧 **Webmail Shield** | Scams in your Gmail/Outlook inbox | Sender forensics on webmail: corporate-name spoofing from free providers, lookalike/typosquat domains, sent-mail skip |
+| 🤖 **Agent Firewall** | AI agents leaking your data | Local loopback proxy (companion tool): scans agent HTTP traffic, tokenizes protected values, blocks injection payloads |
+| 🗣️ **Voice Canary** | Voice-clone call fraud | Challenge-response caller verification — clones can't answer questions that were never public |
 
 ---
 
@@ -92,15 +95,15 @@ Replacements use format-preserving fake data with safety guarantees (fake cards 
 
 ```
 src/shared/          storage keys, settings, shared helpers (UMD)
-src/content/         content script + detection/sentinel/injection engines
-src/background/      service worker: settings, vault, signing, threats, reality
+src/content/         content script + detection/sentinel/injection/webmail engines
+src/background/      service worker: settings, vault, signing, threats, reality, offscreen AI
 src/popup/           guardian dashboard UI
 src/options/         settings UI (7 grouped sections)
+companion/           desktop tools: agent firewall proxy + voice canary (+ DESIGN.md)
 evaluation/          labeled corpus + benchmark harness
-tests/               128 unit tests (jest)
-e2e/                 7 Playwright journeys against real Chromium
+tests/               143 unit tests (jest)
+e2e/                 8 Playwright journeys against real Chromium
 store/               Web Store listing + privacy policy
-companion/           desktop app blueprint (design only)
 docs/                developer reference
 ```
 
@@ -114,10 +117,10 @@ docs/                developer reference
 - [x] Content signing + swarm-ready signature packs
 - [ ] Grow the corpus to 1,000+ messages with real-world submissions
 - [ ] Web Store publication (listing prepared in [`store/`](store/LISTING.md))
-- [ ] Webmail-tuned detection profiles
+- [x] Webmail Shield (Gmail/Outlook sender forensics)
+- [x] Agent Firewall + Voice Canary companion tools
+- [ ] Companion GUI (firewall + canary have working CLI tools)
 - [ ] Firefox/Edge ports
-- [ ] Local small-model classification (WebGPU/Ollama fine-tune)
-- [ ] Desktop companion: call screening + agent-traffic firewall ([design](companion/DESIGN.md))
 - [ ] Federated swarm relay (needs a user base first)
 
 ## 🤝 Contributing

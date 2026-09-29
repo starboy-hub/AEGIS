@@ -103,7 +103,23 @@
     return level === 'suspicious' || level === 'dangerous';
   }
 
-  const AEGIS_SENTINEL = { analyzeMessage, topSignals, escalateForTrust, shouldWarn, SENTINEL_SIGNALS, LEVELS };
+  /**
+   * Fold extra signals (e.g. webmail sender checks) into a result and
+   * recompute the level with the standard thresholds.
+   */
+  function applySignals(result, extra) {
+    if (!extra || !extra.length) return result;
+    const signals = [...result.signals, ...extra.filter(e => !result.signals.some(s => s.id === e.id))];
+    const score = signals.reduce((sum, s) => sum + s.weight, 0);
+    const has = id => signals.some(s => s.id === id);
+    let level = 'none';
+    if (score >= THRESHOLDS.dangerousScore || has('credential_request') || has('payment_pressure')) level = 'dangerous';
+    else if (score >= THRESHOLDS.suspiciousScore) level = 'suspicious';
+    else if (score >= THRESHOLDS.lowScore) level = 'low';
+    return { level, score, signals, advice: LEVELS[level].advice };
+  }
+
+  const AEGIS_SENTINEL = { analyzeMessage, topSignals, escalateForTrust, shouldWarn, applySignals, SENTINEL_SIGNALS, LEVELS };
   root.AEGIS_SENTINEL = AEGIS_SENTINEL;
   if (typeof module !== 'undefined' && module.exports) module.exports = AEGIS_SENTINEL;
 })(typeof self !== 'undefined' ? self : globalThis);

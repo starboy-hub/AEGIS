@@ -7,8 +7,10 @@ const { test, chromium, expect } = require('@playwright/test');
 const path = require('path');
 
 const EXT = path.join(__dirname, '..', 'dist');
-const MOCK_HTML = require('fs').readFileSync(
-  path.join(__dirname, 'fixtures', 'mock-chat.html'), 'utf8');
+  const MOCK_HTML = require('fs').readFileSync(
+    path.join(__dirname, 'fixtures', 'mock-chat.html'), 'utf8');
+  const GMAIL_HTML = require('fs').readFileSync(
+    path.join(__dirname, 'fixtures', 'mock-gmail.html'), 'utf8');
 
 async function launchWithExtension() {
   const context = await chromium.launchPersistentContext('', {
@@ -27,6 +29,7 @@ async function launchWithExtension() {
 
   const page = await context.newPage();
   await context.route('**://mock-chat.test/**', route => route.fulfill({ contentType: 'text/html', body: MOCK_HTML }));
+  await context.route('**://mail.google.com/**', route => route.fulfill({ contentType: 'text/html', body: GMAIL_HTML }));
   await page.goto('https://mock-chat.test/');
   return { context, page, extensionId };
 }
@@ -122,5 +125,13 @@ test('trust graph: a scam naming YOUR trusted organization escalates as imperson
 
   // The page's scam message names Global Bank -> impersonation escalation
   await page.waitForSelector('[data-aegis-note]:has-text("Impersonates YOUR trusted organization")', { timeout: 30000 });
+  await context.close();
+});
+
+test('webmail: a scam email in the gmail DOM triggers a sender note, legit mail stays quiet', async () => {
+  const { context, page } = await launchWithExtension();
+  await page.goto('https://mail.google.com/');
+  await page.waitForSelector('[data-aegis-note]:has-text("Email: likely scam")', { timeout: 30000 });
+  await expect(page.locator('[data-aegis-note]').first()).toContainText('global.bank.alert@gmail.com', { timeout: 10000 });
   await context.close();
 });

@@ -16,6 +16,7 @@
     "AEGIS_VAULT": "readonly",
     "AEGIS_SENTINEL": "readonly",
     "AEGIS_INJECTION": "readonly",
+    "AEGIS_WEBMAIL": "readonly",
     "AEGIS_REALITY": "readonly",
     "AEGIS_SIGNING": "readonly",
     "AEGIS_THREATS": "readonly"

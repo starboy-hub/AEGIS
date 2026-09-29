@@ -28,6 +28,7 @@ const files = [
   { src: 'src/content/modules/detection-engine.js', dest: 'dist/detection-engine.js' },
   { src: 'src/content/modules/sentinel-engine.js', dest: 'dist/sentinel-engine.js' },
   { src: 'src/content/modules/injection-engine.js', dest: 'dist/injection-engine.js' },
+  { src: 'src/content/modules/webmail-profile.js', dest: 'dist/webmail-profile.js' },
   { src: 'src/background/background.js', dest: 'dist/background.js' },
   { src: 'src/content/content.js', dest: 'dist/content.js' },
   { src: 'src/popup/popup.html', dest: 'dist/popup.html' },
