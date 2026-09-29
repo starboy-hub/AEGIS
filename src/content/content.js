@@ -248,6 +248,25 @@ function muteSignal(id) {
   } catch (e) {}
 }
 
+// ---- Model router: Ollama first, in-browser model second, none = heuristics ----
+
+function aiBackendName() {
+  if (ollamaAvailable && settings.aiEnabled) return 'ollama';
+  if (settings.webgpuAI) return 'browser';
+  return null;
+}
+
+function aiClassify(text, kind) {
+  const backend = aiBackendName();
+  if (backend === 'ollama') {
+    return new Promise((res) => { try { chrome.runtime.sendMessage({ type: 'SENTINEL_LLM', text, kind }, (r) => res(r || null)); } catch (e) { res(null); } });
+  }
+  if (backend === 'browser') {
+    return new Promise((res) => { try { chrome.runtime.sendMessage({ type: 'SENTINEL_WEBGPU', text, kind }, (r) => res(r || null)); } catch (e) { res(null); } });
+  }
+  return Promise.resolve(null);
+}
+
 function sentinelPass() {
   if (!settings.sentinelEnabled || siteMuted()) return;
   const muted = new Set(settings.mutedSignals || []);
@@ -314,28 +333,26 @@ function sentinelPass() {
       }
     };
     const sigHash = AEGIS.strHash('sig|' + AEGIS.normalizeForSignature(text));
-    // Model-primary classification: when the local AI is connected, the model
+    // Model-primary classification: when an AI backend is connected, the model
     // gets final say on gray-zone and weak-signal messages (it can escalate a
     // keyword-free scam to dangerous, or suppress a weak false positive).
     // Heuristics remain the instant defense when no model is available.
-    if (ollamaAvailable && settings.aiEnabled && sentinelLLMCalls < 8 && (result.level === 'low' || result.level === 'suspicious')) {
+    if (aiBackendName() && sentinelLLMCalls < 8 && (result.level === 'low' || result.level === 'suspicious')) {
       sentinelLLMCalls++;
-      try {
-        chrome.runtime.sendMessage({ type: 'SENTINEL_LLM', text }, (res) => {
-          const verdict = res ? res.verdict : 'unclear';
-          const confident = res && +res.confidence >= 60;
-          if (verdict === 'scam' && (result.level === 'low' || confident)) {
-            result.level = 'dangerous';
-            result.signals.push({ id: 'llm_verdict', label: 'AI analysis: scam' + (res.confidence ? ' (' + res.confidence + '%)' : ''), weight: 50 });
-          } else if (verdict === 'legit' && confident && result.level === 'suspicious') {
-            result.level = 'none'; // model cleared a weak heuristic warning
-          }
-          // Swarm check for the surviving verdict
-          try {
-            chrome.runtime.sendMessage({ type: 'THREAT_CHECK', hash: sigHash }, (r2) => present(!!(r2 && r2.known)));
-          } catch (e) { present(false); }
-        });
-      } catch (e) { present(false); }
+      aiClassify(text, 'scam').then((res) => {
+        const verdict = res ? res.verdict : 'unclear';
+        const confident = res && +res.confidence >= 60;
+        if (verdict === 'scam' && (result.level === 'low' || confident)) {
+          result.level = 'dangerous';
+          result.signals.push({ id: 'ai_verdict', label: 'AI analysis: scam' + (res.confidence ? ' (' + res.confidence + '%)' : ''), weight: 50 });
+        } else if (verdict === 'legit' && confident && result.level === 'suspicious') {
+          result.level = 'none'; // model cleared a weak heuristic warning
+        }
+        // Swarm check for the surviving verdict
+        try {
+          chrome.runtime.sendMessage({ type: 'THREAT_CHECK', hash: sigHash }, (r2) => present(!!(r2 && r2.known)));
+        } catch (e) { present(false); }
+      }).catch(() => present(false));
       return;
     }
     // In-browser model (no Ollama needed): same semantics as the local model
@@ -408,20 +425,35 @@ function webmailPass() {
       }
     }
     if (!AEGIS_SENTINEL.shouldWarn(result.level, settings.familyMode)) return;
-    const strongest = [...result.signals].sort((a, b) => b.weight - a.weight)[0];
-    showNote({
-      level: result.level, category: 'webmail',
-      title: (result.level === 'dangerous' ? '🚨 Email: likely scam' : '⚠️ Email: suspicious') + ' — ' + (msg.senderEmail || msg.senderName || 'unknown sender'),
-      detail: (msg.subject ? ' + msg.subject.slice(0, 60) +  — ' : '') + AEGIS_SENTINEL.topSignals(result, 2).join(' + ') + ' — ' + result.advice,
-      muteId: strongest ? strongest.id : null
-    });
-    if (!sentinelNoted) {
-      sentinelNoted = true;
-      try { historyStore.add({ original: 'email from ' + (msg.senderEmail || 'unknown'), fake: AEGIS_SENTINEL.topSignals(result, 2).join(', '), type: 'WEBMAIL' }); } catch (e) {}
+    const presentMail = () => {
+      const strongest = [...result.signals].sort((a, b) => b.weight - a.weight)[0];
+      showNote({
+        level: result.level, category: 'webmail',
+        title: (result.level === 'dangerous' ? '🚨 Email: likely scam' : '⚠️ Email: suspicious') + ' — ' + (msg.senderEmail || msg.senderName || 'unknown sender'),
+        detail: (msg.subject ? '' + msg.subject.slice(0, 60) + ' — ' : '') + AEGIS_SENTINEL.topSignals(result, 2).join(' + ') + ' — ' + result.advice,
+        muteId: strongest ? strongest.id : null
+      });
+      if (!sentinelNoted) {
+        sentinelNoted = true;
+        try { historyStore.add({ original: 'email from ' + (msg.senderEmail || 'unknown'), fake: AEGIS_SENTINEL.topSignals(result, 2).join(', '), type: 'WEBMAIL' }); } catch (e) {}
+      }
+      if (result.level === 'dangerous') {
+        try { chrome.runtime.sendMessage({ type: 'THREAT_RECORD', hash }, () => {}); } catch (e) {}
+      }
+    };
+    // Model second opinion on gray-zone emails
+    if (result.level === 'suspicious' && aiBackendName() && sentinelLLMCalls < 8) {
+      sentinelLLMCalls++;
+      aiClassify(text, 'scam').then((res) => {
+        if (res && res.verdict === 'scam' && +res.confidence >= 60) {
+          result.level = 'dangerous';
+          result.signals.push({ id: 'ai_verdict', label: 'AI analysis: scam', weight: 50 });
+        }
+        presentMail();
+      }).catch(() => presentMail());
+      return;
     }
-    if (result.level === 'dangerous') {
-      try { chrome.runtime.sendMessage({ type: 'THREAT_RECORD', hash }, () => {}); } catch (e) {}
-    }
+    presentMail();
   });
 }
 
@@ -453,7 +485,26 @@ function injectionPass() {
     // suspicious on its own when it carries AI-directed language or length
     if (!hidden && (!patterned || result.level === 'low')) return;
     if (hidden && result.level === 'none' && text.length < 100) return;
-    // One note per page per engine — further findings only bump the badge
+    // Semantic second opinion on suspicious findings (pattern misses reworded attacks)
+    if (result.level === 'suspicious' && aiBackendName() && sentinelLLMCalls < 8) {
+      sentinelLLMCalls++;
+      aiClassify(text, 'injection').then((res) => {
+        let final = result;
+        if (res && res.verdict === 'manipulation') {
+          final = { ...result, level: 'dangerous', signals: [...result.signals, { id: 'inj_ai_verdict', label: 'AI analysis: manipulation attempt', weight: 50 }] };
+        }
+        const level = injectionNoted ? 'low' : final.level;
+        showNote({
+          level, category: 'injection',
+          title: (final.level === 'dangerous' ? '🛑 Injection Firewall: hidden AI instructions' : '🛡️ Injection Firewall: AI-directed text') + (hidden ? ' (invisible on page)' : ''),
+          detail: (AEGIS_INJECTION.topSignals(final, 2).join(' + ') + ' — ' + final.advice),
+          force: !injectionNoted
+        });
+        if (!injectionNoted) injectionNoted = true;
+        try { historyStore.add({ original: hidden ? 'hidden page text' : 'page text', fake: AEGIS_INJECTION.topSignals(final, 2).join(', '), type: 'INJECTION' }); } catch (e) {}
+      }).catch(() => {});
+      return;
+    }
     const level = injectionNoted ? 'low' : result.level;
     showNote({
       level, category: 'injection',
