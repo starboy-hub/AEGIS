@@ -57,6 +57,45 @@ describe('agent firewall — live proxy roundtrip', () => {
     firewall.close(() => upstream.close(done));
   });
 
+  test('companion dashboard endpoints: status, mode switch, canary', async () => {
+    const port = firewall.address().port;
+    const status = await new Promise((resolve, reject) => {
+      http.get({ host: '127.0.0.1', port, path: '/aegis-status' }, (res) => {
+        let data = '';
+        res.on('data', c => { data += c; });
+        res.on('end', () => resolve(JSON.parse(data)));
+      }).on('error', reject);
+    });
+    expect(status.mode).toBe('guard');
+    expect(typeof status.requests).toBe('number');
+
+    const mode = await new Promise((resolve, reject) => {
+      http.get({ host: '127.0.0.1', port, path: '/aegis-mode?mode=lock' }, (res) => {
+        let data = '';
+        res.on('data', c => { data += c; });
+        res.on('end', () => resolve(JSON.parse(data)));
+      }).on('error', reject);
+    });
+    expect(mode.mode).toBe('lock');
+    // restore
+    await new Promise((resolve, reject) => {
+      http.get({ host: '127.0.0.1', port, path: '/aegis-mode?mode=guard' }, () => resolve()).on('error', reject);
+    });
+  });
+
+  test('companion dashboard serves the canary challenge', async () => {
+    const port = firewall.address().port;
+    const challenge = await new Promise((resolve, reject) => {
+      http.get({ host: '127.0.0.1', port, path: '/aegis-canary' }, (res) => {
+        let data = '';
+        res.on('data', c => { data += c; });
+        res.on('end', () => resolve(JSON.parse(data)));
+      }).on('error', reject);
+    });
+    expect(challenge.question).toBeTruthy();
+    expect(['personal', 'generic']).toContain(challenge.type);
+  });
+
   test('guard mode forwards with sensitive values tokenized', async () => {
     const port = upstream.address().port;
     const result = await new Promise((resolve, reject) => {

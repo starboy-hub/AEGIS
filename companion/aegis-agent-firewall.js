@@ -28,6 +28,7 @@ const fs = require('fs');
 
 const AEGIS_ENGINE = require('../src/content/modules/detection-engine.js');
 const AEGIS_INJECTION = require('../src/content/modules/injection-engine.js');
+const canary = require('./aegis-canary.js');
 
 const DEFAULT_PORT = 8765;
 
@@ -103,9 +104,90 @@ function decide(mode, findings) {
   return { action: 'forward', useOriginal: true, body: null };
 }
 
+const DASHBOARD_HTML = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>AEGIS Companion</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f4f6fb;color:#0f172a;margin:0;padding:24px;max-width:720px;margin:0 auto}
+  h1{font-size:20px} .card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:16px;margin:12px 0;box-shadow:0 1px 3px rgba(15,23,42,.06)}
+  .mode-btn{padding:8px 14px;border-radius:9px;border:1px solid #e2e8f0;background:#f1f5f9;font-weight:600;cursor:pointer;margin-right:6px}
+  .mode-btn.active{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border:none}
+  .finding{padding:6px 0;border-bottom:1px dashed #e2e8f0;font-size:12.5px}
+  .challenge{background:#eef2ff;border-radius:10px;padding:12px;font-weight:600;color:#4338ca;margin:8px 0}
+  small{color:#94a3b8}
+  button.canary{padding:8px 14px;border-radius:9px;border:none;background:#10b981;color:#fff;font-weight:600;cursor:pointer}
+</style></head><body>
+<h1>🛡️ AEGIS Companion — <span id="mode">?</span> mode</h1>
+<div class="card">
+  <b>Firewall mode</b>
+  <div style="margin-top:8px">
+    <button class="mode-btn" data-mode="monitor">Monitor</button>
+    <button class="mode-btn" data-mode="guard">Guard</button>
+    <button class="mode-btn" data-mode="lock">Lock</button>
+  </div>
+  <small>monitor = watch only · guard = tokenize protected values · lock = block risky payloads</small>
+</div>
+<div class="card">
+  <b>🗣️ Voice Canary</b>
+  <p style="font-size:13px;color:#475569">Before trusting an urgent call, ask the caller this — clones cannot answer:</p>
+  <div class="challenge" id="challenge">Click generate…</div>
+  <button class="canary" id="genCanary">Generate challenge</button>
+</div>
+<div class="card">
+  <b>Traffic</b> <small id="count"></small>
+  <div id="log"></div>
+</div>
+<script>
+  async function refresh() {
+    const s = await (await fetch('/aegis-status')).json();
+    document.getElementById('mode').textContent = s.mode;
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === s.mode));
+    document.getElementById('count').textContent = s.requests + ' requests inspected';
+    document.getElementById('log').innerHTML = s.findings.map(f =>
+      '<div class="finding"><b>' + f.method + '</b> ' + f.url.slice(0, 60) + ' — pii: ' + (f.pii || '-') + ', inj: ' + (f.inj || '-') + ', hits: ' + f.hits + ' → ' + f.action + '</div>'
+    ).join('') || '<small>No traffic yet</small>';
+  }
+  document.querySelectorAll('.mode-btn').forEach(b => b.addEventListener('click', async () => {
+    await fetch('/aegis-mode?mode=' + b.dataset.mode); refresh();
+  }));
+  document.getElementById('genCanary').addEventListener('click', async () => {
+    const c = await (await fetch('/aegis-canary')).json();
+    document.getElementById('challenge').textContent = c.question;
+  });
+  refresh(); setInterval(refresh, 3000);
+</script>
+</body></html>`;
+
 function createFirewallServer(opts) {
-  const { mode, protect = [] } = opts;
+  const state = { mode: opts.mode, protect: opts.protect || [], canaryConfig: opts.canaryConfig || { personals: [] }, requests: 0, findingsLog: [] };
   return http.createServer((req, res) => {
+    const url = new URL(req.url, 'http://127.0.0.1');
+
+    // ---- Companion dashboard endpoints (before proxying) ----
+    if (url.pathname === '/aegis-dashboard') {
+      res.writeHead(200, { 'content-type': 'text/html' });
+      res.end(DASHBOARD_HTML);
+      return;
+    }
+    if (url.pathname === '/aegis-status') {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ mode: state.mode, requests: state.requests, findings: state.findingsLog.slice(-20).reverse(), protect: state.protect }));
+      return;
+    }
+    if (url.pathname === '/aegis-mode') {
+      const m = url.searchParams.get('mode');
+      if (['monitor', 'guard', 'lock'].includes(m)) state.mode = m;
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ mode: state.mode }));
+      return;
+    }
+    if (url.pathname === '/aegis-canary') {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify(canary.generateChallenge(state.canaryConfig)));
+      return;
+    }
+
+    state.requests++;
     const chunks = [];
     req.on('data', (c) => chunks.push(c));
     req.on('end', () => {
@@ -115,9 +197,11 @@ function createFirewallServer(opts) {
       let bodyToSend = raw;
       let decision = null;
       if (hasBody) {
-        findings = inspectBody(raw.toString('utf8'), protect);
-        decision = decide(mode, findings);
-        console.log(`[aegis:${mode}] ${req.method} ${req.url} pii=${[...new Set(findings.pii)].join('|') || '-'} inj=${findings.injection || '-'} hits=${findings.protectedHits.length} -> ${decision.action}`);
+        findings = inspectBody(raw.toString('utf8'), state.protect);
+        decision = decide(state.mode, findings);
+        state.findingsLog.push({ time: new Date().toISOString(), method: req.method, url: req.url, pii: [...new Set(findings.pii)].join('|') || '-', inj: findings.injection || '-', hits: findings.protectedHits.length, action: decision.action });
+        if (state.findingsLog.length > 50) state.findingsLog.shift();
+        console.log(`[aegis:${state.mode}] ${req.method} ${req.url} pii=${[...new Set(findings.pii)].join('|') || '-'} inj=${findings.injection || '-'} hits=${findings.protectedHits.length} -> ${decision.action}`);
         findings.protectedHits.forEach(h => console.log(`  ${h.token} = ${h.original}`));
         if (decision.action === 'block') {
           res.writeHead(403, { 'content-type': 'application/json', 'x-aegis-firewall': 'blocked' });
@@ -130,7 +214,7 @@ function createFirewallServer(opts) {
       }
 
       const dest = new URL(req.url, 'http://' + (req.headers.host || 'example.com'));
-      const headers = { ...req.headers, 'x-aegis-firewall': mode };
+      const headers = { ...req.headers, 'x-aegis-firewall': state.mode };
       // A rewritten body must not carry the original content-length or the
       // upstream server waits forever for bytes that never come
       if (decision && !decision.useOriginal && decision.body !== null) {
@@ -161,6 +245,7 @@ if (require.main === module) {
   const server = createFirewallServer(args);
   server.listen(args.port, '127.0.0.1', () => {
     console.log(`🛡️ AEGIS Agent Firewall — ${args.mode} mode on http://127.0.0.1:${args.port}`);
+    console.log(`   dashboard: http://127.0.0.1:${args.port}/aegis-dashboard`);
     console.log(`   protecting ${args.protect.length} configured value(s); agents: HTTP_PROXY=http://127.0.0.1:${args.port}`);
   });
 }

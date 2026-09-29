@@ -1,89 +1,159 @@
+#!/usr/bin/env node
+/**
+ * AEGIS build script.
+ *   npm run build            → dist/ (Chromium: Chrome/Edge/Brave)
+ *   npm run build:firefox    → dist-firefox/ (Firefox-adapted manifest)
+ *
+ * The Firefox variant adapts the manifest (gecko id, background scripts
+ * instead of a service worker) and drops the offscreen in-browser AI model
+ * (Firefox has no chrome.offscreen). Everything else is identical.
+ */
 const fs = require('fs');
 const path = require('path');
 
-// Create dist folder
-if (!fs.existsSync('dist')) {
-  fs.mkdirSync('dist');
+const CHROME_OUT = 'dist';
+const FIREFOX_OUT = 'dist-firefox';
+
+function firefoxManifest(manifest) {
+  const m = JSON.parse(JSON.stringify(manifest));
+  m.background = {
+    scripts: ['aegis-shared.js', 'aegis-vault.js', 'reality-engine.js', 'signing-engine.js', 'threat-store.js', 'background.js']
+  };
+  m.browser_specific_settings = { gecko: { id: 'aegis@starboy-hub.github.io', strict_min_version: '115.0' } };
+  // No chrome.offscreen in Firefox: the in-browser AI model + its permission
+  // are removed; Sentinel falls back to heuristics (+ Ollama, which works)
+  m.permissions = (m.permissions || []).filter(p => p !== 'offscreen');
+  if (m.content_scripts && m.content_scripts[0]) {
+    m.content_scripts[0].js = m.content_scripts[0].js.filter(f => f !== 'injection-engine.js');
+  }
+  return m;
 }
 
-// Copy manifest.json from src (single source of truth), then stamp the
-// version from package.json so the two can never drift apart
-const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-const manifest = JSON.parse(fs.readFileSync('src/manifest.json', 'utf8'));
-manifest.version = pkg.version;
-fs.writeFileSync('dist/manifest.json', JSON.stringify(manifest, null, 2) + '\n');
-console.log(`✓ Wrote dist/manifest.json (version ${pkg.version} from package.json)`);
+/** Copy every source file for a target; returns the list written. */
+function copySources(out, files) {
+  const written = [];
+  files.forEach(file => {
+    if (fs.existsSync(file.src)) {
+      fs.copyFileSync(file.src, path.join(out, file.dest));
+      written.push(file.dest);
+    } else {
+      console.error(`✗ Missing: ${file.src}`);
+    }
+  });
+  return written;
+}
 
-// Copy and flatten source files
-const files = [
-  { src: 'src/shared/aegis-shared.js', dest: 'dist/aegis-shared.js' },
-  { src: 'src/background/aegis-vault.js', dest: 'dist/aegis-vault.js' },
-  { src: 'src/background/reality-engine.js', dest: 'dist/reality-engine.js' },
-  { src: 'src/background/signing-engine.js', dest: 'dist/signing-engine.js' },
-  { src: 'src/background/threat-store.js', dest: 'dist/threat-store.js' },
-  { src: 'src/background/offscreen-error.js', dest: 'dist/offscreen-error.js' },
-  { src: 'src/background/offscreen.html', dest: 'dist/offscreen.html' },
-  { src: 'src/background/offscreen.js', dest: 'dist/offscreen.js' },
-  { src: 'src/content/modules/fake-data.js', dest: 'dist/fake-data.js' },
-  { src: 'src/content/modules/detection-engine.js', dest: 'dist/detection-engine.js' },
-  { src: 'src/content/modules/sentinel-engine.js', dest: 'dist/sentinel-engine.js' },
-  { src: 'src/content/modules/injection-engine.js', dest: 'dist/injection-engine.js' },
-  { src: 'src/content/modules/webmail-profile.js', dest: 'dist/webmail-profile.js' },
-  { src: 'src/background/background.js', dest: 'dist/background.js' },
-  { src: 'src/content/content.js', dest: 'dist/content.js' },
-  { src: 'src/popup/popup.html', dest: 'dist/popup.html' },
-  { src: 'src/popup/popup.js', dest: 'dist/popup.js' },
-  { src: 'src/popup/popup.css', dest: 'dist/popup.css' },
-  { src: 'src/options/options.html', dest: 'dist/options.html' },
-  { src: 'src/options/options.css', dest: 'dist/options.css' },
-  { src: 'src/options/options.js', dest: 'dist/options.js' },
-  { src: 'src/install-mac.sh', dest: 'dist/install-mac.sh' },
-  { src: 'src/install-windows.bat', dest: 'dist/install-windows.bat' }
-];
+function copyIcons(out) {
+  fs.mkdirSync(path.join(out, 'icons'), { recursive: true });
+  ['icon16.png', 'icon48.png', 'icon128.png'].forEach(icon => {
+    const src = path.join('src', 'icons', icon);
+    if (fs.existsSync(src)) fs.copyFileSync(src, path.join(out, 'icons', icon));
+    else console.error(`✗ Missing icon: ${src}`);
+  });
+}
 
-files.forEach(file => {
-  if (fs.existsSync(file.src)) {
-    fs.copyFileSync(file.src, file.dest);
-    console.log(`✓ Copied ${file.src} to ${file.dest}`);
-  } else {
-    console.error(`✗ Missing: ${file.src}`);
+/** Vendor the in-browser AI runtime (Chromium target only). */
+function vendorAIRuntime(out) {
+  const hfDist = 'node_modules/@huggingface/transformers/dist';
+  const ortDist = 'node_modules/onnxruntime-web/dist';
+  if (!fs.existsSync(hfDist + '/transformers.min.js')) {
+    console.warn('! @huggingface/transformers not installed — in-browser AI omitted');
+    return false;
   }
-});
-
-// Vendor the in-browser AI runtime (transformers.js + ONNX Runtime wasm).
-// Only copied when the package is installed — the feature is opt-in and the
-// extension works fully without these files.
-const hfDist = 'node_modules/@huggingface/transformers/dist';
-const ortDist = 'node_modules/onnxruntime-web/dist';
-if (fs.existsSync(hfDist + '/transformers.min.js')) {
-  fs.mkdirSync('dist/vendor', { recursive: true });
-  fs.copyFileSync(hfDist + '/transformers.min.js', 'dist/vendor/transformers.min.js');
+  fs.mkdirSync(path.join(out, 'vendor'), { recursive: true });
+  fs.copyFileSync(hfDist + '/transformers.min.js', path.join(out, 'vendor', 'transformers.min.js'));
   if (fs.existsSync(ortDist)) {
     fs.readdirSync(ortDist).filter(f => f.endsWith('.wasm') || f.endsWith('.mjs')).forEach(f => {
-      fs.copyFileSync(path.join(ortDist, f), path.join('dist/vendor', f));
+      fs.copyFileSync(path.join(ortDist, f), path.join(out, 'vendor', f));
     });
   }
-  console.log('✓ Vendored in-browser AI runtime (transformers.js + ORT wasm)');
-} else {
-  console.warn('! @huggingface/transformers not installed — in-browser AI omitted');
+  return true;
 }
 
-// Create icons directory and copy icons from src
-if (!fs.existsSync('dist/icons')) {
-  fs.mkdirSync('dist/icons', { recursive: true });
+/** Build the Chromium target into `out` (default dist). Returns file count. */
+function buildChromium(out = CHROME_OUT) {
+  if (fs.existsSync(out)) fs.rmSync(out, { recursive: true });
+  fs.mkdirSync(out, { recursive: true });
+
+  const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+  const manifest = JSON.parse(fs.readFileSync('src/manifest.json', 'utf8'));
+  manifest.version = pkg.version;
+  fs.writeFileSync(path.join(out, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
+
+  const files = [
+    { src: 'src/shared/aegis-shared.js', dest: 'aegis-shared.js' },
+    { src: 'src/background/aegis-vault.js', dest: 'aegis-vault.js' },
+    { src: 'src/background/reality-engine.js', dest: 'reality-engine.js' },
+    { src: 'src/background/signing-engine.js', dest: 'signing-engine.js' },
+    { src: 'src/background/threat-store.js', dest: 'threat-store.js' },
+    { src: 'src/background/background.js', dest: 'background.js' },
+    { src: 'src/background/offscreen-error.js', dest: 'offscreen-error.js' },
+    { src: 'src/background/offscreen.html', dest: 'offscreen.html' },
+    { src: 'src/background/offscreen.js', dest: 'offscreen.js' },
+    { src: 'src/content/modules/fake-data.js', dest: 'fake-data.js' },
+    { src: 'src/content/modules/detection-engine.js', dest: 'detection-engine.js' },
+    { src: 'src/content/modules/sentinel-engine.js', dest: 'sentinel-engine.js' },
+    { src: 'src/content/modules/injection-engine.js', dest: 'injection-engine.js' },
+    { src: 'src/content/modules/webmail-profile.js', dest: 'webmail-profile.js' },
+    { src: 'src/content/content.js', dest: 'content.js' },
+    { src: 'src/popup/popup.html', dest: 'popup.html' },
+    { src: 'src/popup/popup.css', dest: 'popup.css' },
+    { src: 'src/popup/popup.js', dest: 'popup.js' },
+    { src: 'src/options/options.html', dest: 'options.html' },
+    { src: 'src/options/options.css', dest: 'options.css' },
+    { src: 'src/options/options.js', dest: 'options.js' }
+  ];
+  const written = copySources(out, files);
+  copyIcons(out);
+  const hasAI = vendorAIRuntime(out);
+  if (!hasAI) console.warn('! in-browser AI runtime omitted');
+  return written.length;
 }
 
-// Copy icons from src/icons to dist/icons
-const iconFiles = ['icon16.png', 'icon48.png', 'icon128.png'];
-iconFiles.forEach(icon => {
-  const srcPath = path.join('src', 'icons', icon);
-  const destPath = path.join('dist', 'icons', icon);
-  if (fs.existsSync(srcPath)) {
-    fs.copyFileSync(srcPath, destPath);
-    console.log(`✓ Copied ${srcPath} to ${destPath}`);
+/** Build the Firefox target: same files, adapted manifest, no offscreen AI. */
+function buildFirefox(out = FIREFOX_OUT) {
+  if (fs.existsSync(out)) fs.rmSync(out, { recursive: true });
+  fs.mkdirSync(out, { recursive: true });
+
+  const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+  const manifest = firefoxManifest(JSON.parse(fs.readFileSync('src/manifest.json', 'utf8')));
+  manifest.version = pkg.version;
+  fs.writeFileSync(path.join(out, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
+
+  const files = [
+    { src: 'src/shared/aegis-shared.js', dest: 'aegis-shared.js' },
+    { src: 'src/background/aegis-vault.js', dest: 'aegis-vault.js' },
+    { src: 'src/background/reality-engine.js', dest: 'reality-engine.js' },
+    { src: 'src/background/signing-engine.js', dest: 'signing-engine.js' },
+    { src: 'src/background/threat-store.js', dest: 'threat-store.js' },
+    { src: 'src/background/background.js', dest: 'background.js' },
+    { src: 'src/content/modules/fake-data.js', dest: 'fake-data.js' },
+    { src: 'src/content/modules/detection-engine.js', dest: 'detection-engine.js' },
+    { src: 'src/content/modules/sentinel-engine.js', dest: 'sentinel-engine.js' },
+    { src: 'src/content/modules/injection-engine.js', dest: 'injection-engine.js' },
+    { src: 'src/content/modules/webmail-profile.js', dest: 'webmail-profile.js' },
+    { src: 'src/content/content.js', dest: 'content.js' },
+    { src: 'src/popup/popup.html', dest: 'popup.html' },
+    { src: 'src/popup/popup.css', dest: 'popup.css' },
+    { src: 'src/popup/popup.js', dest: 'popup.js' },
+    { src: 'src/options/options.html', dest: 'options.html' },
+    { src: 'src/options/options.css', dest: 'options.css' },
+    { src: 'src/options/options.js', dest: 'options.js' }
+  ];
+  const written = copySources(out, files);
+  copyIcons(out);
+  return written.length;
+}
+
+if (require.main === module) {
+  const target = process.argv.includes('--firefox') ? 'firefox' : 'chromium';
+  if (target === 'firefox') {
+    const n = buildFirefox();
+    console.log(`✅ Firefox build complete (${n} files) — load dist-firefox/ via about:debugging`);
   } else {
-    console.error(`✗ Missing icon: ${srcPath}`);
+    const n = buildChromium();
+    console.log(`✅ Build complete! Load the "${CHROME_OUT}" folder in Chrome.`);
   }
-});
+}
 
-console.log('\n✅ Build complete! Load the "dist" folder in Chrome.');
+module.exports = { buildChromium, buildFirefox, firefoxManifest, copySources, vendorAIRuntime, CHROME_OUT, FIREFOX_OUT };

@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AEGIS</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="app">
+
+    <header class="hero">
+      <div class="hero-left">
+        <span class="hero-shield">🛡️</span>
+        <div class="hero-title">
+          <h1>AEGIS</h1>
+          <span class="status-pill" id="statusPill"><span class="dot"></span><span id="statusText">Active</span></span>
+        </div>
+      </div>
+      <div class="hero-actions">
+        <label class="icon-toggle" title="Dark mode">
+          <input type="checkbox" id="themeToggle">
+          <span class="icon-btn">🌙</span>
+        </label>
+        <button class="icon-btn" id="openOptions" title="Settings">⚙️</button>
+      </div>
+    </header>
+    <div class="family-badge" id="familyBadge" hidden>👨‍👩‍👧 Family Guardian active — maximum protection</div>
+
+    <nav class="tabs">
+      <button class="tab active" data-tab="overview">Overview</button>
+      <button class="tab" data-tab="alerts">Alerts <span class="tab-badge" id="alertsBadge" hidden>0</span></button>
+      <button class="tab" data-tab="history">History</button>
+    </nav>
+
+    <section class="tab-page" id="tab-overview">
+      <section class="card stats-card">
+        <div class="stat-hero">
+          <span class="stat-hero-number" id="todayProtected">0</span>
+          <span class="stat-hero-label">protected today</span>
+        </div>
+        <div class="stat-row">
+          <div class="stat-mini">
+            <span class="stat-mini-number" id="totalProtected">0</span>
+            <span class="stat-mini-label">All time</span>
+          </div>
+          <div class="stat-divider"></div>
+          <div class="stat-mini">
+            <span class="stat-mini-number" id="sitesVisited">0</span>
+            <span class="stat-mini-label">Sites</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2 class="card-title">Protection layers</h2>
+        <div class="switch-row">
+          <div class="switch-info">
+            <span class="switch-label">🛡️ Shield</span>
+            <span class="switch-desc">Detect &amp; swap PII as you type</span>
+          </div>
+          <label class="switch"><input type="checkbox" id="shieldToggle"><span class="track"></span></label>
+        </div>
+        <div class="switch-row">
+          <div class="switch-info">
+            <span class="switch-label">🚨 Sentinel</span>
+            <span class="switch-desc">Scan incoming messages for scams</span>
+          </div>
+          <label class="switch"><input type="checkbox" id="sentinelToggle"><span class="track"></span></label>
+        </div>
+        <div class="switch-row">
+          <div class="switch-info">
+            <span class="switch-label">🛑 Injection Firewall</span>
+            <span class="switch-desc">Catch hidden AI-hijack instructions</span>
+          </div>
+          <label class="switch"><input type="checkbox" id="firewallToggle"><span class="track"></span></label>
+        </div>
+        <div class="switch-row">
+          <div class="switch-info">
+            <span class="switch-label">🧠 Local AI analysis</span>
+            <span class="switch-desc" id="ollamaDesc">Second opinion via Ollama</span>
+          </div>
+          <label class="switch"><input type="checkbox" id="ollamaToggle"><span class="track"></span></label>
+        </div>
+        <div class="switch-row">
+          <div class="switch-info">
+            <span class="switch-label">👨‍👩‍👧 Family Guardian</span>
+            <span class="switch-desc">Strictest protection for loved ones</span>
+          </div>
+          <label class="switch"><input type="checkbox" id="familyToggle"><span class="track"></span></label>
+        </div>
+        <div class="sensitivity-row">
+          <span class="switch-label">🎯 Sensitivity</span>
+          <select id="sensitivity">
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+          </select>
+        </div>
+      </section>
+    </section>
+
+    <section class="tab-page" id="tab-alerts" hidden>
+      <section class="card">
+        <h2 class="card-title">Findings on this page</h2>
+        <div id="alertsList"><div class="activity-empty">Nothing flagged on this page</div></div>
+      </section>
+    </section>
+
+    <section class="tab-page" id="tab-history" hidden>
+      <section class="card">
+        <h2 class="card-title">Recent history</h2>
+        <div id="historyList"><div class="activity-empty">Nothing yet</div></div>
+      </section>
+      <footer class="footer">
+        <span class="version" id="versionText">v—</span>
+        <div class="footer-actions">
+          <button id="clearStats" class="link-btn">Clear stats</button>
+          <button id="exportLogs" class="btn-primary">Export audit log</button>
+        </div>
+      </footer>
+    </section>
+
+  </div>
+  <script src="aegis-shared.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

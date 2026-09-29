@@ -1,0 +1,64 @@
+{
+  "manifest_version": 3,
+  "name": "AEGIS: Universal AI Privacy Shield",
+  "version": "8.0.0",
+  "description": "Open-source endpoint DLP. Intercepts and redacts PII before it reaches AI platforms. 100% local.",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "contextMenus"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "scripts": [
+      "aegis-shared.js",
+      "aegis-vault.js",
+      "reality-engine.js",
+      "signing-engine.js",
+      "threat-store.js",
+      "background.js"
+    ]
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "aegis-shared.js",
+        "aegis-vault.js",
+        "fake-data.js",
+        "detection-engine.js",
+        "sentinel-engine.js",
+        "webmail-profile.js",
+        "content.js"
+      ],
+      "run_at": "document_end"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "options_page": "options.html",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "aegis@starboy-hub.github.io",
+      "strict_min_version": "115.0"
+    }
+  }
+}
