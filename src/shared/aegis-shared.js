@@ -126,7 +126,8 @@
       .toLowerCase()
       .replace(/[^\w\s@.]/g, ' ')
       .replace(/\s+/g, ' ')
-      .trim();
+      .trim()
+      .replace(/^[.]+|[.]+$/g, '');
   }
 
   const AEGIS = { KEYS, DEFAULT_SETTINGS, mergeSettings, statsFromHistory, isSameDay, flexiblePattern, maskSensitive, strHash, normalizeForSignature };

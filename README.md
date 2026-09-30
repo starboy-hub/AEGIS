@@ -2,10 +2,10 @@
 
 > **AI fights in both directions: it stops your data from leaking into AI systems, and it defends you from what AI-generated attacks deliver to your screen. 100% local. No account. No telemetry. No cloud.**
 
-![Version](https://img.shields.io/badge/version-8.0.0-blue.svg)
+![Version](https://img.shields.io/badge/version-8.1.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
-![Tests](https://img.shields.io/badge/tests-143%20passing-brightgreen.svg)
-![E2E](https://img.shields.io/badge/E2E-8%20journeys-blueviolet.svg)
+![Tests](https://img.shields.io/badge/tests-186%20passing-brightgreen.svg)
+![E2E](https://img.shields.io/badge/E2E-37%20checks-blueviolet.svg)
 ![Privacy](https://img.shields.io/badge/privacy-100%25_local-red.svg)
 
 AEGIS is a browser extension that acts as a **personal guardian running entirely on your machine**. It protects you in two directions against AI-era threats, with a family of engines that all run locally:
@@ -101,8 +101,8 @@ src/popup/           guardian dashboard UI
 src/options/         settings UI (7 grouped sections)
 companion/           desktop tools: agent firewall proxy + voice canary (+ DESIGN.md)
 evaluation/          labeled corpus + benchmark harness
-tests/               143 unit tests (jest)
-e2e/                 8 Playwright journeys against real Chromium
+tests/               186 unit tests (jest)
+e2e/                 37 Playwright checks against real Chromium
 store/               Web Store listing + privacy policy
 docs/                developer reference
 ```

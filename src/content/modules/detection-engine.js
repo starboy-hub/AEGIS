@@ -14,7 +14,7 @@
     'Credit Card': /\b(?:\d{4}[-\s]?){3}\d{4}\b/g,
     'Email': /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g,
     'Phone': /\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b/g,
-    'IP Address': /\b(?:\d{1,3}\.){3}\d{1,3}\b/g,
+    'IP Address': /\b(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\b/g,
     'Date of Birth': /\b(?:born on|DOB:|birthday:?|Date of Birth:?)\s*(?:is\s+)?:?\s*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\b/gi,
     'Passport': /\b(?:passport|passport\s*#?)\s*:?\s*([A-Z]{1,2}\d{6,9})\b/gi,
     'Bank Account': /\b(?:bank\s+account|account|acct)\s+(?:is\s+)?:?\s*(\d{8,17})\b/gi,

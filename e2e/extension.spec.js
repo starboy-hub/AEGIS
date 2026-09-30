@@ -31,7 +31,16 @@ async function launchWithExtension() {
   await context.route('**://mock-chat.test/**', route => route.fulfill({ contentType: 'text/html', body: MOCK_HTML }));
   await context.route('**://mail.google.com/**', route => route.fulfill({ contentType: 'text/html', body: GMAIL_HTML }));
   await page.goto('https://mock-chat.test/');
-  return { context, page, extensionId };
+  return { context, page, extensionId, sw };
+}
+
+async function swCall(sw, fn) {
+  // Service workers get suspended — race every SW call against a timeout so
+  // a hung evaluate can never stall the suite
+  return Promise.race([
+    sw.evaluate(fn),
+    new Promise((res) => setTimeout(() => res({ err: 'sw-timeout' }), 10000))
+  ]);
 }
 
 test('extension loads: service worker starts and dashboard renders', async () => {
@@ -135,5 +144,48 @@ test('webmail: a scam email in the gmail DOM triggers a sender note, legit mail 
   await page.goto('https://mail.google.com/');
   await page.waitForSelector('[data-aegis-note]:has-text("Email: likely scam")', { timeout: 30000 });
   await expect(page.locator('[data-aegis-note]').first()).toContainText('global.bank.alert@gmail.com', { timeout: 10000 });
+  await context.close();
+});
+
+test('inline popup: Undo restores the original text after Protect', async () => {
+  const { context, page } = await launchWithExtension();
+  await page.fill('#chat-input', 'my email is jane.doe@gmail.com thanks');
+  await page.waitForSelector('[data-aegis="unified-popup"]', { timeout: 20000 });
+  await page.click('[data-aegis-action^="protect-"]');
+  expect(await page.inputValue('#chat-input')).not.toContain('jane.doe@gmail.com');
+  await page.click('[data-aegis-action^="undo-"]');
+  expect(await page.inputValue('#chat-input')).toContain('jane.doe@gmail.com');
+  await context.close();
+});
+
+test('pause/resume stops and restarts detection', async () => {
+  test.setTimeout(45000);
+  const { context, page } = await launchWithExtension();
+  await page.fill('#chat-input', 'my email is first@example.com thanks');
+  await page.waitForSelector('[data-aegis="unified-popup"]', { timeout: 20000 });
+  // Pause from the popup footer, then minimize to the bubble
+  await page.click('[data-aegis-action^="pause-"]');
+  await page.click('[data-aegis-action="minimize"]');
+  await expect(page.locator('[data-aegis-part="minimized"]')).toContainText('⏸️', { timeout: 10000 });
+  // Resume from the bubble: expand, then the popup footer offers resume
+  await page.click('[data-aegis-part="minimized"]');
+  await page.click('[data-aegis-action="resume"]');
+  await page.click('[data-aegis-action="minimize"]');
+  await expect(page.locator('[data-aegis-part="minimized"]')).not.toContainText('⏸️', { timeout: 10000 });
+  await context.close();
+});
+
+test('trust-site silences the site (minimized, no new alerts)', async () => {
+  const { context, page, sw } = await launchWithExtension();
+  await page.fill('#chat-input', 'my email is trust@example.com now');
+  await page.waitForSelector('[data-aegis="unified-popup"]', { timeout: 20000 });
+  await page.click('[data-aegis-action="trust-site"]');
+  await page.waitForSelector('[data-aegis-part="minimized"]', { timeout: 10000 });
+  await page.fill('#chat-input', 'my email is quiet@example.com now');
+  await page.waitForTimeout(3500);
+  const state = await page.evaluate(() => document.querySelector('[data-aegis="unified-popup"]').textContent);
+  expect(state).not.toContain('quiet@example');
+  const saved = await swCall(sw, () => new Promise((res) => chrome.storage.sync.get(['settings'], (g) => res((g.settings || {}).trustedSites || []))));
+  expect(saved).toContain('mock-chat.test');
   await context.close();
 });

@@ -113,7 +113,7 @@ function scanVaultText(text, alerts, redactions, seen) {
 }
 
 function restoreVaultInResponses() {
-  if (!settings.vaultRestore || !vaultCorpus.length || !Object.keys(vaultPseudos).length) return;  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+  if (isPaused || !settings.vaultRestore || !vaultCorpus.length || !Object.keys(vaultPseudos).length) return;  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
       const p = node.parentElement;
       if (!p) return NodeFilter.FILTER_REJECT;
@@ -268,7 +268,7 @@ function aiClassify(text, kind) {
 }
 
 function sentinelPass() {
-  if (!settings.sentinelEnabled || siteMuted()) return;
+  if (isWhitelisted || isPaused || !settings.sentinelEnabled || siteMuted()) return;
   const muted = new Set(settings.mutedSignals || []);
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
@@ -401,7 +401,7 @@ function isInvisibleText(el) {
 // ---- Webmail profiles: Gmail/Outlook sender extraction + email checks ----
 
 function webmailPass() {
-  if (!settings.sentinelEnabled || siteMuted()) return;
+  if (isWhitelisted || isPaused || !settings.sentinelEnabled || siteMuted()) return;
   const kind = AEGIS_WEBMAIL.detectWebmail(location.hostname);
   if (!kind) return;
   const userEmails = vaultCorpus.filter(e => e.kind === 'email').map(e => e.value);
@@ -458,7 +458,7 @@ function webmailPass() {
 }
 
 function injectionPass() {
-  if (!settings.injectionFirewall || siteMuted()) return;
+  if (isWhitelisted || isPaused || !settings.injectionFirewall || siteMuted()) return;
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
       const p = node.parentElement;
