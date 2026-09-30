@@ -2,6 +2,31 @@
 
 All notable changes to AEGIS will be documented in this file.
 
+## [7.5.0] - 2026-09-30
+
+### Added — 🎯 Adversarial benchmark: the generalization measurement
+
+Priority #1 of the saviour roadmap: measure what the old corpus could not.
+
+- **Adversarial corpora** (`evaluation/corpus/adversarial.json`,
+  `injection-adversarial.json`): 26 messages engineered with zero keyword
+  overlap against current signals — indirect payment requests, invented
+  procedures, casual authority framings, reworded prompt injections — plus
+  hard-negative legit messages sharing structural features with scams
+- **Benchmark rewritten** to score both splits: core (known-category
+  coverage) and adversarial (generalization). Results JSON carries both
+- **Regression guards**: core ≥95% precision/recall (unchanged); adversarial
+  recall/precision never drop below the recorded baseline
+- Baselines recorded: core 100/100; **adversarial 0/0** — the engine detects
+  what it was built to detect and nothing else yet. This number is the
+  success metric for the semantic classifier work ahead
+
+### Why this matters
+A 100% score on a co-developed corpus says nothing about reworded attacks.
+The adversarial split now quantifies that gap: every AI-rewritten scam in
+the set evades current detection. Closing this gap (fine-tuned semantic
+classifier) is the next sprint — with a baseline to prove it.
+
 ## [7.4.1] - 2026-09-29
 
 ### Changed — 🧠 One model, three engines

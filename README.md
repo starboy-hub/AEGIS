@@ -31,8 +31,10 @@ AEGIS is a browser extension that acts as a **personal guardian running entirely
 Sentinel is scored against a labeled corpus of 154 messages (scams *and* tricky legitimate messages — salary talk, real bank notices, urgent-but-honest requests). The benchmark runs on every change:
 
 ```
-corpus: 154 labeled messages · warn threshold: suspicious+dangerous
-precision: 100% · recall: 100% · f1: 1.000   (baseline locked, CI-enforced ≥95%)
+core corpus (known categories):      154 messages — precision 100% · recall 100% · f1 1.000
+adversarial corpus (AI-rewritten):    26 messages — recall 0% (the honest gap)
+both baselines locked · CI-enforced regression guards
+semantic classifier sprint target: adversarial recall >= 60%
 ```
 
 **Honest read of these numbers:** the corpus is co-developed with the patterns, so it measures *coverage of known scam categories*, not real-world generalization. Real-world recall will be lower — novel scam wording is the eternal arms race. The corpus and the guard exist so the engine can never silently regress, and so every future improvement is measured. Run it yourself: `npm run benchmark`.
