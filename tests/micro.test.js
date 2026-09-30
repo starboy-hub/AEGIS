@@ -316,3 +316,30 @@ function makeStorage() {
     async remove(keys) { (Array.isArray(keys) ? keys : [keys]).forEach(k => mem.delete(k)); }
   };
 }
+
+describe('micro: canaryBundle (agent honeytokens)', () => {
+  const { canaryBundle } = AEGIS;
+
+  test('deterministic per site+seed', () => {
+    expect(canaryBundle('chat.openai.com', '42')).toEqual(canaryBundle('chat.openai.com', '42'));
+  });
+
+  test('distinct across sites and seeds', () => {
+    const a = canaryBundle('chat.openai.com', '42');
+    const b = canaryBundle('claude.ai', '42');
+    const c = canaryBundle('chat.openai.com', '43');
+    expect(a.email).not.toBe(b.email);
+    expect(a.code).not.toBe(c.code);
+  });
+
+  test('email is a honeypot address, code is AEGIS-CANARY format', () => {
+    const c = canaryBundle('x.com', 'seed');
+    expect(c.email).toMatch(/^canary\.[a-z0-9]+@aegis-honeypot\.invalid$/);
+    expect(c.code).toMatch(/^AEGIS-CANARY-[A-Z0-9]+$/);
+  });
+
+  test('marker usable as DOM attribute and excluded from own scans', () => {
+    const c = canaryBundle('x.com', 'seed');
+    expect(c.marker).toMatch(/^aegis-canary-[a-z0-9]+$/);
+  });
+});

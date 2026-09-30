@@ -34,6 +34,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     $('firewallToggle').checked = settings.injectionFirewall !== false;
     $('ollamaToggle').checked = settings.aiEnabled !== false;
     $('familyToggle').checked = !!settings.familyMode;
+    $('clipboardToggle').checked = settings.monitorClipboard !== false;
     $('sensitivity').value = settings.sensitivity || 'medium';
     $('familyBadge').hidden = !settings.familyMode;
   } catch (e) {
@@ -72,6 +73,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   $('sentinelToggle').addEventListener('change', (e) => updateSettings({ sentinelEnabled: e.target.checked }));
   $('firewallToggle').addEventListener('change', (e) => updateSettings({ injectionFirewall: e.target.checked }));
   $('ollamaToggle').addEventListener('change', (e) => updateSettings({ aiEnabled: e.target.checked }));
+
+  $('clipboardToggle').addEventListener('change', (e) => updateSettings({ monitorClipboard: e.target.checked }));
 
   $('familyToggle').addEventListener('change', async (e) => {
     const on = e.target.checked;

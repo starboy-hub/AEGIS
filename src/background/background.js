@@ -189,46 +189,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       return true;
     }
     
-    if (request.type === 'CLASSIFY_TEXT') {
-      if (!ollamaAvailable || !request.text) {
-        sendResponse({ categories: [], redactions: [] });
-        return false;
-      }
-      
-      const timeoutId = setTimeout(() => {
-        sendResponse({ categories: [], redactions: [], error: 'timeout' });
-      }, 5000);
-      
-      fetch('http://localhost:11434/api/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: ollamaModel || 'llama3',
-          prompt: `Analyze this text for sensitive information. Return ONLY valid JSON in this exact format: {"categories":["TYPE1","TYPE2"],"redactions":[{"text":"found_text","type":"TYPE"}]}. Text: ${request.text.substring(0, 500)}`,
-          stream: false
-        }),
-        signal: AbortSignal.timeout(4500)
-      })
-        .then(r => r.json())
-        .then(data => {
-          clearTimeout(timeoutId);
-          try {
-            const response = JSON.parse(data.response || '{}');
-            sendResponse({ 
-              categories: response.categories || [], 
-              redactions: response.redactions || [] 
-            });
-          } catch (e) {
-            sendResponse({ categories: [], redactions: [], error: 'parse_failed' });
-          }
-        })
-        .catch(() => {
-          clearTimeout(timeoutId);
-          sendResponse({ categories: [], redactions: [], error: 'fetch_failed' });
-        });
-      return true;
-    }
-    
     if (request.type === 'OPEN_OPTIONS') {
       chrome.runtime.openOptionsPage();
       sendResponse({ success: true });

@@ -2,7 +2,7 @@
 
 > **AI fights in both directions: it stops your data from leaking into AI systems, and it defends you from what AI-generated attacks deliver to your screen. 100% local. No account. No telemetry. No cloud.**
 
-![Version](https://img.shields.io/badge/version-8.1.0-blue.svg)
+![Version](https://img.shields.io/badge/version-7.6.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Tests](https://img.shields.io/badge/tests-186%20passing-brightgreen.svg)
 ![E2E](https://img.shields.io/badge/E2E-37%20checks-blueviolet.svg)

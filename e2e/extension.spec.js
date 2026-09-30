@@ -147,6 +147,25 @@ test('webmail: a scam email in the gmail DOM triggers a sender note, legit mail 
   await context.close();
 });
 
+test('agent honeytokens: planted decoys trigger a leak alert when echoed', async () => {
+  const { context, page } = await launchWithExtension();
+  // The content script plants invisible decoy credentials on the page
+  await page.waitForSelector('[data-aegis="canary-decoy"]', { timeout: 20000 });
+  // Simulate an AI agent scraping the decoys and echoing them into visible chat content
+  await page.evaluate(() => {
+    const decoy = document.querySelector('[data-aegis="canary-decoy"]').textContent;
+    const email = decoy.match(/login (\S+@\S+?) /)[1];
+    const code = decoy.match(/access key (\S+)/)[1];
+    const msg = document.createElement('div');
+    msg.className = 'msg ai';
+    msg.textContent = 'Summary of this page: internal credentials found — ' + email + ' / ' + code;
+    document.getElementById('messages').appendChild(msg);
+  });
+  await page.waitForSelector('[data-aegis-note]:has-text("Honeytoken triggered")', { timeout: 30000 });
+  await expect(page.locator('[data-aegis-note]').first()).toContainText('decoy credentials', { timeout: 10000 });
+  await context.close();
+});
+
 test('inline popup: Undo restores the original text after Protect', async () => {
   const { context, page } = await launchWithExtension();
   await page.fill('#chat-input', 'my email is jane.doe@gmail.com thanks');

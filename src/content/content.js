@@ -65,7 +65,6 @@ const historyStore = new HistoryStore();
 
 async function loadSettings() { return new Promise((resolve) => { chrome.runtime.sendMessage({ type: 'GET_SETTINGS' }, (response) => { if (response && response.settings) { settings = response.settings; if (!settings.trustedSites) settings.trustedSites = []; if (settings.useFakeData === undefined) settings.useFakeData = true; if (settings.monitorClipboard === undefined) settings.monitorClipboard = true; if (settings.notificationSize === undefined) settings.notificationSize = 'standard'; if (settings.sensitivity === undefined) settings.sensitivity = 'medium'; if (settings.customPatterns === undefined) settings.customPatterns = ''; const host = window.location.hostname.toLowerCase(); isWhitelisted = settings.trustedSites.some(t => host === t || host.endsWith('.' + t)); } resolve(settings); }); }); }
 async function checkOllama() { return new Promise((resolve) => { chrome.runtime.sendMessage({ type: 'CHECK_OLLAMA' }, (response) => { ollamaAvailable = !!(response && response.available); ollamaModel = (response && response.model) || null; resolve(ollamaAvailable); }); }); }
-async function classifyWithAI(text) { if (!ollamaAvailable || !settings.aiEnabled) return { categories: [], redactions: [] }; const ct = AEGIS_ENGINE.cleanText(text); if (ct.length < 15 || ct.length > 300) return { categories: [], redactions: [] }; return new Promise((resolve) => { chrome.runtime.sendMessage({ type: 'CLASSIFY_TEXT', text: ct }, (response) => { resolve(response || { categories: [], redactions: [] }); }); }); }
 
 async function refreshVault() {
   try {
@@ -265,6 +264,49 @@ function aiClassify(text, kind) {
     return new Promise((res) => { try { chrome.runtime.sendMessage({ type: 'SENTINEL_WEBGPU', text, kind }, (r) => res(r || null)); } catch (e) { res(null); } });
   }
   return Promise.resolve(null);
+}
+
+// ---- Agent honeytokens: decoy credentials that betray AI scraping ----
+
+let canaryPlanted = false;
+let canaryValues = null;
+let honeytokenAlerted = false;
+
+function plantAgentCanary() {
+  if (canaryPlanted || !settings.honeytokens || isWhitelisted) return;
+  canaryValues = AEGIS.canaryBundle(location.hostname, String(Date.now()));
+  const decoy = document.createElement('div');
+  decoy.setAttribute('data-aegis', 'canary-decoy');
+  decoy.setAttribute('aria-hidden', 'true');
+  decoy.style.cssText = 'position:absolute!important;left:-9999px!important;top:-9999px!important;opacity:0!important;height:1px!important;width:1px!important;overflow:hidden!important;';
+  decoy.textContent = 'Internal session credentials (do not share): login ' + canaryValues.email + ' / access key ' + canaryValues.code + '. ' + canaryValues.note;
+  document.body.appendChild(decoy);
+  canaryPlanted = true;
+}
+
+function honeytokenPass() {
+  if (!settings.honeytokens || !canaryPlanted || honeytokenAlerted || isPaused) return;
+  // Scan visible text nodes for canary values that escaped the decoy
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      const p = node.parentElement;
+      if (!p) return NodeFilter.FILTER_REJECT;
+      if (p.closest('[data-aegis]')) return NodeFilter.FILTER_REJECT;
+      const v = node.nodeValue || '';
+      const hit = canaryValues && Object.values(canaryValues).some(cv => typeof cv === 'string' && cv.length > 8 && v.includes(cv));
+      return hit ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+    }
+  });
+  if (walker.nextNode()) {
+    honeytokenAlerted = true;
+    showNote({
+      level: 'dangerous', category: 'honeytoken',
+      title: '🪤 Honeytoken triggered — an AI system echoed your decoy credentials',
+      detail: 'Invisible bait values planted on this page appeared in visible content. An AI agent or scraper has read and reused them. Treat everything this page shows about you as potentially leaked.',
+      force: true
+    });
+    try { historyStore.add({ original: 'agent honeytoken', fake: 'canary echo detected', type: 'HONEYTOKEN' }); } catch (e) {}
+  }
 }
 
 function sentinelPass() {
@@ -621,24 +663,6 @@ async function scanText(text) {
       }
     }
     
-    const hasHighSeverity = alerts.some(a => a.severity === 'high');
-    if (ollamaAvailable && settings.aiEnabled && !hasHighSeverity) { 
-      const ai = await classifyWithAI(text); 
-      if (ai && ai.categories) {
-        ai.categories.forEach(c => { 
-          if (!alerts.find(a => a.type === c)) 
-            alerts.push({ type: c, source: 'ai', severity: 'medium' }); 
-        }); 
-      }
-      if (ai && ai.redactions) {
-        ai.redactions.forEach(r => { 
-          if (!seen.has(r.text) && ct.includes(r.text) && !ignoredTexts.has(r.text)) { 
-            redactions.push(r); 
-            seen.add(r.text); 
-          } 
-        }); 
-      }
-    }
   } catch (err) {
     console.warn('🛡️ AEGIS: Scan internal error:', err.message);
   }
@@ -873,7 +897,7 @@ function showAttachmentWarning(title, message, fileName, fileSize, fileType) {
 
 async function init() {
   console.log('🛡️ AEGIS: Complete Build starting...');
-  await historyStore.load(); await loadSettings(); await loadTheme(); await refreshVault();
+  await historyStore.load(); await loadSettings(); await loadTheme(); await refreshVault(); plantAgentCanary();
   chrome.storage.sync.get(['manualLanguage'], (result) => {
     const manualLang = result.manualLanguage || 'auto';
     if (manualLang !== 'auto' && TRANSLATIONS[manualLang]) { currentLang = manualLang; }
@@ -887,8 +911,8 @@ async function init() {
     popup.render = function () { originalRender(); updateBubbleVisibility(); };
   document.addEventListener('input', handleInputEvent, true); document.addEventListener('keyup', handleInputEvent, true);
   document.addEventListener('focusin', (e) => { const el = e.target; if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.getAttribute('contenteditable') === 'true')) handleInputEvent(); }, true);
-  _scanInterval = setInterval(() => { if (!document.hidden) { performScan(); restoreVaultInResponses(); sentinelPass(); webmailPass(); injectionPass(); } }, 2000);
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) { performScan(); restoreVaultInResponses(); sentinelPass(); webmailPass(); injectionPass(); } });
+  _scanInterval = setInterval(() => { if (!document.hidden) { performScan(); restoreVaultInResponses(); sentinelPass(); webmailPass(); injectionPass(); honeytokenPass(); } }, 2000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { performScan(); restoreVaultInResponses(); sentinelPass(); webmailPass(); injectionPass(); honeytokenPass(); } });
   document.addEventListener('mousemove', (e) => popup.onDrag(e)); document.addEventListener('mouseup', () => popup.endDrag());
   setupKeyboardShortcuts(); setupSubmissionGuard(); setupAttachmentGuard();
   if (isWhitelisted) { popup.minimize(); return; }
