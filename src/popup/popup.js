@@ -190,6 +190,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  // ---- Session Guard status ----
+  chrome.runtime.sendMessage({ type: 'GET_SESSION_GUARD' }, (res) => {
+    if (res && res.session) {
+      document.getElementById('sessionGuardId').textContent = res.session.id.slice(0, 6);
+    }
+  });
+
   // ---- Stats (overview numbers) ----
   const TYPE_COLORS = { SENTINEL: '#f59e0b', INJECTION: '#8b5cf6', 'Vault Name': '#667eea', 'Vault Email': '#667eea', 'Vault Phone': '#667eea', 'Vault Item': '#667eea' };
 

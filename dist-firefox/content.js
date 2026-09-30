@@ -23,6 +23,7 @@ function t(key) { return TRANSLATIONS[currentLang]?.[key] || TRANSLATIONS.en[key
 let ollamaAvailable = false;
 let vaultCorpus = [], vaultMatchers = [], vaultPseudos = {}, vaultById = {};
 let trustMatchers = [];
+let sessionGuard = null;
 let ollamaModel = null;
 let sentinelAnalyzed = new Set(), sentinelNoted = false, sentinelLLMCalls = 0;
 let injectionSeen = new Set(), injectionNoted = false;
@@ -65,7 +66,6 @@ const historyStore = new HistoryStore();
 
 async function loadSettings() { return new Promise((resolve) => { chrome.runtime.sendMessage({ type: 'GET_SETTINGS' }, (response) => { if (response && response.settings) { settings = response.settings; if (!settings.trustedSites) settings.trustedSites = []; if (settings.useFakeData === undefined) settings.useFakeData = true; if (settings.monitorClipboard === undefined) settings.monitorClipboard = true; if (settings.notificationSize === undefined) settings.notificationSize = 'standard'; if (settings.sensitivity === undefined) settings.sensitivity = 'medium'; if (settings.customPatterns === undefined) settings.customPatterns = ''; const host = window.location.hostname.toLowerCase(); isWhitelisted = settings.trustedSites.some(t => host === t || host.endsWith('.' + t)); } resolve(settings); }); }); }
 async function checkOllama() { return new Promise((resolve) => { chrome.runtime.sendMessage({ type: 'CHECK_OLLAMA' }, (response) => { ollamaAvailable = !!(response && response.available); ollamaModel = (response && response.model) || null; resolve(ollamaAvailable); }); }); }
-async function classifyWithAI(text) { if (!ollamaAvailable || !settings.aiEnabled) return { categories: [], redactions: [] }; const ct = AEGIS_ENGINE.cleanText(text); if (ct.length < 15 || ct.length > 300) return { categories: [], redactions: [] }; return new Promise((resolve) => { chrome.runtime.sendMessage({ type: 'CLASSIFY_TEXT', text: ct }, (response) => { resolve(response || { categories: [], redactions: [] }); }); }); }
 
 async function refreshVault() {
   try {
@@ -77,6 +77,8 @@ async function refreshVault() {
     trustMatchers = AEGIS_VAULT.buildMatchers((res && res.trusted) || []);
     const mapRes = await chrome.runtime.sendMessage({ type: 'PSEUDO_GET_MAP', site: location.hostname });
     vaultPseudos = (mapRes && mapRes.map) || {};
+    const sessRes = await new Promise((res) => chrome.runtime.sendMessage({ type: 'GET_SESSION_GUARD' }, (r) => res(r || null)));
+    sessionGuard = sessRes && sessRes.session ? sessRes.session : null;
   } catch (e) { console.warn('🛡️ AEGIS: vault unavailable:', e.message); }
 }
 
@@ -113,7 +115,7 @@ function scanVaultText(text, alerts, redactions, seen) {
 }
 
 function restoreVaultInResponses() {
-  if (!settings.vaultRestore || !vaultCorpus.length || !Object.keys(vaultPseudos).length) return;  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+  if (isPaused || !settings.vaultRestore || !vaultCorpus.length || !Object.keys(vaultPseudos).length) return;  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
       const p = node.parentElement;
       if (!p) return NodeFilter.FILTER_REJECT;
@@ -267,8 +269,52 @@ function aiClassify(text, kind) {
   return Promise.resolve(null);
 }
 
+// ---- Agent honeytokens: decoy credentials that betray AI scraping ----
+
+let canaryPlanted = false;
+let canaryValues = null;
+let honeytokenAlerted = false;
+
+function plantAgentCanary() {
+  if (canaryPlanted || !settings.honeytokens || isWhitelisted) return;
+  canaryValues = AEGIS.canaryBundle(location.hostname, sessionGuard ? sessionGuard.id : String(Date.now()));
+  const decoy = document.createElement('div');
+  decoy.setAttribute('data-aegis', 'canary-decoy');
+  decoy.setAttribute('aria-hidden', 'true');
+  decoy.style.cssText = 'position:absolute!important;left:-9999px!important;top:-9999px!important;opacity:0!important;height:1px!important;width:1px!important;overflow:hidden!important;';
+  decoy.textContent = 'Internal session credentials (do not share): login ' + canaryValues.email + ' / access key ' + canaryValues.code + '. ' + canaryValues.note;
+  document.body.appendChild(decoy);
+  canaryPlanted = true;
+}
+
+function honeytokenPass() {
+  if (!settings.honeytokens || !canaryPlanted || honeytokenAlerted || isPaused) return;
+  // Scan visible text nodes for canary values that escaped the decoy
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      const p = node.parentElement;
+      if (!p) return NodeFilter.FILTER_REJECT;
+      if (p.closest('[data-aegis]')) return NodeFilter.FILTER_REJECT;
+      const v = node.nodeValue || '';
+      const hit = canaryValues && Object.values(canaryValues).some(cv => typeof cv === 'string' && cv.length > 8 && v.includes(cv));
+      return hit ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+    }
+  });
+  if (walker.nextNode()) {
+    honeytokenAlerted = true;
+    showNote({
+      level: 'dangerous', category: 'honeytoken',
+      title: '🪤 Honeytoken triggered — an AI system echoed your decoy credentials',
+      detail: 'Invisible bait values planted on this page appeared in visible content. An AI agent or scraper has read and reused them. Treat everything this page shows about you as potentially leaked.',
+      force: true
+    });
+    try { historyStore.add({ original: 'agent honeytoken', fake: 'canary echo detected', type: 'HONEYTOKEN' }); } catch (e) {}
+    try { chrome.runtime.sendMessage({ type: 'SESSION_EVENT', event: 'honeytoken' }, () => {}); } catch (e) {}
+  }
+}
+
 function sentinelPass() {
-  if (!settings.sentinelEnabled || siteMuted()) return;
+  if (isWhitelisted || isPaused || !settings.sentinelEnabled || siteMuted()) return;
   const muted = new Set(settings.mutedSignals || []);
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
@@ -330,6 +376,7 @@ function sentinelPass() {
       }
       if (final.level === 'dangerous') {
         try { chrome.runtime.sendMessage({ type: 'THREAT_RECORD', hash: sigHash }, () => {}); } catch (e) {}
+        try { chrome.runtime.sendMessage({ type: 'SESSION_EVENT', event: 'injection-verdict' }, () => {}); } catch (e) {}
       }
     };
     const sigHash = AEGIS.strHash('sig|' + AEGIS.normalizeForSignature(text));
@@ -401,7 +448,7 @@ function isInvisibleText(el) {
 // ---- Webmail profiles: Gmail/Outlook sender extraction + email checks ----
 
 function webmailPass() {
-  if (!settings.sentinelEnabled || siteMuted()) return;
+  if (isWhitelisted || isPaused || !settings.sentinelEnabled || siteMuted()) return;
   const kind = AEGIS_WEBMAIL.detectWebmail(location.hostname);
   if (!kind) return;
   const userEmails = vaultCorpus.filter(e => e.kind === 'email').map(e => e.value);
@@ -424,13 +471,12 @@ function webmailPass() {
         result.signals = escalated.signals;
       }
     }
-    if (!AEGIS_SENTINEL.shouldWarn(result.level, settings.familyMode)) return;
     const presentMail = () => {
       const strongest = [...result.signals].sort((a, b) => b.weight - a.weight)[0];
       showNote({
         level: result.level, category: 'webmail',
         title: (result.level === 'dangerous' ? '🚨 Email: likely scam' : '⚠️ Email: suspicious') + ' — ' + (msg.senderEmail || msg.senderName || 'unknown sender'),
-        detail: (msg.subject ? '' + msg.subject.slice(0, 60) + ' — ' : '') + AEGIS_SENTINEL.topSignals(result, 2).join(' + ') + ' — ' + result.advice,
+        detail: (msg.subject ? '"' + msg.subject.slice(0, 60) + '" — ' : '') + AEGIS_SENTINEL.topSignals(result, 2).join(' + ') + ' — ' + result.advice,
         muteId: strongest ? strongest.id : null
       });
       if (!sentinelNoted) {
@@ -458,7 +504,7 @@ function webmailPass() {
 }
 
 function injectionPass() {
-  if (!settings.injectionFirewall || siteMuted()) return;
+  if (isWhitelisted || isPaused || !settings.injectionFirewall || siteMuted()) return;
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
       const p = node.parentElement;
@@ -621,24 +667,6 @@ async function scanText(text) {
       }
     }
     
-    const hasHighSeverity = alerts.some(a => a.severity === 'high');
-    if (ollamaAvailable && settings.aiEnabled && !hasHighSeverity) { 
-      const ai = await classifyWithAI(text); 
-      if (ai && ai.categories) {
-        ai.categories.forEach(c => { 
-          if (!alerts.find(a => a.type === c)) 
-            alerts.push({ type: c, source: 'ai', severity: 'medium' }); 
-        }); 
-      }
-      if (ai && ai.redactions) {
-        ai.redactions.forEach(r => { 
-          if (!seen.has(r.text) && ct.includes(r.text) && !ignoredTexts.has(r.text)) { 
-            redactions.push(r); 
-            seen.add(r.text); 
-          } 
-        }); 
-      }
-    }
   } catch (err) {
     console.warn('🛡️ AEGIS: Scan internal error:', err.message);
   }
@@ -873,7 +901,7 @@ function showAttachmentWarning(title, message, fileName, fileSize, fileType) {
 
 async function init() {
   console.log('🛡️ AEGIS: Complete Build starting...');
-  await historyStore.load(); await loadSettings(); await loadTheme(); await refreshVault();
+  await historyStore.load(); await loadSettings(); await loadTheme(); await refreshVault(); plantAgentCanary();
   chrome.storage.sync.get(['manualLanguage'], (result) => {
     const manualLang = result.manualLanguage || 'auto';
     if (manualLang !== 'auto' && TRANSLATIONS[manualLang]) { currentLang = manualLang; }
@@ -887,8 +915,8 @@ async function init() {
     popup.render = function () { originalRender(); updateBubbleVisibility(); };
   document.addEventListener('input', handleInputEvent, true); document.addEventListener('keyup', handleInputEvent, true);
   document.addEventListener('focusin', (e) => { const el = e.target; if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.getAttribute('contenteditable') === 'true')) handleInputEvent(); }, true);
-  _scanInterval = setInterval(() => { if (!document.hidden) { performScan(); restoreVaultInResponses(); sentinelPass(); webmailPass(); injectionPass(); } }, 2000);
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) { performScan(); restoreVaultInResponses(); sentinelPass(); webmailPass(); injectionPass(); } });
+  _scanInterval = setInterval(() => { if (!document.hidden) { performScan(); restoreVaultInResponses(); sentinelPass(); webmailPass(); injectionPass(); honeytokenPass(); } }, 2000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { performScan(); restoreVaultInResponses(); sentinelPass(); webmailPass(); injectionPass(); honeytokenPass(); } });
   document.addEventListener('mousemove', (e) => popup.onDrag(e)); document.addEventListener('mouseup', () => popup.endDrag());
   setupKeyboardShortcuts(); setupSubmissionGuard(); setupAttachmentGuard();
   if (isWhitelisted) { popup.minimize(); return; }

@@ -22,7 +22,7 @@
   const SIGNALS = [
     { id: 'trained_media', label: 'Marked as algorithmically generated media', strong: true, re: /trainedalgorithmicmedia|compositewithtrainedalgorithmicmedia|digitalsourcetype[^a-z]{0,4}trainedalgorithmic/i },
     { id: 'c2pa', label: 'C2PA content credentials (provenance manifest)', strong: true, re: /c2pa|jumbox|urn:uuid:2c25a/i },
-    { id: 'generator', label: 'AI generator signature', strong: true, re: /dall[\s·-]?e\b|stable diffusion|midjourney|adobe firefly|\bfirefly\b|google ai|\bimagen\b|flux\.1|novelai|bing image creator|ideogram|grok imagine|\bai generated\b|made with ai\b|ai-generated/i },
+    { id: 'generator', label: 'AI generator signature', strong: true, re: /dall[\s·-]?e\b|stable diffusion|midjourney|adobe firefly|\bfirefly\b|google ai|gemini|\bimagen\b|flux\.1|novelai|bing image creator|ideogram|grok imagine|\bai generated\b|made with ai\b|ai-generated/i },
     { id: 'sd_params', label: 'Diffusion-model parameter block', strong: true, re: /parameters[\r\n][\s\S]{0,600}?steps:\s*\d+[\s\S]{0,160}?sampler:/i },
     { id: 'editor', label: 'Image-editor software tag (editing is not AI — informational)', strong: false, re: /\b(?:photoshop|lightroom|gimp) \d/i }
   ];

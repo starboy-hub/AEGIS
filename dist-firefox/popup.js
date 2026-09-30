@@ -34,6 +34,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     $('firewallToggle').checked = settings.injectionFirewall !== false;
     $('ollamaToggle').checked = settings.aiEnabled !== false;
     $('familyToggle').checked = !!settings.familyMode;
+    $('clipboardToggle').checked = settings.monitorClipboard !== false;
     $('sensitivity').value = settings.sensitivity || 'medium';
     $('familyBadge').hidden = !settings.familyMode;
   } catch (e) {
@@ -72,6 +73,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   $('sentinelToggle').addEventListener('change', (e) => updateSettings({ sentinelEnabled: e.target.checked }));
   $('firewallToggle').addEventListener('change', (e) => updateSettings({ injectionFirewall: e.target.checked }));
   $('ollamaToggle').addEventListener('change', (e) => updateSettings({ aiEnabled: e.target.checked }));
+
+  $('clipboardToggle').addEventListener('change', (e) => updateSettings({ monitorClipboard: e.target.checked }));
 
   $('familyToggle').addEventListener('change', async (e) => {
     const on = e.target.checked;
@@ -186,6 +189,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
     });
   }
+
+  // ---- Session Guard status ----
+  chrome.runtime.sendMessage({ type: 'GET_SESSION_GUARD' }, (res) => {
+    if (res && res.session) {
+      document.getElementById('sessionGuardId').textContent = res.session.id.slice(0, 6);
+    }
+  });
 
   // ---- Stats (overview numbers) ----
   const TYPE_COLORS = { SENTINEL: '#f59e0b', INJECTION: '#8b5cf6', 'Vault Name': '#667eea', 'Vault Email': '#667eea', 'Vault Phone': '#667eea', 'Vault Item': '#667eea' };

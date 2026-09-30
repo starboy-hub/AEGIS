@@ -23,6 +23,7 @@ function t(key) { return TRANSLATIONS[currentLang]?.[key] || TRANSLATIONS.en[key
 let ollamaAvailable = false;
 let vaultCorpus = [], vaultMatchers = [], vaultPseudos = {}, vaultById = {};
 let trustMatchers = [];
+let sessionGuard = null;
 let ollamaModel = null;
 let sentinelAnalyzed = new Set(), sentinelNoted = false, sentinelLLMCalls = 0;
 let injectionSeen = new Set(), injectionNoted = false;
@@ -76,6 +77,8 @@ async function refreshVault() {
     trustMatchers = AEGIS_VAULT.buildMatchers((res && res.trusted) || []);
     const mapRes = await chrome.runtime.sendMessage({ type: 'PSEUDO_GET_MAP', site: location.hostname });
     vaultPseudos = (mapRes && mapRes.map) || {};
+    const sessRes = await new Promise((res) => chrome.runtime.sendMessage({ type: 'GET_SESSION_GUARD' }, (r) => res(r || null)));
+    sessionGuard = sessRes && sessRes.session ? sessRes.session : null;
   } catch (e) { console.warn('🛡️ AEGIS: vault unavailable:', e.message); }
 }
 
@@ -274,7 +277,7 @@ let honeytokenAlerted = false;
 
 function plantAgentCanary() {
   if (canaryPlanted || !settings.honeytokens || isWhitelisted) return;
-  canaryValues = AEGIS.canaryBundle(location.hostname, String(Date.now()));
+  canaryValues = AEGIS.canaryBundle(location.hostname, sessionGuard ? sessionGuard.id : String(Date.now()));
   const decoy = document.createElement('div');
   decoy.setAttribute('data-aegis', 'canary-decoy');
   decoy.setAttribute('aria-hidden', 'true');
@@ -306,6 +309,7 @@ function honeytokenPass() {
       force: true
     });
     try { historyStore.add({ original: 'agent honeytoken', fake: 'canary echo detected', type: 'HONEYTOKEN' }); } catch (e) {}
+    try { chrome.runtime.sendMessage({ type: 'SESSION_EVENT', event: 'honeytoken' }, () => {}); } catch (e) {}
   }
 }
 
@@ -372,6 +376,7 @@ function sentinelPass() {
       }
       if (final.level === 'dangerous') {
         try { chrome.runtime.sendMessage({ type: 'THREAT_RECORD', hash: sigHash }, () => {}); } catch (e) {}
+        try { chrome.runtime.sendMessage({ type: 'SESSION_EVENT', event: 'injection-verdict' }, () => {}); } catch (e) {}
       }
     };
     const sigHash = AEGIS.strHash('sig|' + AEGIS.normalizeForSignature(text));
@@ -466,13 +471,12 @@ function webmailPass() {
         result.signals = escalated.signals;
       }
     }
-    if (!AEGIS_SENTINEL.shouldWarn(result.level, settings.familyMode)) return;
     const presentMail = () => {
       const strongest = [...result.signals].sort((a, b) => b.weight - a.weight)[0];
       showNote({
         level: result.level, category: 'webmail',
         title: (result.level === 'dangerous' ? '🚨 Email: likely scam' : '⚠️ Email: suspicious') + ' — ' + (msg.senderEmail || msg.senderName || 'unknown sender'),
-        detail: (msg.subject ? '' + msg.subject.slice(0, 60) + ' — ' : '') + AEGIS_SENTINEL.topSignals(result, 2).join(' + ') + ' — ' + result.advice,
+        detail: (msg.subject ? '"' + msg.subject.slice(0, 60) + '" — ' : '') + AEGIS_SENTINEL.topSignals(result, 2).join(' + ') + ' — ' + result.advice,
         muteId: strongest ? strongest.id : null
       });
       if (!sentinelNoted) {

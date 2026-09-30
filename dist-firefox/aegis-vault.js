@@ -156,7 +156,7 @@
    * separators); emails match literally.
    */
   function buildMatchers(entries) {
-    return entries.map(e => {
+    return (entries || []).filter(e => e && typeof e.value === 'string' && e.value.trim()).map(e => {
       let re;
       if (e.kind === 'phone') {
         const digits = e.value.replace(/\D/g, '');

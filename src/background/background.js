@@ -16,6 +16,21 @@ const vault = AEGIS_VAULT.createVault(vaultStorage, crypto);
 const signer = AEGIS_SIGNING.createSigner(vaultStorage, crypto);
 const threats = AEGIS_THREATS.createThreatStore(vaultStorage, AEGIS);
 
+// ---- Session Guard state (chrome.storage.session: cleared on browser close) ----
+const SESSION_KEY = 'aegis_session';
+async function ensureSession() {
+  const stored = await chrome.storage.session.get(SESSION_KEY);
+  if (stored[SESSION_KEY]) return stored[SESSION_KEY];
+  const session = {
+    id: crypto.randomUUID().replace(/-/g, '').slice(0, 10),
+    startedAt: new Date().toISOString(),
+    injectionVerdicts: 0,
+    honeytokenTriggers: 0
+  };
+  await chrome.storage.session.set({ [SESSION_KEY]: session });
+  return session;
+}
+
 // ---- Message validation: every inbound message is shape-checked before a
 // handler touches storage. Runtime messages can only originate from this
 // extension's own contexts (no externally_connectable), so this is internal
@@ -289,6 +304,21 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           } catch (e) { sendResponse({ verdict: 'unclear', reason: 'parse' }); }
         })
         .catch(() => sendResponse({ verdict: 'unclear', reason: 'timeout' }));
+      return true;
+    }
+
+    // ---- Session Guard: per-browser-session defense context ----
+    if (request.type === 'GET_SESSION_GUARD') {
+      ensureSession().then((session) => sendResponse({ session }));
+      return true;
+    }
+    if (request.type === 'SESSION_EVENT') {
+      ensureSession().then(async (session) => {
+        if (request.event === 'injection-verdict') session.injectionVerdicts++;
+        if (request.event === 'honeytoken') session.honeytokenTriggers++;
+        await chrome.storage.session.set({ aegis_session: session });
+        sendResponse({ ok: true, session });
+      });
       return true;
     }
 
