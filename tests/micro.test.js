@@ -343,3 +343,54 @@ describe('micro: canaryBundle (agent honeytokens)', () => {
     expect(c.marker).toMatch(/^aegis-canary-[a-z0-9]+$/);
   });
 });
+
+describe('micro: presets, site grade, weekly digest', () => {
+  test('PRESETS map to complete settings patches', () => {
+    for (const name of ['standard', 'strict', 'family']) {
+      const patch = AEGIS.presetSettings(name);
+      expect(patch.preset).toBe(name);
+      for (const k of ['regexEnabled', 'sentinelEnabled', 'injectionFirewall', 'familyMode', 'sensitivity']) {
+        expect(k in patch).toBe(true);
+      }
+    }
+    // 'off' preserves the user's sensitivity choice (key intentionally omitted)
+    expect('sensitivity' in AEGIS.presetSettings('off')).toBe(false);
+    expect(AEGIS.presetSettings('family').familyMode).toBe(true);
+    expect(AEGIS.presetSettings('off').regexEnabled).toBe(false);
+  });
+
+  test('siteGrade ladder and trusted shortcut', () => {
+    expect(AEGIS.siteGrade({ trusted: true }).grade).toBe('A+');
+    expect(AEGIS.siteGrade({ https: true }).grade).toBe('A');
+    expect(AEGIS.siteGrade({ https: false, dangerous: true }).grade).toBe('F');
+    expect(AEGIS.siteGrade({ https: true, suspicious: true }).grade).toBe('B');
+    expect(AEGIS.siteGrade({ https: true }).label).toBe('Low risk');
+  });
+
+  test('siteGrade clamps to 0 and never negative grades', () => {
+    const r = AEGIS.siteGrade({ honeytoken: true, dangerous: true, https: false, muted: true });
+    expect(r.score).toBeGreaterThanOrEqual(0);
+    expect(r.grade).toBe('F');
+  });
+
+  test('weeklyDigest buckets history into 7 days with type counts', () => {
+    const now = new Date('2026-09-30T12:00:00Z');
+    const history = [
+      { timestamp: '2026-09-30T10:00:00Z', type: 'SSN' },
+      { timestamp: '2026-09-30T11:00:00Z', type: 'SSN' },
+      { timestamp: '2026-09-29T09:00:00Z', type: 'SENTINEL' },
+      { timestamp: '2026-09-20T09:00:00Z', type: 'SSN' } // out of window
+    ];
+    const d = AEGIS.weeklyDigest(history, now);
+    expect(d.days).toHaveLength(7);
+    expect(d.week).toBe(3);
+    expect(d.byType.SSN).toBe(2);
+    expect(d.byType.SENTINEL).toBe(1);
+  });
+
+  test('weeklyDigest handles empty history', () => {
+    const d = AEGIS.weeklyDigest([], new Date());
+    expect(d.week).toBe(0);
+    expect(d.days).toHaveLength(7);
+  });
+});

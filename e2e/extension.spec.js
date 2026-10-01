@@ -12,7 +12,8 @@ const EXT = path.join(__dirname, '..', 'dist');
   const GMAIL_HTML = require('fs').readFileSync(
     path.join(__dirname, 'fixtures', 'mock-gmail.html'), 'utf8');
 
-async function launchWithExtension() {
+async function launchWithExtension(opts = {}) {
+  const seedOnboarding = opts.seedOnboarding !== false;
   const context = await chromium.launchPersistentContext('', {
     channel: 'chromium',
     // Extensions require headed Chromium in this Playwright version;
@@ -26,6 +27,12 @@ async function launchWithExtension() {
   let [sw] = context.serviceWorkers();
   if (!sw) sw = await context.waitForEvent('serviceworker', { timeout: 20000 });
   const extensionId = new URL(sw.url()).host;
+  if (seedOnboarding) {
+    const seed = await context.newPage();
+    await seed.goto(`chrome-extension://${extensionId}/popup.html`);
+    await seed.evaluate(() => localStorage.setItem('aegis_onboarding9', '1'));
+    await seed.close();
+  }
 
   const page = await context.newPage();
   await context.route('**://mock-chat.test/**', route => route.fulfill({ contentType: 'text/html', body: MOCK_HTML }));
@@ -206,5 +213,28 @@ test('trust-site silences the site (minimized, no new alerts)', async () => {
   expect(state).not.toContain('quiet@example');
   const saved = await swCall(sw, () => new Promise((res) => chrome.storage.sync.get(['settings'], (g) => res((g.settings || {}).trustedSites || []))));
   expect(saved).toContain('mock-chat.test');
+  await context.close();
+});
+
+test('first-run onboarding walks through and dismisses', async () => {
+  test.setTimeout(45000);
+  const context = await chromium.launchPersistentContext('', {
+    channel: 'chromium', headless: false,
+    args: [`--disable-extensions-except=${EXT}`, `--load-extension=${EXT}`]
+  });
+  let [sw] = context.serviceWorkers();
+  if (!sw) sw = await context.waitForEvent('serviceworker', { timeout: 20000 });
+  const extensionId = new URL(sw.url()).host;
+  const popup = await context.newPage();
+  await popup.goto(`chrome-extension://${extensionId}/popup.html`);
+  await expect(popup.locator('#onboard')).toBeVisible({ timeout: 10000 });
+  await popup.click('#onboardNext');
+  await popup.click('#onboardNext');
+  await popup.click('#onboardNext'); // finish on step 3
+  await expect(popup.locator('#onboard')).toBeHidden();
+  await expect(popup.locator('#totalProtected')).toBeVisible();
+  // flag persists — reload does not re-show
+  await popup.reload();
+  await expect(popup.locator('#onboard')).toBeHidden();
   await context.close();
 });

@@ -39,8 +39,9 @@
     sensitivity: 'medium',
     customPatterns: '',
     trustedSites: [],
-    monitorClipboard: false,
+    monitorClipboard: true,
     honeytokens: true,
+    preset: 'standard',
     theme: 'light',
     notificationSize: 'standard',
     vaultRestore: true,
@@ -147,7 +148,71 @@
     };
   }
 
-  const AEGIS = { KEYS, DEFAULT_SETTINGS, mergeSettings, statsFromHistory, isSameDay, flexiblePattern, maskSensitive, strHash, normalizeForSignature, canaryBundle };
+  /**
+   * Protection presets: one control mapping to the full settings patch.
+   * 'off' keeps the Vault and honeytokens passive-bait but stops all
+   * active scanning; family arms everything at strictest thresholds.
+   */
+  const PRESETS = {
+    standard: { regexEnabled: true, sentinelEnabled: true, injectionFirewall: true, aiEnabled: true, monitorClipboard: true, honeytokens: true, familyMode: false, sensitivity: 'medium' },
+    strict: { regexEnabled: true, sentinelEnabled: true, injectionFirewall: true, aiEnabled: true, monitorClipboard: true, honeytokens: true, familyMode: false, sensitivity: 'high' },
+    family: { regexEnabled: true, sentinelEnabled: true, injectionFirewall: true, aiEnabled: true, monitorClipboard: true, honeytokens: true, familyMode: true, sensitivity: 'high' },
+    off: { regexEnabled: false, sentinelEnabled: false, injectionFirewall: false, monitorClipboard: false, familyMode: false }
+  };
+
+  function presetSettings(name) {
+    return Object.assign({ preset: name }, PRESETS[name] || PRESETS.standard);
+  }
+
+  /**
+   * Site safety grade from page-level signals. Pure.
+   * input: { https, trusted, dangerous, suspicious, honeytoken, muted }
+   * Returns { grade, score, label } — grade in A+..F.
+   */
+  function siteGrade(input) {
+    input = input || {};
+    if (input.trusted) return { grade: 'A+', score: 100, label: 'Trusted' };
+    let score = 100;
+    if (!input.https) score -= 30;
+    if (input.honeytoken) score -= 50;
+    if (input.dangerous) score -= 45;
+    else if (input.suspicious) score -= 20;
+    if (input.muted) score -= 5;
+    score = Math.max(0, Math.min(100, score));
+    // Reserve A+ for explicitly trusted sites — clean https caps at A
+    if (!input.trusted) score = Math.min(score, 90);
+    const grade = score >= 95 ? 'A+' : score >= 85 ? 'A' : score >= 70 ? 'B' : score >= 55 ? 'C' : score >= 40 ? 'D' : 'F';
+    const labels = { 'A+': 'Trusted', A: 'Low risk', B: 'Caution', C: 'Suspicious', D: 'High risk', F: 'Dangerous' };
+    return { grade, score, label: labels[grade] };
+  }
+
+  /**
+   * Weekly digest from audit history: 7 day-buckets + per-type counts.
+   * Pure; now = reference date (defaults to today).
+   */
+  function weeklyDigest(history, now) {
+    const ref = now || new Date();
+    const days = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(ref.getTime() - i * 86400000);
+      days.push({ label: d.toLocaleDateString(undefined, { weekday: 'short' }), time: d.getTime(), count: 0 });
+    }
+    const byType = {};
+    let week = 0;
+    for (const h of history || []) {
+      if (!h || !h.timestamp) continue;
+      const t = new Date(h.timestamp);
+      if (t.getTime() < ref.getTime() - 7 * 86400000) continue;
+      week++;
+      const day = days.find(d2 => isSameDay(t.toISOString(), new Date(d2.time)));
+      if (day) day.count++;
+      const type = h.type || 'other';
+      byType[type] = (byType[type] || 0) + 1;
+    }
+    return { week, byType, days: days.map(d => ({ label: d.label, count: d.count })) };
+  }
+
+  const AEGIS = { KEYS, DEFAULT_SETTINGS, mergeSettings, statsFromHistory, isSameDay, flexiblePattern, maskSensitive, strHash, normalizeForSignature, canaryBundle, PRESETS, presetSettings, siteGrade, weeklyDigest };
   root.AEGIS = AEGIS;
   if (typeof module !== 'undefined' && module.exports) module.exports = AEGIS;
 })(typeof self !== 'undefined' ? self : globalThis);

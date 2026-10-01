@@ -3,6 +3,7 @@
 <head><meta charset="UTF-8"><title>AEGIS Settings</title>
 <link rel="stylesheet" href="options.css">
 </head><body>
+<svg hidden xmlns="http://www.w3.org/2000/svg"><symbol id="i-gauge" viewBox="0 0 24 24"><path d="M12 14l4-6M4 18a9 9 0 1 1 16 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol><symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol><symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="14" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M11 11l9-9M17 3l4 4M15 5l4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol><symbol id="i-bank" viewBox="0 0 24 24"><path d="M3 10l9-6 9 6M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20h18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol><symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5M16 4a3.5 3.5 0 0 1 0 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol><symbol id="i-doc" viewBox="0 0 24 24"><path d="M6 2h8l4 4v16H6V2zM14 2v5h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol><symbol id="i-swap" viewBox="0 0 24 24"><path d="M7 8h11l-3-3M17 16H6l3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol></svg>
 
 <header class="topbar">
   <div class="topbar-brand">
@@ -22,7 +23,7 @@
 
   <section class="card">
     <div class="card-head">
-      <span class="card-icon">🎯</span>
+      <span class="card-icon"><svg width="20" height="20"><use href="#i-gauge"/></svg></span>
       <div><h2>Detection</h2><p>What AEGIS looks for as you type and browse</p></div>
     </div>
     <div class="row">
@@ -64,7 +65,7 @@
 
   <section class="card">
     <div class="card-head">
-      <span class="card-icon">🛡️</span>
+      <span class="card-icon"><svg width="20" height="20"><use href="#i-shield"/></svg></span>
       <div><h2>Guardian</h2><p>How aggressively AEGIS protects you</p></div>
     </div>
     <div class="row">
@@ -87,7 +88,7 @@
 
   <section class="card">
     <div class="card-head">
-      <span class="card-icon">🔐</span>
+      <span class="card-icon"><svg width="20" height="20"><use href="#i-key"/></svg></span>
       <div><h2>Identity Vault</h2><p>Your real values — encrypted (AES-256-GCM), detected and consistently pseudonymized everywhere</p></div>
     </div>
     <div class="row row-column">
@@ -103,7 +104,7 @@
 
   <section class="card">
     <div class="card-head">
-      <span class="card-icon">🏦</span>
+      <span class="card-icon"><svg width="20" height="20"><use href="#i-bank"/></svg></span>
       <div><h2>Trust Graph</h2><p>Your real organizations and contacts — pressure messages naming them escalate as impersonation</p></div>
     </div>
     <div class="row row-column">
@@ -116,7 +117,7 @@
 
   <section class="card">
     <div class="card-head">
-      <span class="card-icon">🤝</span>
+      <span class="card-icon"><svg width="20" height="20"><use href="#i-users"/></svg></span>
       <div><h2>Trusted Sites</h2><p>AEGIS stays quiet on these domains</p></div>
     </div>
     <div class="row row-column">
@@ -127,7 +128,7 @@
 
   <details class="card">
     <summary class="card-head">
-      <span class="card-icon">✍️</span>
+      <span class="card-icon"><svg width="20" height="20"><use href="#i-doc"/></svg></span>
       <div><h2>Sign &amp; Verify</h2><p>Prove text is yours and unmodified — signed with your device key, verifiable by anyone with AEGIS</p></div>
     </summary>
     <div class="row row-column">
@@ -144,7 +145,7 @@
 
   <details class="card">
     <summary class="card-head">
-      <span class="card-icon">🐝</span>
+      <span class="card-icon"><svg width="20" height="20"><use href="#i-swap"/></svg></span>
       <div><h2>Swarm Defense</h2><p>Share scam signatures between AEGIS installs — hashes only, never message text</p></div>
     </summary>
     <div class="row row-column">

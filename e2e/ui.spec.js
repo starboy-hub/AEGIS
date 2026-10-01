@@ -46,6 +46,10 @@ test.describe('popup controls', () => {
     if (!sw) sw = await context.waitForEvent('serviceworker', { timeout: 20000 });
     extensionId = new URL(sw.url()).host;
     page = await openPopup(context, extensionId);
+    // First-run onboarding is shown on a fresh profile — dismiss it, reload, then open collapsed sections (reload resets open state)
+    await page.evaluate(() => localStorage.setItem('aegis_onboarding9', '1'));
+    await page.reload();
+    await page.evaluate(() => document.querySelectorAll('details').forEach((d) => { d.open = true; }));
   });
 
   test.afterAll(async () => { await context.close(); });
@@ -314,5 +318,53 @@ test.describe('engineering checks (service worker)', () => {
     }));
     expect(r.error).toBe('invalid_message');
     await p.close();
+  });
+});
+
+
+test.describe('popup presets and site grade', () => {
+  let context, page, extensionId;
+
+  test.beforeAll(async () => {
+    context = await chromium.launchPersistentContext('', {
+      channel: 'chromium', headless: false,
+      args: [`--disable-extensions-except=${EXT}`, `--load-extension=${EXT}`]
+    });
+    let [sw] = context.serviceWorkers();
+    if (!sw) sw = await context.waitForEvent('serviceworker', { timeout: 20000 });
+    extensionId = new URL(sw.url()).host;
+    page = await openPopup(context, extensionId);
+    await page.evaluate(() => localStorage.setItem('aegis_onboarding9', '1'));
+    await page.reload();
+  });
+
+  test.afterAll(async () => { await context.close(); });
+
+  test('preset: Strict arms every layer and sets high sensitivity', async () => {
+    await page.click('#presetControl [data-preset="strict"]');
+    await expect.poll(() => getSync(page, 'settings'), { timeout: 5000 }).toMatchObject({
+      preset: 'strict', regexEnabled: true, sentinelEnabled: true, injectionFirewall: true, sensitivity: 'high'
+    });
+    await expect(page.locator('#familyBadge')).toBeHidden();
+  });
+
+  test('preset: Family arms family mode and the badge', async () => {
+    await page.click('#presetControl [data-preset="family"]');
+    await expect.poll(() => getSync(page, 'settings'), { timeout: 5000 }).toMatchObject({ preset: 'family', familyMode: true });
+    await expect(page.locator('#familyBadge')).toBeVisible();
+    await page.click('#presetControl [data-preset="standard"]');
+  });
+
+  test('preset: Off stops active scanning but keeps the Vault armed', async () => {
+    await page.click('#presetControl [data-preset="off"]');
+    await expect.poll(() => getSync(page, 'settings'), { timeout: 5000 }).toMatchObject({
+      preset: 'off', regexEnabled: false, sentinelEnabled: false
+    });
+    await page.click('#presetControl [data-preset="standard"]');
+  });
+
+  test('site grade renders for the active tab', async () => {
+    // popup itself is an extension page — grade shows the standby dash
+    await expect(page.locator('#gradeLetter')).toHaveText('–');
   });
 });

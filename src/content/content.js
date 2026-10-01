@@ -176,6 +176,7 @@ function renderNote(note) {
   const danger = note.level === 'dangerous';
   noteEl = document.createElement('div');
   noteEl.setAttribute('data-aegis-note', '');
+  noteEl.setAttribute('role', 'alert');
   noteEl.setAttribute('data-aegis', 'note');
   noteEl.style.cssText = 'position:fixed!important;bottom:76px!important;right:14px!important;z-index:2147483646!important;max-width:320px;padding:12px 14px;font-family:-apple-system,sans-serif;font-size:12.5px;line-height:1.45;color:#fff!important;background:' + (danger ? '#b71c1c' : note.level === 'suspicious' ? '#ef6c00' : '#37474f') + '!important;border-radius:12px!important;box-shadow:0 6px 20px rgba(0,0,0,.35)!important;cursor:pointer;';
   const title = document.createElement('div');
@@ -580,6 +581,20 @@ function showRealityBanner(findings) {
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === 'REALITY_RESULT') showRealityBanner(request.findings);
+  if (request.type === 'GET_SITE_GRADE') {
+    const alerts = (typeof popup !== 'undefined' && popup && popup.activeAlerts) || [];
+    const dangerous = alerts.some(a => (a.alerts || []).some(x => x.level === 'dangerous'));
+    const suspicious = alerts.some(a => (a.alerts || []).some(x => x.level === 'suspicious'));
+    const g = AEGIS.siteGrade({
+      https: location.protocol === 'https:',
+      trusted: isWhitelisted,
+      dangerous,
+      suspicious,
+      honeytoken: honeytokenAlerted,
+      muted: siteMuted()
+    });
+    sendResponse(g);
+  }
   if (request.type === 'GET_PAGE_ALERTS') {
     const alerts = (typeof popup !== 'undefined' && popup && popup.activeAlerts)
       ? popup.activeAlerts.map(a => ({

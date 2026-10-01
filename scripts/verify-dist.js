@@ -4,7 +4,12 @@
  */
 const fs = require('fs');
 
+const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
 const m = JSON.parse(fs.readFileSync('dist/manifest.json', 'utf8'));
+if (m.version !== pkg.version) {
+  console.error('VERSION DRIFT: dist manifest ' + m.version + ' != package.json ' + pkg.version);
+  process.exit(1);
+}
 const refs = [
   m.background.service_worker,
   m.content_scripts[0].js,

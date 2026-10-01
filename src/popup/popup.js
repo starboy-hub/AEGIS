@@ -1,7 +1,8 @@
 // AEGIS Popup — guardian dashboard
-// State-first UI: site status, protection layers, stats, recent activity.
-// All settings live in chrome.storage.sync under AEGIS.KEYS.SETTINGS; stats
-// and history come from the same keys the content script writes.
+// State-first UI: site status, session guard, presets, protection layers,
+// stats, ask-local-AI, digest. All settings live in chrome.storage.sync under
+// AEGIS.KEYS.SETTINGS; stats and history come from the same keys the content
+// script writes.
 document.addEventListener('DOMContentLoaded', async () => {
   const $ = (id) => document.getElementById(id);
 
@@ -73,7 +74,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   $('sentinelToggle').addEventListener('change', (e) => updateSettings({ sentinelEnabled: e.target.checked }));
   $('firewallToggle').addEventListener('change', (e) => updateSettings({ injectionFirewall: e.target.checked }));
   $('ollamaToggle').addEventListener('change', (e) => updateSettings({ aiEnabled: e.target.checked }));
-
   $('clipboardToggle').addEventListener('change', (e) => updateSettings({ monitorClipboard: e.target.checked }));
 
   $('familyToggle').addEventListener('change', async (e) => {
@@ -92,17 +92,60 @@ document.addEventListener('DOMContentLoaded', async () => {
   $('sensitivity').addEventListener('change', (e) => updateSettings({ sensitivity: e.target.value }));
 
   // ---- Local AI status (shows the real detected model, or how to get one) ----
+  let ollamaConnected = false, ollamaModelName = null;
   chrome.runtime.sendMessage({ type: 'CHECK_OLLAMA' }, (res) => {
+    ollamaConnected = !!(res && res.available);
+    ollamaModelName = (res && res.model) || null;
     const desc = $('ollamaDesc');
-    if (!desc) return;
-    if (res && res.available && res.model) {
-      desc.textContent = 'Connected · ' + res.model;
-    } else if (res && res.available) {
-      desc.textContent = 'Connected · no model pulled (ollama pull llama3.2)';
-    } else {
-      desc.textContent = 'Not detected — install Ollama for AI second opinions';
-    }
+    if (desc) desc.textContent = ollamaConnected ? 'Connected · ' + ollamaModelName : 'Not detected — install Ollama for AI second opinions';
   });
+
+  // ---- Popup-side AI router (Ollama first, in-browser model second) ----
+  function popupAiClassify(text) {
+    if (ollamaConnected && $('ollamaToggle').checked) {
+      return new Promise((res) => chrome.runtime.sendMessage({ type: 'SENTINEL_LLM', text }, (r) => res(r || null)));
+    }
+    if (settings && settings.webgpuAI) {
+      return new Promise((res) => chrome.runtime.sendMessage({ type: 'SENTINEL_WEBGPU', text }, (r) => res(r || null)));
+    }
+    return Promise.resolve(null);
+  }
+
+  // ---- Protection presets ----
+  function syncPresetUI(s) {
+    const ctrl = $('presetControl');
+    if (!ctrl) return;
+    ctrl.querySelectorAll('.preset-btn').forEach(b => b.classList.toggle('active', b.dataset.preset === s.preset));
+    const notes = {
+      standard: 'Balanced protection for everyday browsing.',
+      strict: 'Highest sensitivity + every layer armed.',
+      family: 'Strictest protection — ideal for shared or loved ones\u2019 browsers.',
+      off: 'Active scanning paused. The Vault stays armed.',
+      custom: 'Custom — individual layers adjusted.'
+    };
+    $('presetNote').textContent = notes[s.preset] || notes.custom;
+  }
+
+  document.querySelectorAll('#presetControl .preset-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      settings = await updateSettings(AEGIS.presetSettings(btn.dataset.preset)) || settings;
+      syncPresetUI(settings);
+      syncLayerToggles(settings);
+    });
+  });
+
+  function syncLayerToggles(s) {
+    $('shieldToggle').checked = s.regexEnabled !== false;
+    $('sentinelToggle').checked = s.sentinelEnabled !== false;
+    $('firewallToggle').checked = s.injectionFirewall !== false;
+    $('ollamaToggle').checked = s.aiEnabled !== false;
+    $('clipboardToggle').checked = s.monitorClipboard !== false;
+    $('familyToggle').checked = !!s.familyMode;
+    $('familyBadge').hidden = !s.familyMode;
+    $('sensitivity').value = s.sensitivity || 'medium';
+  }
+  syncPresetUI(settings);
+  syncLayerToggles(settings);
 
   // ---- Tabs ----
   document.querySelectorAll('.tab').forEach(tab => {
@@ -193,12 +236,61 @@ document.addEventListener('DOMContentLoaded', async () => {
   // ---- Session Guard status ----
   chrome.runtime.sendMessage({ type: 'GET_SESSION_GUARD' }, (res) => {
     if (res && res.session) {
-      document.getElementById('sessionGuardId').textContent = res.session.id.slice(0, 6);
+      $('sessionGuardId').textContent = res.session.id.slice(0, 6);
     }
   });
 
+  // ---- Site Safety Score ----
+  async function renderGrade() {
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab || !tab.id || !/^https?:/.test(tab.url || '')) {
+        $('gradeLetter').textContent = '–';
+        return;
+      }
+      const g = await new Promise((res) => chrome.tabs.sendMessage(tab.id, { type: 'GET_SITE_GRADE' }, (r) => {
+        if (chrome.runtime.lastError) res(null); else res(r);
+      }));
+      const badge = $('gradeBadge');
+      if (!g || !g.grade) { $('gradeLetter').textContent = '–'; return; }
+      $('gradeLetter').textContent = g.grade;
+      badge.className = 'hero-grade grade-' + g.grade.replace('+', 'P');
+      badge.title = g.label + ' (' + g.score + '/100)';
+    } catch (e) { /* page without content script */ }
+  }
+  renderGrade();
+
+  // ---- Ask AEGIS (local explainer) ----
+  $('askBtn').addEventListener('click', async () => {
+    const text = $('askInput').value.trim();
+    const out = $('askResult');
+    if (!text) { out.innerHTML = '<div class="activity-empty">Paste a message first.</div>'; return; }
+    out.innerHTML = '<div class="activity-empty">Analyzing locally…</div>';
+    const r = AEGIS_SENTINEL.analyzeMessage(text);
+    let modelLine = '';
+    let verdict = r.level === 'none' ? 'clean' : r.level === 'low' ? 'low risk' : r.level;
+    if (popupAiClassify) {
+      try {
+        const res = await popupAiClassify(text);
+        if (res && res.verdict === 'scam') {
+          verdict = 'scam'; modelLine = 'Local AI: scam detected' + (res.confidence ? ' (' + res.confidence + '%)' : '') + '. ';
+        } else if (res && res.verdict === 'legit') {
+          modelLine = 'Local AI: no scam patterns. ';
+        }
+      } catch (e) {}
+    }
+    const signals = AEGIS_SENTINEL.topSignals(r, 3);
+    const cls = verdict === 'scam' || verdict === 'dangerous' ? 'scam' : verdict === 'low risk' || verdict === 'clean' ? 'unclear' : 'legit';
+    out.innerHTML =
+      '<div class="ask-verdict ' + cls + '">' +
+      '<b>' + (verdict === 'scam' || verdict === 'dangerous' ? '🚨 Likely scam' : verdict === 'suspicious' ? '⚠️ Suspicious' : verdict === 'low' ? 'Low risk' : '✅ No scam signals') + '</b><br>' +
+      (modelLine || '') + (signals.length ? 'Signals: ' + signals.join(', ') + '. ' : '') +
+      (r.advice || '') + '</div>' +
+      '<small style="color:var(--text-3)">Analyzed locally — this text was not uploaded anywhere.</small>';
+  });
+
   // ---- Stats (overview numbers) ----
-  const TYPE_COLORS = { SENTINEL: '#f59e0b', INJECTION: '#8b5cf6', 'Vault Name': '#667eea', 'Vault Email': '#667eea', 'Vault Phone': '#667eea', 'Vault Item': '#667eea' };
+  const TYPE_COLORS = { SENTINEL: '#f59e0b', INJECTION: '#8b5cf6', HONEYTOKEN: '#b91c1c', WEBMAIL: '#0ea5e9', 'Vault Name': '#667eea', 'Vault Email': '#667eea', 'Vault Phone': '#667eea', 'Vault Item': '#667eea' };
 
   async function renderStats() {
     try {
@@ -213,6 +305,42 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   await renderStats();
 
+  // ---- Weekly digest (Overview card) ----
+  function renderDigest() {
+    chrome.storage.local.get([AEGIS.KEYS.HISTORY], (local) => {
+      const digest = AEGIS.weeklyDigest(local[AEGIS.KEYS.HISTORY] || []);
+      const bars = $('digestBars');
+      const labels = $('digestTypes');
+      if (!bars || !labels) return;
+      const max = Math.max(1, ...digest.days.map(d => d.count));
+      bars.innerHTML = '';
+      labels.innerHTML = '';
+      digest.days.forEach(d => {
+        const bar = document.createElement('div');
+        bar.className = 'digest-bar' + (d.count === 0 ? ' zero' : '');
+        bar.style.height = Math.max(6, Math.round((d.count / max) * 44)) + 'px';
+        bar.title = d.label + ': ' + d.count;
+        bars.appendChild(bar);
+        const lab = document.createElement('span');
+        lab.textContent = d.label;
+        labels.appendChild(lab);
+      });
+      const types = Object.entries(digest.byType);
+      labels.innerHTML = '';
+      if (!types.length) {
+        labels.innerHTML = '<small>No protections recorded this week</small>';
+        return;
+      }
+      types.forEach(([type, count]) => {
+        const chip = document.createElement('span');
+        chip.className = 'digest-chip';
+        chip.textContent = type + ' × ' + count;
+        labels.appendChild(chip);
+      });
+    });
+  }
+  renderDigest();
+
   $('clearStats').addEventListener('click', async () => {
     try {
       await chrome.storage.local.set({
@@ -220,6 +348,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         [AEGIS.KEYS.HISTORY_SUMMARY]: { allTime: 0, lastUpdated: new Date().toISOString() }
       });
       await renderStats();
+      renderDigest();
     } catch (err) {
       console.error('AEGIS popup: error clearing stats:', err);
     }
@@ -252,5 +381,31 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (err) {
       console.error('AEGIS popup: export failed:', err);
     }
+  });
+
+  // ---- First-run onboarding (3 steps, persisted flag) ----
+  const onboard = document.getElementById('onboard');
+  let onboardStep = 1;
+  function onboardShow(n) {
+    onboardStep = n;
+    onboard.querySelectorAll('.onboard-step').forEach(s => { s.hidden = +s.dataset.step !== n; });
+    onboard.querySelectorAll('.odot').forEach((d, i) => d.classList.toggle('active', i === n - 1));
+    $('onboardNext').textContent = n === 3 ? 'Finish' : 'Next';
+  }
+  function onboardFinish() {
+    localStorage.setItem('aegis_onboarding9', '1');
+    onboard.hidden = true;
+  }
+  if (!localStorage.getItem('aegis_onboarding9')) {
+    onboard.hidden = false;
+    onboardShow(1);
+  }
+  $('onboardNext').addEventListener('click', () => {
+    if (onboardStep === 3) onboardFinish(); else onboardShow(onboardStep + 1);
+  });
+  $('onboardSkip').addEventListener('click', onboardFinish);
+  $('onboardVault').addEventListener('click', () => {
+    onboardFinish();
+    chrome.runtime.sendMessage({ type: 'OPEN_OPTIONS' });
   });
 });
