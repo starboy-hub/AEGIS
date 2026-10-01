@@ -17,3 +17,8 @@ npm-debug.log*
 .vscode/
 .idea/
 releases/
+
+# Semantic eval local artifacts
+evaluation/.chrome-profile/
+evaluation/semantic-cache.json
+.semantic-cache/

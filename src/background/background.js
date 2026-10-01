@@ -3,6 +3,7 @@ importScripts('aegis-vault.js');
 importScripts('reality-engine.js');
 importScripts('signing-engine.js');
 importScripts('threat-store.js');
+importScripts('semantic-engine.js');
 
 const DEFAULT_SETTINGS = AEGIS.DEFAULT_SETTINGS;
 
@@ -437,20 +438,35 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       return false;
     }
     if (request.type === 'SENTINEL_WEBGPU') {
+      // Per-hypothesis NLI scoring: hypothesis sentences come from
+      // semantic-engine.js, offscreen returns P(entailment) per hypothesis,
+      // and the tuned decision turns them into the same {verdict, confidence}
+      // contract the Ollama path uses.
       (async () => {
         try {
           await ensureOffscreen();
+          const kind = request.kind === 'injection' ? 'injection' : 'scam';
           const res = await new Promise((resolve) => {
-            chrome.runtime.sendMessage({ type: 'WEBGPU_CLASSIFY', text: request.text, kind: request.kind }, (r) => {
+            chrome.runtime.sendMessage({
+              type: 'WEBGPU_CLASSIFY',
+              text: request.text,
+              kind,
+              hypotheses: AEGIS_SEMANTIC.HYPOTHESIS_SETS[kind]
+            }, (r) => {
               if (chrome.runtime.lastError) resolve({ ok: false, error: chrome.runtime.lastError.message });
               else resolve(r || { ok: false, error: 'no response' });
             });
           });
           if (!res.ok) { sendResponse({ verdict: 'unclear', reason: res.error || 'model unavailable' }); return; }
-          const posKey = request.kind === 'injection' ? 'injection' : 'scam';
-          const verdict = res.scores[posKey] >= 0.75 ? (request.kind === 'injection' ? 'manipulation' : 'scam') : res.scores.normal >= 0.75 ? 'legit' : 'unclear';
-          const confidence = Math.round(Math.max(res.scores.scam, res.scores.normal) * 100);
-          sendResponse({ verdict, confidence });
+          // Two measured decision frames: scam scores absolute per-fact
+          // (entail − contradict) probabilities; injection scores the
+          // relative softmax across candidate hypotheses.
+          const pairs = res.pairs || [];
+          const scores = kind === 'injection'
+            ? AEGIS_SEMANTIC.relativeScores(pairs.map(([h, , , entLogit]) => [h, entLogit]))
+            : pairs.reduce((acc, [h, ent, con]) => { acc[h] = AEGIS_SEMANTIC.pairScore(ent, con); return acc; }, {});
+          const decision = kind === 'injection' ? AEGIS_SEMANTIC.decideInjection(scores) : AEGIS_SEMANTIC.decideScam(scores);
+          sendResponse(decision);
         } catch (e) {
           sendResponse({ verdict: 'unclear', reason: e.message });
         }

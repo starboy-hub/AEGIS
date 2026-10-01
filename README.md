@@ -14,7 +14,7 @@ AEGIS is a browser extension that acts as a **personal guardian running entirely
 |---|---|---|
 | 🛡️ **Shield** | Your data leaking into AI chats | Detects PII as you type (regex + 9-language context + your personal Vault) and swaps it with realistic fake data before anything is sent |
 | 🔐 **Identity Vault** | Your real details typed plainly | Teach it your name/email/phone once (AES-256-GCM encrypted, device-local) — it detects them at any sensitivity and replaces them with **consistent per-site pseudonyms**, so AI conversations stay coherent. AI replies containing a pseudonym are restored to your real value on-screen |
-| 🚨 **Sentinel** | AI-generated scams arriving at you | Scores every inbound message against weighted scam signals (credential requests, payment pressure, fake authority, too-good offers, emergency money requests…). Optional local-Ollama second opinion. **Trust Graph**: pressure messages naming *your* bank/employer escalate as impersonation |
+| 🚨 **Sentinel** | AI-generated scams arriving at you | Scores every inbound message against weighted scam signals (credential requests, payment pressure, fake authority, too-good offers, emergency money requests…). Optional local AI second opinion (Ollama or the built-in in-browser model). **Trust Graph**: pressure messages naming *your* bank/employer escalate as impersonation |
 | 🛑 **Injection Firewall** | Prompt-injection hidden in pages | Detects instruction-override text, fake role markers, and **invisible injection payloads** (transparent, off-screen, 1px text) designed to hijack AI agents that read the web |
 | 🧬 **Reality Check** | Synthetic media | Right-click any image → scans its bytes for AI-provenance metadata (C2PA content credentials, generator signatures, diffusion parameters) |
 | 👨‍👩‍👧 **Family Guardian** | Scams targeting loved ones | One switch: all layers armed, strictest thresholds |
@@ -32,19 +32,22 @@ Sentinel is scored against a labeled corpus of 154 messages (scams *and* tricky 
 
 ```
 core corpus (known categories):      154 messages — precision 100% · recall 100% · f1 1.000
-adversarial corpus (AI-rewritten):    26 messages — recall 0% (the honest gap)
-both baselines locked · CI-enforced regression guards
-semantic classifier sprint target: adversarial recall >= 60%
+adversarial corpus (AI-rewritten):    26 messages — heuristics alone: recall 0% (locked baseline)
++ semantic layer (in-browser model):  adversarial recall 21% · adversarial precision 100%
+injection split:                      heuristics + optional local LLM — zero-shot measured unreliable
+next sprint (fine-tuned classifier):  adversarial recall >= 60%
 ```
 
 **Honest read of these numbers:** the corpus is co-developed with the patterns, so it measures *coverage of known scam categories*, not real-world generalization. Real-world recall will be lower — novel scam wording is the eternal arms race. The corpus and the guard exist so the engine can never silently regress, and so every future improvement is measured. Run it yourself: `npm run benchmark`.
+
+**The semantic layer, measured:** when you enable the in-browser AI model, AEGIS also consults a zero-shot NLI model (MobileBERT, ~25 MB, fully offline) on messages the heuristics scored weak or nothing — exactly where reworded attacks hide. It works on scam detection (0% → 21% adversarial recall at 100% precision on the adversarial split) and, just as honestly, it does NOT work on injection detection: every zero-shot frame we measured inverted on ordinary pages, so injection consults go to a local LLM (Ollama) only. Re-measure anytime: `node evaluation/capture-scores.js && node evaluation/semantic-eval.js`.
 
 ## ⚠️ Honest limitations
 
 No tool — and no app from any vendor — protects against "AI" as a whole. AEGIS defends a specific, growing slice:
 
 - It sees **browser content only** — not email apps, SMS, or phone calls (webmail like Gmail/Outlook *is* covered, because it renders in the browser).
-- Its scam and injection detection is **heuristic + optional local LLM**. Novel wording can get through; that is why the benchmark and corpus exist and must grow.
+- Its detection is **heuristic + optional local models**, and the honest measured state is: strong on known patterns (100% core), weak on reworded attacks (21% adversarial with the in-browser model), and not-yet-workable zero-shot injection (deferred to the fine-tune sprint). Novel wording can get through; that is why the benchmark and corpus exist and must grow.
 - **Reality Check reads metadata.** AI images with stripped metadata will show "no AI metadata found" — which is *not* proof of authenticity.
 - It does nothing about account takeover, malware, platform surveillance, or systemic AI risks. Those need OS hygiene, institutions, and law.
 - The vault protects your values at rest on this device (AES-256-GCM, local key) — not against an attacker with full disk access.
@@ -89,7 +92,7 @@ Layered, local, and measured — full developer reference in [docs/detection-lay
 - **Vault layer** — your taught values, matched case/format-insensitively
 - **Sentinel layer** — weighted scam signals on inbound text, with trust-graph escalation
 - **Injection layer** — prompt-injection patterns + invisible-text forensics
-- **Model layer (optional)** — local Ollama classification with a few-shot protocol as a second opinion
+- **Model layer (optional)** — a semantic engine (src/content/modules/semantic-engine.js) drives two local backends: Ollama (few-shot protocol) or the built-in in-browser MobileBERT (per-fact NLI scoring). The model can escalate keyword-free scams to dangerous and clear weak false positives
 
 Replacements use format-preserving fake data with safety guarantees (fake cards fail Luhn, fake SSNs use never-issued ranges) and are **reversible only by you** via the Vault mapping.
 

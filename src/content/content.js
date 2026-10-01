@@ -265,6 +265,10 @@ function aiClassify(text, kind) {
     return new Promise((res) => { try { chrome.runtime.sendMessage({ type: 'SENTINEL_LLM', text, kind }, (r) => res(r || null)); } catch (e) { res(null); } });
   }
   if (backend === 'browser') {
+    // Measured (evaluation/semantic-eval.js): zero-shot NLI INVERTS on
+    // injection-style text — ordinary pages outscore real reworded attacks.
+    // In-browser injection verdicts are worse than none; Ollama only.
+    if (kind === 'injection') return Promise.resolve(null);
     return new Promise((res) => { try { chrome.runtime.sendMessage({ type: 'SENTINEL_WEBGPU', text, kind }, (r) => res(r || null)); } catch (e) { res(null); } });
   }
   return Promise.resolve(null);
@@ -356,7 +360,11 @@ function sentinelPass() {
         result.signals = escalated.signals;
       }
     }
-    if (!AEGIS_SENTINEL.shouldWarn(result.level, settings.familyMode) && !(ollamaAvailable && settings.aiEnabled && result.level === 'low')) return;
+    // With an AI backend connected, weak AND signal-less texts stay consultable:
+    // keyword-free adversarial scams score 'none' here — the model is their
+    // only detector. Without a backend, heuristics-only behavior is unchanged.
+    const consultable = aiBackendName() && (result.level === 'low' || (result.level === 'none' && text.length >= 40));
+    if (!AEGIS_SENTINEL.shouldWarn(result.level, settings.familyMode) && !consultable) return;
     const present = (known) => {
       if (result.level === 'none' && !known) return; // model cleared a weak warning
       let final = result;
@@ -384,13 +392,14 @@ function sentinelPass() {
     // Model-primary classification: when an AI backend is connected, the model
     // gets final say on gray-zone and weak-signal messages (it can escalate a
     // keyword-free scam to dangerous, or suppress a weak false positive).
-    // Heuristics remain the instant defense when no model is available.
-    if (aiBackendName() && sentinelLLMCalls < 8 && (result.level === 'low' || result.level === 'suspicious')) {
+    // 'none'-level texts are consulted too — that is where reworded attacks
+    // hide. Heuristics remain the instant defense when no model is available.
+    if (aiBackendName() && sentinelLLMCalls < 8 && (result.level === 'low' || result.level === 'suspicious' || (result.level === 'none' && text.length >= 40))) {
       sentinelLLMCalls++;
       aiClassify(text, 'scam').then((res) => {
         const verdict = res ? res.verdict : 'unclear';
         const confident = res && +res.confidence >= 60;
-        if (verdict === 'scam' && (result.level === 'low' || confident)) {
+        if (verdict === 'scam' && (result.level === 'none' || result.level === 'low' || confident)) {
           result.level = 'dangerous';
           result.signals.push({ id: 'ai_verdict', label: 'AI analysis: scam' + (res.confidence ? ' (' + res.confidence + '%)' : ''), weight: 50 });
         } else if (verdict === 'legit' && confident && result.level === 'suspicious') {
@@ -401,24 +410,6 @@ function sentinelPass() {
           chrome.runtime.sendMessage({ type: 'THREAT_CHECK', hash: sigHash }, (r2) => present(!!(r2 && r2.known)));
         } catch (e) { present(false); }
       }).catch(() => present(false));
-      return;
-    }
-    // In-browser model (no Ollama needed): same semantics as the local model
-    if (settings.webgpuAI && sentinelLLMCalls < 8 && (result.level === 'low' || result.level === 'suspicious')) {
-      sentinelLLMCalls++;
-      try {
-        chrome.runtime.sendMessage({ type: 'SENTINEL_WEBGPU', text }, (res) => {
-          const verdict = res ? res.verdict : 'unclear';
-          const confident = res && +res.confidence >= 60;
-          if (verdict === 'scam' && (result.level === 'low' || confident)) {
-            result.level = 'dangerous';
-            result.signals.push({ id: 'webgpu_verdict', label: 'AI analysis: scam' + (res.confidence ? ' (' + res.confidence + '%)' : ''), weight: 50 });
-          } else if (verdict === 'legit' && confident && result.level === 'suspicious') {
-            result.level = 'none'; // in-browser model cleared a weak warning
-          }
-          try { chrome.runtime.sendMessage({ type: 'THREAT_CHECK', hash: sigHash }, (r2) => present(!!(r2 && r2.known))); } catch (e) { present(false); }
-        });
-      } catch (e) { present(false); }
       return;
     }
     // Swarm defense: does this match a signature shared from another install?
@@ -527,40 +518,55 @@ function injectionPass() {
     let hidden = false;
     try { hidden = isInvisibleText(node.parentElement); } catch (e) {}
     const result = AEGIS_INJECTION.analyzeInjection(text);
-    const patterned = result.level === 'dangerous' || result.level === 'suspicious' || result.level === 'low';
+    const presentInjection = (final) => {
+      const level = injectionNoted ? 'low' : final.level;
+      showNote({
+        level, category: 'injection',
+        title: (final.level === 'dangerous' ? '🛑 Injection Firewall: hidden AI instructions' : '🛡️ Injection Firewall: AI-directed text') + (hidden ? ' (invisible on page)' : ''),
+        detail: (AEGIS_INJECTION.topSignals(final, 2).join(' + ') + ' — ' + final.advice),
+        force: !injectionNoted
+      });
+      if (!injectionNoted) injectionNoted = true;
+      try { historyStore.add({ original: hidden ? 'hidden page text' : 'page text', fake: AEGIS_INJECTION.topSignals(final, 2).join(', '), type: 'INJECTION' }); } catch (e) {}
+    };
     // Visible text must show clear injection patterns; hidden text is
     // suspicious on its own when it carries AI-directed language or length
-    if (!hidden && (!patterned || result.level === 'low')) return;
-    if (hidden && result.level === 'none' && text.length < 100) return;
-    // Semantic second opinion on suspicious findings (pattern misses reworded attacks)
-    if (result.level === 'suspicious' && aiBackendName() && sentinelLLMCalls < 8) {
+    const weakVisible = !hidden && (result.level === 'none' || result.level === 'low');
+    if (weakVisible || (hidden && result.level === 'none' && text.length < 100)) {
+      // Semantic review: patterns miss reworded attacks, so with a local LLM
+      // connected the model gets a look at text the heuristics scored low or
+      // skipped (the in-browser model is MEASURED unreliable here — Ollama
+      // only). A manipulation verdict escalates to dangerous; anything else
+      // and weak visible text stays silent (hidden text keeps its suspicion).
+      const canConsult = ollamaAvailable && settings.aiEnabled && sentinelLLMCalls < 8 && (
+        (weakVisible && text.length >= 40) ||
+        (hidden && text.length >= 100)
+      );
+      if (!canConsult) return;
+      sentinelLLMCalls++;
+      aiClassify(text, 'injection').then((res) => {
+        if (res && res.verdict === 'manipulation') {
+          presentInjection({ ...result, level: 'dangerous', signals: [...result.signals, { id: 'inj_ai_verdict', label: 'AI analysis: manipulation attempt' + (res.confidence ? ' (' + res.confidence + '%)' : ''), weight: 50 }] });
+        } else if (!weakVisible) {
+          presentInjection(result);
+        }
+      }).catch(() => { if (!weakVisible) presentInjection(result); });
+      return;
+    }
+    // Semantic second opinion on suspicious findings (pattern misses reworded
+    // attacks) — Ollama only: the in-browser model measured unreliable here
+    if (result.level === 'suspicious' && ollamaAvailable && settings.aiEnabled && sentinelLLMCalls < 8) {
       sentinelLLMCalls++;
       aiClassify(text, 'injection').then((res) => {
         let final = result;
         if (res && res.verdict === 'manipulation') {
           final = { ...result, level: 'dangerous', signals: [...result.signals, { id: 'inj_ai_verdict', label: 'AI analysis: manipulation attempt', weight: 50 }] };
         }
-        const level = injectionNoted ? 'low' : final.level;
-        showNote({
-          level, category: 'injection',
-          title: (final.level === 'dangerous' ? '🛑 Injection Firewall: hidden AI instructions' : '🛡️ Injection Firewall: AI-directed text') + (hidden ? ' (invisible on page)' : ''),
-          detail: (AEGIS_INJECTION.topSignals(final, 2).join(' + ') + ' — ' + final.advice),
-          force: !injectionNoted
-        });
-        if (!injectionNoted) injectionNoted = true;
-        try { historyStore.add({ original: hidden ? 'hidden page text' : 'page text', fake: AEGIS_INJECTION.topSignals(final, 2).join(', '), type: 'INJECTION' }); } catch (e) {}
-      }).catch(() => {});
+        presentInjection(final);
+      }).catch(() => presentInjection(result));
       return;
     }
-    const level = injectionNoted ? 'low' : result.level;
-    showNote({
-      level, category: 'injection',
-      title: (result.level === 'dangerous' ? '🛑 Injection Firewall: hidden AI instructions' : '🛡️ Injection Firewall: AI-directed text') + (hidden ? ' (invisible on page)' : ''),
-      detail: (AEGIS_INJECTION.topSignals(result, 2).join(' + ') + ' — ' + result.advice),
-      force: !injectionNoted
-    });
-    if (!injectionNoted) injectionNoted = true;
-    try { historyStore.add({ original: hidden ? 'hidden page text' : 'page text', fake: AEGIS_INJECTION.topSignals(result, 2).join(', '), type: 'INJECTION' }); } catch (e) {}
+    presentInjection(result);
   });
 }
 

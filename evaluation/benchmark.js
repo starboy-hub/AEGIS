@@ -16,7 +16,6 @@ const AEGIS_SENTINEL = require('../src/content/modules/sentinel-engine.js');
 const AEGIS_INJECTION = require('../src/content/modules/injection-engine.js');
 
 const BASELINE = path.join(__dirname, 'baseline.json');
-const ADV_BASELINE = path.join(__dirname, 'baseline-adversarial.json');
 const RESULTS = path.join(__dirname, 'results.json');
 
 function loadCorpus(name) {

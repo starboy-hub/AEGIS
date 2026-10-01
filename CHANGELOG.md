@@ -2,6 +2,42 @@
 
 All notable changes to AEGIS will be documented in this file.
 
+## [9.2.0] - 2026-10-01
+
+### Added — 🧠 Semantic layer: the model now sees what heuristics miss
+
+Priority #5 continued — the runtime gap that made adversarial recall 0% even
+WITH a model connected is closed.
+
+- **Consult-on-nothing**: with an AI backend connected, Sentinel now consults
+  the model on texts the heuristics scored `none` (and `low`) — not just
+  gray-zone ones. Keyword-free adversarial scams never reached the model at
+  all before this. Capped at 8 consults/page; behavior without a backend is
+  byte-for-byte unchanged.
+- **Semantic engine** (`src/content/modules/semantic-engine.js`): per-fact
+  zero-shot NLI for scams (minimal single-fact hypotheses — disjunctions kill
+  entailment — scored as entail−contradict, decided on the sum of positive
+  facts) plus the decision scaffold for injection.
+- **In-browser model upgrade**: offscreen now runs the raw NLI head
+  (per-hypothesis probabilities + entailment logits) instead of the zero-shot
+  pipeline, with a load-time sanity check (catches the transformers v4
+  `text_pair` trap, where a second positional string is silently ignored).
+- **Measurement tooling**: `evaluation/capture-scores.js` +
+  `evaluation/semantic-eval.js` run the exact shipped model bundle over all
+  corpora and grid-search the decision thresholds (resumable, local-only —
+  `npm run eval:semantic`).
+
+### Measured (the honest part)
+
+- **Scam: adversarial recall 0% → 21.4% (3/14) at 100% adversarial
+  precision**, 3 false alarms on 154 core messages. Heuristics stay the
+  instant first line; the model adds the keyword-free slice.
+- **Injection: every zero-shot frame measured INVERTED** on ordinary pages
+  (negatives outscore reworded attacks). In-browser injection verdicts are
+  disabled by measurement; injection consults require Ollama.
+- The zero-shot ceiling is documented; the ≥60% adversarial-recall goal moves
+  to the fine-tuned-classifier sprint.
+
 ## [7.5.0] - 2026-09-30
 
 ### Added — 🎯 Adversarial benchmark: the generalization measurement

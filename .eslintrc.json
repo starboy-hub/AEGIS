@@ -19,7 +19,8 @@
     "AEGIS_WEBMAIL": "readonly",
     "AEGIS_REALITY": "readonly",
     "AEGIS_SIGNING": "readonly",
-    "AEGIS_THREATS": "readonly"
+    "AEGIS_THREATS": "readonly",
+    "AEGIS_SEMANTIC": "readonly"
   },
   "parserOptions": {
     "ecmaVersion": 2022,

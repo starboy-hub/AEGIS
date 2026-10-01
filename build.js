@@ -17,7 +17,7 @@ const FIREFOX_OUT = 'dist-firefox';
 function firefoxManifest(manifest) {
   const m = JSON.parse(JSON.stringify(manifest));
   m.background = {
-    scripts: ['aegis-shared.js', 'aegis-vault.js', 'reality-engine.js', 'signing-engine.js', 'threat-store.js', 'background.js']
+    scripts: ['aegis-shared.js', 'aegis-vault.js', 'reality-engine.js', 'signing-engine.js', 'threat-store.js', 'semantic-engine.js', 'background.js']
   };
   m.browser_specific_settings = { gecko: { id: 'aegis@starboy-hub.github.io', strict_min_version: '115.0' } };
   // No chrome.offscreen in Firefox: the in-browser AI model + its permission
@@ -95,6 +95,7 @@ function buildChromium(out = CHROME_OUT) {
     { src: 'src/content/modules/sentinel-engine.js', dest: 'sentinel-engine.js' },
     { src: 'src/content/modules/injection-engine.js', dest: 'injection-engine.js' },
     { src: 'src/content/modules/webmail-profile.js', dest: 'webmail-profile.js' },
+    { src: 'src/content/modules/semantic-engine.js', dest: 'semantic-engine.js' },
     { src: 'src/content/content.js', dest: 'content.js' },
     { src: 'src/popup/popup.html', dest: 'popup.html' },
     { src: 'src/popup/popup.css', dest: 'popup.css' },
@@ -132,6 +133,7 @@ function buildFirefox(out = FIREFOX_OUT) {
     { src: 'src/content/modules/sentinel-engine.js', dest: 'sentinel-engine.js' },
     { src: 'src/content/modules/injection-engine.js', dest: 'injection-engine.js' },
     { src: 'src/content/modules/webmail-profile.js', dest: 'webmail-profile.js' },
+    { src: 'src/content/modules/semantic-engine.js', dest: 'semantic-engine.js' },
     { src: 'src/content/content.js', dest: 'content.js' },
     { src: 'src/popup/popup.html', dest: 'popup.html' },
     { src: 'src/popup/popup.css', dest: 'popup.css' },
