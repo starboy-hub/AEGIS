@@ -52,6 +52,17 @@ function copyIcons(out) {
   });
 }
 
+/** Copy the fine-tuned classifier into the build (Chromium target only). */
+function vendorFineTunedModel(out) {
+  const srcDir = 'src/offscreen-model';
+  if (!fs.existsSync(path.join(srcDir, 'onnx', 'model_quantized.onnx'))) {
+    console.warn('! fine-tuned model missing — semantic layer inert');
+    return false;
+  }
+  fs.cpSync(srcDir, path.join(out, 'offscreen-model'), { recursive: true });
+  return true;
+}
+
 /** Vendor the in-browser AI runtime (Chromium target only). */
 function vendorAIRuntime(out) {
   const hfDist = 'node_modules/@huggingface/transformers/dist';
@@ -108,6 +119,8 @@ function buildChromium(out = CHROME_OUT) {
   copyIcons(out);
   const hasAI = vendorAIRuntime(out);
   if (!hasAI) console.warn('! in-browser AI runtime omitted');
+  const hasModel = vendorFineTunedModel(out);
+  if (hasModel) written.push('offscreen-model/*');
   return written.length;
 }
 

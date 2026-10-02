@@ -139,3 +139,40 @@ describe('semantic-engine: decideInjection (relative softmax frame)', () => {
     expect(new Set([...INJECTION_HYPOTHESES].filter(h => SCAM_HYPOTHESES.includes(h))).size).toBe(0);
   });
 });
+
+describe('semantic-engine: decideFineTuned (fine-tuned 3-class head)', () => {
+  test('strong scam probability → scam with confidence', () => {
+    const d = SEM.decideFineTuned({ legit: 0.05, scam: 0.9, injection: 0.05 }, 'scam');
+    expect(d.verdict).toBe('scam');
+    expect(d.confidence).toBe(90);
+  });
+
+  test('strong legit probability → legit (can clear weak warnings)', () => {
+    const d = SEM.decideFineTuned({ legit: 0.95, scam: 0.03, injection: 0.02 }, 'scam');
+    expect(d.verdict).toBe('legit');
+  });
+
+  test('contested probabilities → unclear', () => {
+    const d = SEM.decideFineTuned({ legit: 0.7, scam: 0.25, injection: 0.05 }, 'scam');
+    expect(d.verdict).toBe('unclear');
+  });
+
+  test('injection head returns manipulation verdicts', () => {
+    const d = SEM.decideFineTuned({ legit: 0.1, scam: 0.05, injection: 0.85 }, 'injection');
+    expect(d.verdict).toBe('manipulation');
+    const n = SEM.decideFineTuned({ legit: 0.92, scam: 0.04, injection: 0.04 }, 'injection');
+    expect(n.verdict).toBe('normal');
+  });
+
+  test('missing or malformed probabilities → unclear, never throws', () => {
+    expect(SEM.decideFineTuned({}, 'scam').verdict).toBe('unclear');
+    expect(SEM.decideFineTuned({ legit: 'x' }, 'injection').verdict).toBe('unclear');
+  });
+
+  test('tuned thresholds match the held-out measurement contract', () => {
+    expect(SEM.FINE_TUNED_THRESHOLDS.injection.posMin).toBe(0.7);   // 7/7 @ 0 FP
+    expect(SEM.FINE_TUNED_THRESHOLDS.scam.posMin).toBe(0.85);       // 7/14, tiered severity
+    expect(SEM.FINE_TUNED_THRESHOLDS.scam.posMin).toBeGreaterThan(
+      SEM.FINE_TUNED_THRESHOLDS.injection.posMin);                  // scam is the noisier head
+  });
+});

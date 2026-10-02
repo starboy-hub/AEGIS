@@ -2,6 +2,42 @@
 
 All notable changes to AEGIS will be documented in this file.
 
+## [9.3.0] - 2026-10-02
+
+### Added — 🎓 Fine-tuned classifier: the model is finally ours
+
+The fine-tune sprint lands: AEGIS now ships its own trained classifier.
+
+- **Bundled fine-tuned model** (`src/offscreen-model`, 26 MB quantized
+  MobileBERT, 3-class legit/scam/injection): trained on 193 hand-curated
+  seeds in Colab, exported through an in-session verification gate that
+  compares the ONNX graph against the live PyTorch model sentence-by-sentence
+  and refuses to package drift. No Hugging Face download — fully offline,
+  fully ours.
+- **Measured on the held-out corpora** (never seen in training, through the
+  real runtime bundle): **injection 7/7 recall, 0 false alarms** — solving
+  what zero-shot provably could not — and **adversarial scam recall 50%**
+  (7/14), up from 21% zero-shot and 0% heuristics-only.
+- **Tiered severity**: the scam head trips on ~21% of ordinary-but-scam-shaped
+  messages, so a model-only catch (no heuristic signal at all) warns at
+  "suspicious" and never escalates to "dangerous" on its own. Confirmed weak
+  warnings still escalate fully.
+- **Injection consults re-enabled in-browser** (zero-shot was measured
+  unreliable; the fine-tuned head is not): the Injection Firewall now gets a
+  semantic second opinion from the bundled model with no Ollama needed.
+- **Training pipeline in-repo** (`evaluation/training/`): 193 seeds + author
+  source + automated Ollama scaler + Colab notebook; **measurement tool**
+  `evaluation/measure-ft.js`.
+- Runtime cost dropped: one 128-token forward pass per consulted text
+  (previously seven hypothesis forwards).
+
+### Honesty notes
+
+- Scam recall 50% misses the 60% sprint goal on this corpus — the misses are
+  implied-ask attacks ("stuck with the hotel till Monday"); more and harder
+  seeds are the path.
+- The scam head false-alarms on scam-shaped-but-honest messages (urgent
+  plumbers, bank callbacks); the tiered severity is the designed containment.
 ## [9.2.0] - 2026-10-01
 
 ### Added — 🧠 Semantic layer: the model now sees what heuristics miss

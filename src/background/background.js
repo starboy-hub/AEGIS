@@ -438,35 +438,21 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       return false;
     }
     if (request.type === 'SENTINEL_WEBGPU') {
-      // Per-hypothesis NLI scoring: hypothesis sentences come from
-      // semantic-engine.js, offscreen returns P(entailment) per hypothesis,
-      // and the tuned decision turns them into the same {verdict, confidence}
-      // contract the Ollama path uses.
+      // Fine-tuned 3-class classifier: offscreen returns class probabilities
+      // and semantic-engine's tuned thresholds turn them into the same
+      // {verdict, confidence} contract the Ollama path uses.
       (async () => {
         try {
           await ensureOffscreen();
           const kind = request.kind === 'injection' ? 'injection' : 'scam';
           const res = await new Promise((resolve) => {
-            chrome.runtime.sendMessage({
-              type: 'WEBGPU_CLASSIFY',
-              text: request.text,
-              kind,
-              hypotheses: AEGIS_SEMANTIC.HYPOTHESIS_SETS[kind]
-            }, (r) => {
+            chrome.runtime.sendMessage({ type: 'WEBGPU_CLASSIFY', text: request.text }, (r) => {
               if (chrome.runtime.lastError) resolve({ ok: false, error: chrome.runtime.lastError.message });
               else resolve(r || { ok: false, error: 'no response' });
             });
           });
           if (!res.ok) { sendResponse({ verdict: 'unclear', reason: res.error || 'model unavailable' }); return; }
-          // Two measured decision frames: scam scores absolute per-fact
-          // (entail − contradict) probabilities; injection scores the
-          // relative softmax across candidate hypotheses.
-          const pairs = res.pairs || [];
-          const scores = kind === 'injection'
-            ? AEGIS_SEMANTIC.relativeScores(pairs.map(([h, , , entLogit]) => [h, entLogit]))
-            : pairs.reduce((acc, [h, ent, con]) => { acc[h] = AEGIS_SEMANTIC.pairScore(ent, con); return acc; }, {});
-          const decision = kind === 'injection' ? AEGIS_SEMANTIC.decideInjection(scores) : AEGIS_SEMANTIC.decideScam(scores);
-          sendResponse(decision);
+          sendResponse(AEGIS_SEMANTIC.decideFineTuned(res.probs, kind));
         } catch (e) {
           sendResponse({ verdict: 'unclear', reason: e.message });
         }

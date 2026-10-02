@@ -265,10 +265,8 @@ function aiClassify(text, kind) {
     return new Promise((res) => { try { chrome.runtime.sendMessage({ type: 'SENTINEL_LLM', text, kind }, (r) => res(r || null)); } catch (e) { res(null); } });
   }
   if (backend === 'browser') {
-    // Measured (evaluation/semantic-eval.js): zero-shot NLI INVERTS on
-    // injection-style text — ordinary pages outscore real reworded attacks.
-    // In-browser injection verdicts are worse than none; Ollama only.
-    if (kind === 'injection') return Promise.resolve(null);
+    // The fine-tuned 3-class head handles BOTH kinds (its injection head
+    // measured 7/7 with 0 false alarms on held-out negatives)
     return new Promise((res) => { try { chrome.runtime.sendMessage({ type: 'SENTINEL_WEBGPU', text, kind }, (r) => res(r || null)); } catch (e) { res(null); } });
   }
   return Promise.resolve(null);
@@ -400,7 +398,11 @@ function sentinelPass() {
         const verdict = res ? res.verdict : 'unclear';
         const confident = res && +res.confidence >= 60;
         if (verdict === 'scam' && (result.level === 'none' || result.level === 'low' || confident)) {
-          result.level = 'dangerous';
+          // Tiered severity: when the model catches a scam the heuristics saw
+          // NOTHING in, it stays at 'suspicious' — the scam head trips on
+          // ~21% of ordinary-but-scam-shaped messages (measured), so it never
+          // screams on its own. Confirmed weak warnings still go dangerous.
+          result.level = result.level === 'none' ? 'suspicious' : 'dangerous';
           result.signals.push({ id: 'ai_verdict', label: 'AI analysis: scam' + (res.confidence ? ' (' + res.confidence + '%)' : ''), weight: 50 });
         } else if (verdict === 'legit' && confident && result.level === 'suspicious') {
           result.level = 'none'; // model cleared a weak heuristic warning
@@ -533,12 +535,13 @@ function injectionPass() {
     // suspicious on its own when it carries AI-directed language or length
     const weakVisible = !hidden && (result.level === 'none' || result.level === 'low');
     if (weakVisible || (hidden && result.level === 'none' && text.length < 100)) {
-      // Semantic review: patterns miss reworded attacks, so with a local LLM
-      // connected the model gets a look at text the heuristics scored low or
-      // skipped (the in-browser model is MEASURED unreliable here — Ollama
-      // only). A manipulation verdict escalates to dangerous; anything else
-      // and weak visible text stays silent (hidden text keeps its suspicion).
-      const canConsult = ollamaAvailable && settings.aiEnabled && sentinelLLMCalls < 8 && (
+      // Semantic review: patterns miss reworded attacks, so with an AI backend
+      // the model also gets a look at text the heuristics scored low or skipped.
+      // The fine-tuned injection head measured 7/7 recall with 0 false alarms
+      // on held-out negatives, so a manipulation verdict escalates safely;
+      // otherwise weak visible text stays silent (hidden text keeps its
+      // structural suspicion).
+      const canConsult = aiBackendName() && sentinelLLMCalls < 8 && (
         (weakVisible && text.length >= 40) ||
         (hidden && text.length >= 100)
       );
@@ -554,8 +557,9 @@ function injectionPass() {
       return;
     }
     // Semantic second opinion on suspicious findings (pattern misses reworded
-    // attacks) — Ollama only: the in-browser model measured unreliable here
-    if (result.level === 'suspicious' && ollamaAvailable && settings.aiEnabled && sentinelLLMCalls < 8) {
+    // attacks) — the fine-tuned injection head measured reliable enough for
+    // the in-browser model too
+    if (result.level === 'suspicious' && aiBackendName() && sentinelLLMCalls < 8) {
       sentinelLLMCalls++;
       aiClassify(text, 'injection').then((res) => {
         let final = result;

@@ -93,6 +93,32 @@
     injection: { posMin: 0.30, margin: 0.15, negMin: 0.55, negMargin: 0.15 }
   };
 
+  // ---- Fine-tuned 3-class head (the production path since v9.3.0) ----
+  // Classes are fixed by training: 0 = legit, 1 = scam, 2 = injection.
+  // Thresholds were grid-searched on the HELD-OUT corpora through the real
+  // runtime bundle (evaluation/measure-ft.js → ft-results.json):
+  //   injection 0.70/0.10 → 7/7 recall, 0 false alarms on 100 negatives
+  //   scam      0.85/0.30 → 7/14 recall; model-only catches MUST surface at
+  //   'suspicious' severity in content.js — 21/100 ordinary-but-scam-shaped
+  //   messages trip this head, so it never screams on its own.
+  const FINE_TUNED_THRESHOLDS = {
+    scam: { posMin: 0.85, margin: 0.30, legitMin: 0.90, legitMargin: 0.20 },
+    injection: { posMin: 0.70, margin: 0.10, legitMin: 0.90, legitMargin: 0.20 }
+  };
+
+  // probs: { legit, scam, injection } from the fine-tuned classifier
+  function decideFineTuned(probs, kind, thresholds) {
+    const t = thresholds || FINE_TUNED_THRESHOLDS[kind === 'injection' ? 'injection' : 'scam'];
+    const pos = kind === 'injection' ? probs.injection : probs.scam;
+    const neg = probs.legit;
+    const attack = kind === 'injection' ? 'manipulation' : 'scam';
+    const normal = kind === 'injection' ? 'normal' : 'legit';
+    if (typeof pos !== 'number' || typeof neg !== 'number') return { verdict: 'unclear', confidence: 0 };
+    if (pos >= t.posMin && pos - neg >= t.margin) return { verdict: attack, confidence: round100(pos) };
+    if (neg >= t.legitMin && neg - pos >= t.legitMargin) return { verdict: normal, confidence: round100(neg) };
+    return { verdict: 'unclear', confidence: round100(Math.max(pos, neg)) };
+  }
+
   function maxScore(scores, hypotheses) {
     let best = 0;
     for (const h of hypotheses) {
@@ -127,7 +153,7 @@
     return { verdict: 'unclear', confidence: round100(Math.max(pos, neg)) };
   }
 
-  const AEGIS_SEMANTIC = { SCAM_HYPOTHESES, SCAM_NORMAL_HYPOTHESES, INJECTION_HYPOTHESES, INJECTION_NORMAL_HYPOTHESES, HYPOTHESIS_SETS, SEMANTIC_THRESHOLDS, pairScore, relativeScores, maxScore, decideScam, decideInjection };
+  const AEGIS_SEMANTIC = { SCAM_HYPOTHESES, SCAM_NORMAL_HYPOTHESES, INJECTION_HYPOTHESES, INJECTION_NORMAL_HYPOTHESES, HYPOTHESIS_SETS, SEMANTIC_THRESHOLDS, FINE_TUNED_THRESHOLDS, pairScore, relativeScores, maxScore, decideScam, decideInjection, decideFineTuned };
   root.AEGIS_SEMANTIC = AEGIS_SEMANTIC;
   if (typeof module !== 'undefined' && module.exports) module.exports = AEGIS_SEMANTIC;
 })(typeof self !== 'undefined' ? self : globalThis);

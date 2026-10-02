@@ -41,4 +41,11 @@ if (fs.existsSync('dist/offscreen.js') && !fs.existsSync('dist/vendor/transforme
   console.error('MISSING dist/vendor/transformers.min.js (required by offscreen.js)');
   process.exit(1);
 }
+// The fine-tuned classifier must ship with the build (offscreen.js loads it
+// through the extension origin at dist/offscreen-model/)
+if (fs.existsSync('dist/offscreen.js')) {
+  for (const f of ['dist/offscreen-model/config.json', 'dist/offscreen-model/tokenizer.json', 'dist/offscreen-model/onnx/model_quantized.onnx']) {
+    if (!fs.existsSync(f)) { console.error('MISSING ' + f + ' (required by the fine-tuned semantic layer)'); process.exit(1); }
+  }
+}
 console.log('dist complete, version', m.version);
