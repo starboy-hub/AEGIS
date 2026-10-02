@@ -51,6 +51,7 @@ function loadCorpus(name) {
   loadCorpus('messages.json').forEach((m, i) => texts.push({ id: 'core|' + i, label: m.label, text: m.text }));
   loadCorpus('adversarial.json').forEach((m, i) => texts.push({ id: 'adversarial|' + i, label: m.label, text: m.text }));
   loadCorpus('injection-adversarial.json').forEach((m, i) => texts.push({ id: 'injection-adversarial|' + i, label: m.label, text: m.text }));
+  loadCorpus('adversarial-multilingual.json').forEach((m, i) => texts.push({ id: 'multilingual|' + i, label: m.label, text: m.text, lang: m.lang }));
 
   const results = await page.evaluate(async ({ texts, baseURL }) => {
     const T = window.T;
@@ -99,6 +100,22 @@ function loadCorpus(name) {
     const flag = r => r.injection >= t && r.injection - r.legit >= m;
     console.log(`  t ${t} margin ${m}: injRecall ${injAttacks.filter(flag).length}/7  FP ${injNegs.filter(flag).length}/${injNegs.length}`);
   }
+  // ---- multilingual transfer (eval-only, never trained) ----
+  const ml = results.filter(r => r.id.startsWith('multilingual|'));
+  if (ml.length) {
+    console.log('\n── multilingual transfer (eval-only corpus) ──');
+    for (const lang of [...new Set(ml.map(r => r.lang))]) {
+      const rows = ml.filter(r => r.lang === lang);
+      const scams = rows.filter(r => r.label === 'scam');
+      const inj = rows.filter(r => r.label === 'injection');
+      const leg = rows.filter(r => r.label === 'legit');
+      const sOk = scams.filter(r => r.scam >= 0.85 && r.scam - r.legit >= 0.3).length;
+      const iOk = inj.filter(r => r.injection >= 0.7 && r.injection - r.legit >= 0.1).length;
+      const lOk = leg.filter(r => r.legit >= 0.9 && r.legit - r.scam >= 0.2).length;
+      console.log(`  ${lang}: scam ${sOk}/${scams.length} · injection ${iOk}/${inj.length} · legit-clear ${lOk}/${leg.length}`);
+    }
+  }
+
   console.log('\nadversarial scam P_scam distribution (desc):');
   advScam.map(r => r.scam).sort((a, b) => b - a).forEach(p => process.stdout.write(p.toFixed(2) + ' '));
   console.log('\ncore negative P_scam (top 10):');
