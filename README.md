@@ -21,7 +21,7 @@ AEGIS is a browser extension that acts as a **personal guardian running entirely
 | ✍️ **Sign & Verify** | Forged content claiming to be from you | Device-local ECDSA signing; portable signed blocks anyone with AEGIS can verify — forged signatures fail loudly |
 | 🐝 **Swarm Defense** | Repeat scams across installs | Anonymized threat-signature packs (hashes only, never message text) — export/import between installs today, federatable tomorrow |
 | 📧 **Webmail Shield** | Scams in your Gmail/Outlook inbox | Sender forensics on webmail: corporate-name spoofing from free providers, lookalike/typosquat domains, sent-mail skip |
-| 🤖 **Agent Firewall** | AI agents leaking your data | Local loopback proxy (companion tool): scans agent HTTP traffic, tokenizes protected values, blocks injection payloads |
+| 🤖 **Agent Firewall** | AI agents leaking your data | Local loopback proxy (companion tool): scans agent HTTP traffic, tokenizes protected values on the way out, **re-hydrates them in the AI's streamed response** before you see it, blocks injection payloads |
 | 🗣️ **Voice Canary** | Voice-clone call fraud | Challenge-response caller verification — clones can't answer questions that were never public |
 
 ---
@@ -101,6 +101,8 @@ Replacements use format-preserving fake data with safety guarantees (fake cards 
 src/shared/          storage keys, settings, shared helpers (UMD)
 src/content/         content script + detection/sentinel/injection/webmail engines
 src/background/      service worker: settings, vault, signing, threats, reality, offscreen AI
+companion/           agent firewall + wrapper + voice canary (local CLI tools)
+training/            fine-tune seeds, Colab notebook, measurement tools
 src/popup/           guardian dashboard UI
 src/options/         settings UI (7 grouped sections)
 companion/           desktop tools: agent firewall proxy + voice canary (+ DESIGN.md)

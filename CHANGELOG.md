@@ -2,6 +2,36 @@
 
 All notable changes to AEGIS will be documented in this file.
 
+## [9.4.0] - 2026-10-02
+
+### Added — 🤝 Companion: streaming re-hydration + agent wrapper
+
+The agent firewall closes the loop: your values leave pseudonymized and
+come back readable — to you, never to the AI.
+
+- **Stable token mapping**: a protected value now always maps to the same
+  `[AEGIS-n]` token (position-derived), making bidirectional rewriting
+  possible across requests and responses
+- **SSE re-hydration** (`companion/sse-rewrite.js`): streamed AI responses
+  are rewritten inside `data:` events — a token split across network chunks
+  or across two events is carried and re-assembled before the user sees it;
+  JSON payloads that match nothing stay byte-identical
+- **Buffered response re-hydration**: non-streaming responses get the same
+  treatment (bounded at 8 MB, content-length fixed, transfer-encoding
+  corrected)
+- **CONNECT tunneling**: HTTPS traffic is tunneled (not inspected) so
+  wrapped agents work against https:// endpoints — body inspection of TLS
+  traffic remains a deliberate future decision
+- **`companion/aegis-wrap.js`**: `aegis-wrap --mode=guard
+  --protect='["..."]' -- <command>` starts the firewall, launches any CLI
+  agent with proxy env vars set, and tears down on exit
+- Fixed a latent crash (undefined `mode` in the no-body log path)
+- 25 companion tests (232 total)
+
+### Honest limits
+HTTPS bodies are tunneled, not read — full inspection needs a locally
+trusted CA (Phase C decision). Plain HTTP (e.g. local Ollama) is fully
+inspected end to end.
 ## [9.3.0] - 2026-10-02
 
 ### Added — 🎓 Fine-tuned classifier: the model is finally ours

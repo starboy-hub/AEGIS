@@ -23,12 +23,13 @@
  * No dependencies. No network calls of its own. Everything stays local.
  */
 const http = require('http');
-const path = require('path');
+const net = require('net');
 const fs = require('fs');
 
 const AEGIS_ENGINE = require('../src/content/modules/detection-engine.js');
 const AEGIS_INJECTION = require('../src/content/modules/injection-engine.js');
 const canary = require('./aegis-canary.js');
+const { createSseRewriter, createTextRewriter } = require('./sse-rewrite.js');
 
 const DEFAULT_PORT = 8765;
 
@@ -73,17 +74,18 @@ function inspectBody(body, protect) {
     findings.reasons.push('injection:' + AEGIS_INJECTION.topSignals(inj, 1).join(','));
   }
 
-  // Guard: stable token substitution for configured values
-  let i = 0;
-  for (const value of protect) {
+  // Guard: stable token substitution — the token for a value is derived
+  // from its position in the protect list, so it is IDENTICAL across
+  // requests and responses can be re-hydrated with one fixed mapping
+  protect.forEach((value, idx) => {
     const v = String(value);
     if (v.length >= 3 && findings.transformed.includes(v)) {
-      const token = '[AEGIS-' + (++i) + ']';
+      const token = '[AEGIS-' + (idx + 1) + ']';
       findings.transformed = findings.transformed.split(v).join(token);
       findings.protectedHits.push({ token, original: v });
       findings.reasons.push('protected-value');
     }
-  }
+  });
 
   // Lock policy: dangerous injection or un-tokenized PII still present
   if (findings.injection === 'dangerous') findings.blocked = true;
@@ -160,7 +162,9 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
 
 function createFirewallServer(opts) {
   const state = { mode: opts.mode, protect: opts.protect || [], canaryConfig: opts.canaryConfig || { personals: [] }, requests: 0, findingsLog: [] };
-  return http.createServer((req, res) => {
+  // Stable bidirectional map used to re-hydrate tokens in AI responses
+  state.tokenMap = state.protect.map((value, idx) => ({ token: '[AEGIS-' + (idx + 1) + ']', original: String(value) }));
+  const server = http.createServer((req, res) => {
     const url = new URL(req.url, 'http://127.0.0.1');
 
     // ---- Companion dashboard endpoints (before proxying) ----
@@ -210,7 +214,7 @@ function createFirewallServer(opts) {
         }
         if (!decision.useOriginal && decision.body !== null) bodyToSend = Buffer.from(decision.body, 'utf8');
       } else {
-        console.log(`[aegis:${mode}] ${req.method} ${req.url} -> forward`);
+        console.log(`[aegis:${state.mode}] ${req.method} ${req.url} -> forward`);
       }
 
       const dest = new URL(req.url, 'http://' + (req.headers.host || 'example.com'));
@@ -227,6 +231,41 @@ function createFirewallServer(opts) {
         method: req.method,
         headers
       }, (ur) => {
+        // ---- Response direction: re-hydrate tokens for the user (guard) ----
+        if (state.mode === 'guard' && state.tokenMap.length) {
+          const ctype = String(ur.headers['content-type'] || '');
+          if (/text\/event-stream/i.test(ctype)) {
+            // Streaming: rewrite inside SSE events, holding incomplete events
+            // back so a token split across chunks is never emitted raw
+            const headers = { ...ur.headers };
+            delete headers['content-length']; // stream length is unknown now
+            res.writeHead(ur.statusCode, headers);
+            const rw = createSseRewriter({ mappings: state.tokenMap });
+            ur.setEncoding('utf8');
+            ur.on('data', (c) => res.write(rw.push(c)));
+            ur.on('end', () => { res.write(rw.flush()); res.end(); });
+            return;
+          }
+          // Buffered: rewrite whole body (bounded) and fix content-length
+          const limit = 8 * 1024 * 1024;
+          const len = parseInt(ur.headers['content-length'] || '0', 10);
+          const rewriteable = /text|json/i.test(ctype) && (!len || len <= limit);
+          if (rewriteable) {
+            const parts = [];
+            let size = 0;
+            ur.on('data', (c) => { size += c.length; if (size <= limit) parts.push(c); });
+            ur.on('end', () => {
+              const rw = createTextRewriter({ mappings: state.tokenMap });
+            const text = rw.push(Buffer.concat(parts).toString('utf8')) + rw.flush();
+            const out = Buffer.from(text, 'utf8');
+            const headers = { ...ur.headers, 'content-length': out.length };
+            delete headers['transfer-encoding']; // chunked + content-length is a parse error
+            res.writeHead(ur.statusCode, headers);
+            res.end(out);
+            });
+            return;
+          }
+        }
         res.writeHead(ur.statusCode, ur.headers);
         ur.pipe(res);
       });
@@ -238,6 +277,22 @@ function createFirewallServer(opts) {
       upstream.end();
     });
   });
+
+  // HTTPS: tunnel CONNECT requests so wrapped agents do not break. Bodies are
+  // NOT inspected (that needs a locally-trusted CA — a deliberate future
+  // decision); the destination is still logged for the dashboard.
+  server.on('connect', (req, clientSocket, head) => {
+    const parts = String(req.url || '').split(':');
+    const upstream = net.connect({ host: parts[0], port: parseInt(parts[1] || '443', 10) }, () => {
+      clientSocket.write('HTTP/1.1 200 Connection Established\r\n\r\n');
+      if (head && head.length) upstream.write(head);
+      upstream.pipe(clientSocket);
+      clientSocket.pipe(upstream);
+    });
+    upstream.on('error', () => clientSocket.destroy());
+    clientSocket.on('error', () => upstream.destroy());
+  });
+  return server;
 }
 
 if (require.main === module) {
@@ -246,7 +301,8 @@ if (require.main === module) {
   server.listen(args.port, '127.0.0.1', () => {
     console.log(`🛡️ AEGIS Agent Firewall — ${args.mode} mode on http://127.0.0.1:${args.port}`);
     console.log(`   dashboard: http://127.0.0.1:${args.port}/aegis-dashboard`);
-    console.log(`   protecting ${args.protect.length} configured value(s); agents: HTTP_PROXY=http://127.0.0.1:${args.port}`);
+    console.log(`   protecting ${args.protect.length} configured value(s); agents: aegis-wrap -- <command>`);
+    args.protect.forEach((v, i) => console.log(`   [AEGIS-${i + 1}] = ${v}`));
   });
 }
 

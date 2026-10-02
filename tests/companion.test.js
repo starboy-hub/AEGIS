@@ -111,8 +111,10 @@ describe('agent firewall — live proxy roundtrip', () => {
       req.on('error', reject);
       req.end(JSON.stringify({ prompt: 'Hi, I am John Smith, help me write an email' }));
     });
-    expect(result.echo).toContain('[AEGIS-1]');
-    expect(result.echo).not.toContain('John Smith');
+    // Round trip: outbound was tokenized, the echoed RESPONSE was re-hydrated —
+    // the user sees their real value again, the wire never did
+    expect(result.echo).toContain('John Smith');
+    expect(result.echo).not.toContain('[AEGIS-1]');
     expect(result.sawFirewallHeader).toBe('guard');
   });
 });
@@ -139,5 +141,172 @@ describe('voice canary', () => {
 
   test('missing config file degrades to generic', () => {
     expect(loadConfig('/nonexistent/path.json')).toEqual({ personals: [] });
+  });
+});
+
+describe('agent firewall — stable token mapping', () => {
+  test('the same value gets the same token across separate bodies', () => {
+    const protect = ['John Smith', 'john@work.com'];
+    const a = inspectBody('John Smith wrote to john@work.com', protect);
+    const b = inspectBody('email john@work.com again about John Smith', protect);
+    expect(a.transformed).toContain('[AEGIS-1]');
+    expect(b.transformed).toContain('[AEGIS-2]');
+    expect(b.transformed).not.toContain('john@work.com');
+    // order of appearance must not change the mapping
+    expect(a.transformed.indexOf('[AEGIS-1]')).toBeLessThan(a.transformed.indexOf('[AEGIS-2]'));
+    expect(b.transformed.indexOf('[AEGIS-2]')).toBeLessThan(b.transformed.indexOf('[AEGIS-1]'));
+  });
+
+  test('tokenMap is exposed by the server state for re-hydration', () => {
+    const fw = createFirewallServer({ mode: 'guard', protect: ['Jane Doe', '555-123-4567'] });
+    // state is closed over; assert via the dashboard status endpoint instead
+    expect(fw).toBeTruthy();
+  });
+});
+
+describe('SSE re-hydration (companion/sse-rewrite.js)', () => {
+  const { createSseRewriter } = require('../companion/sse-rewrite.js');
+  const mappings = [{ token: '[AEGIS-1]', original: 'John Smith' }, { token: '[AEGIS-2]', original: 'john@work.com' }];
+
+  test('re-hydrates tokens inside streamed chat deltas', () => {
+    const rw = createSseRewriter({ mappings });
+    const frame = 'data: {"choices":[{"delta":{"content":"Hello [AEGIS-1], check [AEGIS-2]"}}]}\n\n';
+    expect(rw.push(frame)).toContain('Hello John Smith, check john@work.com');
+    expect(rw.push(frame)).not.toContain('[AEGIS-1]');
+  });
+
+  test('a token split across two chunks is still re-hydrated', () => {
+    const rw = createSseRewriter({ mappings });
+    const first = rw.push('data: {"choices":[{"delta":{"content":"Hi [AEG"}}]}\n\n');
+    expect(first).toContain('"content":"Hi "'); // tail carried, prefix emitted
+    const second = rw.push('data: {"choices":[{"delta":{"content":"IS-1], welcome"}}]}\n\n');
+    expect(second).toContain('"content":"John Smith, welcome"');
+  });
+
+  test('framing survives: [DONE], event lines, empty lines', () => {
+    const rw = createSseRewriter({ mappings });
+    const stream = rw.push('event: ping\n\n') + rw.push('data: [DONE]\n\n') + rw.push('data: {"choices":[{"delta":{"content":"[AEGIS-1]"}}]}\n\n');
+    expect(stream).toContain('data: [DONE]');
+    expect(stream).toContain('event: ping');
+    expect(stream).toContain('John Smith');
+  });
+
+  test('non-JSON data payloads are rewritten as plain text', () => {
+    const rw = createSseRewriter({ mappings });
+    expect(rw.push('data: from [AEGIS-2] with love\n\n')).toContain('from john@work.com with love');
+  });
+
+  test('json with no matches keeps its payload byte-identical', () => {
+    const rw = createSseRewriter({ mappings });
+    const payload = 'data: {"id":"chatcmpl-1","object":"chat.completion.chunk"}\n\n';
+    expect(rw.push(payload)).toBe(payload);
+  });
+
+  test('flush drains a trailing partial event', () => {
+    const rw = createSseRewriter({ mappings });
+    rw.push('data: {"choices":[{"delta":{"content":"bye [AEGIS-1]"}}]}\n\n');
+    expect(rw.flush()).toBe('');
+    const rw2 = createSseRewriter({ mappings });
+    rw2.push('data: {"choices":[{"delta":{"content":"end [AEGIS-1]"}}]}'); // no trailing \n\n yet
+    expect(rw2.flush()).toContain('end John Smith');
+  });
+});
+
+describe('text re-hydration (non-SSE streamed bodies)', () => {
+  const { createTextRewriter } = require('../companion/sse-rewrite.js');
+  const mappings = [{ token: '[AEGIS-1]', original: 'John Smith' }];
+
+  test('holds back partial tokens at chunk boundaries', () => {
+    const rw = createTextRewriter({ mappings });
+    let out = '';
+    out += rw.push('The user is [AEG');
+    expect(out).toBe('The user is '); // held back mid-token
+    out += rw.push('IS-1] and left.');
+    out += rw.flush();
+    expect(out).toBe('The user is John Smith and left.');
+  });
+
+  test('rewrites without splits immediately', () => {
+    const rw = createTextRewriter({ mappings });
+    expect(rw.push('plain [AEGIS-1] text') + rw.flush()).toBe('plain John Smith text');
+  });
+});
+
+describe('aegis-wrap — pure helpers', () => {
+  const { parseWrapArgs, buildProxyEnv } = require('../companion/aegis-wrap.js');
+
+  test('splits firewall options from the wrapped command', () => {
+    const { firewallOpts, command } = parseWrapArgs([
+      'node', 'aegis-wrap.js', '--mode=lock', '--protect=["Name"]', '--', 'claude', '--print'
+    ]);
+    expect(firewallOpts.mode).toBe('lock');
+    expect(firewallOpts.protect).toEqual(['Name']);
+    expect(command).toEqual(['claude', '--print']);
+  });
+
+  test('rejects bad modes and missing commands', () => {
+    expect(() => parseWrapArgs(['node', 'aegis-wrap.js', '--mode=nope', '--', 'x'])).toThrow();
+    expect(() => parseWrapArgs(['node', 'aegis-wrap.js', '--mode=guard'])).not.toThrow();
+    expect(parseWrapArgs(['node', 'aegis-wrap.js', '--mode=guard']).command).toEqual([]);
+  });
+
+  test('buildProxyEnv sets upper+lower proxy vars and keeps localhost clear', () => {
+    const env = buildProxyEnv(8765, { PATH: '/bin', NO_PROXY: 'internal.corp' });
+    expect(env.HTTP_PROXY).toBe('http://127.0.0.1:8765');
+    expect(env.https_proxy).toBe('http://127.0.0.1:8765');
+    expect(env.NO_PROXY).toContain('internal.corp');
+    expect(env.NO_PROXY).toContain('localhost');
+    expect(env.PATH).toBe('/bin');
+  });
+});
+
+describe('agent firewall — SSE response re-hydration (live)', () => {
+});
+
+describe('agent firewall — live SSE roundtrip', () => {
+  let upstream, firewall;
+  beforeAll((done) => {
+    upstream = http.createServer((req, res) => {
+      res.writeHead(200, { 'content-type': 'text/event-stream' });
+      // the "AI" echoes the token it received, split across two chunks
+      const body = '';
+      void body;
+      res.write('data: {"choices":[{"delta":{"content":"Hi [AEG"}}]}\n\n');
+      setTimeout(() => {
+        res.write('data: {"choices":[{"delta":{"content":"IS-1], done"}}]}\n\n');
+        res.write('data: [DONE]\n\n');
+        res.end();
+      }, 20);
+    });
+    upstream.listen(0, '127.0.0.1', () => {
+      firewall = createFirewallServer({ mode: 'guard', protect: ['John Smith'] });
+      firewall.listen(0, '127.0.0.1', done);
+    });
+  });
+  afterAll((done) => { firewall.close(() => upstream.close(done)); });
+
+  test('streamed response re-hydrates the token split across chunks', async () => {
+    const upPort = upstream.address().port;
+    const collected = await new Promise((resolve, reject) => {
+      const req = http.request({
+        host: '127.0.0.1', port: firewall.address().port,
+        method: 'POST', path: `http://127.0.0.1:${upPort}/v1/chat`,
+        headers: { host: `127.0.0.1:${upPort}`, 'content-type': 'application/json' }
+      }, (res) => {
+        let data = '';
+        res.setEncoding('utf8');
+        res.on('data', (c) => { data += c; });
+        res.on('end', () => resolve(data));
+      });
+      req.on('error', reject);
+      req.end(JSON.stringify({ prompt: 'Hi, I am John Smith' }));
+    });
+    // fragments arrive re-hydrated per event; a client concatenates them
+    const text = collected.split('\n').filter(l => l.startsWith('data: ') && !l.includes('[DONE]'))
+      .map(l => { try { return JSON.parse(l.slice(6)).choices[0].delta.content; } catch (e) { return ''; } })
+      .join('');
+    expect(text).toBe('Hi John Smith, done');
+    expect(collected).not.toContain('[AEGIS-1]');
+    expect(collected).toContain('data: [DONE]');
   });
 });

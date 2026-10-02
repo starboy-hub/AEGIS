@@ -1,6 +1,6 @@
 {
   "name": "aegis-extension",
-  "version": "9.3.0",
+  "version": "9.4.0",
   "description": "AEGIS - local-first guardian against AI-era threats: data-leak shielding, scam detection, injection firewall, media provenance. 100% local.",
   "main": "build.js",
   "scripts": {
