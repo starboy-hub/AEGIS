@@ -398,12 +398,17 @@ function sentinelPass() {
         const verdict = res ? res.verdict : 'unclear';
         const confident = res && +res.confidence >= 60;
         if (verdict === 'scam' && (result.level === 'none' || result.level === 'low' || confident)) {
-          // Tiered severity: when the model catches a scam the heuristics saw
-          // NOTHING in, it stays at 'suspicious' — the scam head trips on
-          // ~21% of ordinary-but-scam-shaped messages (measured), so it never
-          // screams on its own. Confirmed weak warnings still go dangerous.
-          result.level = result.level === 'none' ? 'suspicious' : 'dangerous';
-          result.signals.push({ id: 'ai_verdict', label: 'AI analysis: scam' + (res.confidence ? ' (' + res.confidence + '%)' : ''), weight: 50 });
+          // Tiered severity + language routing. The multilingual model's scam
+          // head overfits machine-translation style: on NATURAL English it
+          // false-alarms on ~70% of ordinary messages (measured), so English
+          // model-only scam verdicts are IGNORED — heuristics + Ollama remain
+          // the English defense until a rebalanced retrain. Non-English text
+          // gets the full escalation, tiered: a model-only catch stays at
+          // 'suspicious'; a confirmed weak warning goes 'dangerous'.
+          if (!AEGIS_SEMANTIC.isEnglishText(text)) {
+            result.level = result.level === 'none' ? 'suspicious' : 'dangerous';
+            result.signals.push({ id: 'ai_verdict', label: 'AI analysis: scam' + (res.confidence ? ' (' + res.confidence + '%)' : ''), weight: 50 });
+          }
         } else if (verdict === 'legit' && confident && result.level === 'suspicious') {
           result.level = 'none'; // model cleared a weak heuristic warning
         }

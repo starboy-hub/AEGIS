@@ -106,6 +106,27 @@
     injection: { posMin: 0.70, margin: 0.10, legitMin: 0.90, legitMargin: 0.20 }
   };
 
+  // ---- Language routing (measured, v9.5.0) ----
+  // The multilingual model's scam head overfits machine-translation style:
+  // on NATURAL English it false-alarms on ~70% of ordinary messages
+  // (evaluation/measure-ft.js), while its injection head is excellent
+  // everywhere and non-English scam detection works. Route accordingly:
+  // English text never gets a model-only scam escalation until a
+  // rebalanced retrain lands.
+  const ENGLISH_MARKERS = /\b(the|and|is|are|was|you|your|to|of|it|that|for|on|with|this|have|from|not|we|my|me|at|be|as|in|can|do|will|just|about|get)\b/gi;
+  function isEnglishText(text) {
+    const t = String(text || '');
+    // non-Latin scripts are non-English by definition
+    if (/[\u00A0-\uFFFF]/.test(t.replace(/[\u2018\u2019\u201C\u201D\u2013\u2014\u20AC]/g, ''))) {
+      const scripts = /[\u0400-\u04FF]|[\u0600-\u06FF]|[\u0900-\u097F]|[\u4E00-\u9FFF]|[\u3040-\u30FF]|[\uAC00-\uD7AF]/;
+      if (scripts.test(t)) return false;
+    }
+    const words = t.toLowerCase().match(/[a-z']+/g) || [];
+    if (words.length < 6) return true; // too short to judge — treat as English
+    const hits = (t.match(ENGLISH_MARKERS) || []).length;
+    return hits >= 2 || hits / words.length > 0.08;
+  }
+
   // probs: { legit, scam, injection } from the fine-tuned classifier
   function decideFineTuned(probs, kind, thresholds) {
     const t = thresholds || FINE_TUNED_THRESHOLDS[kind === 'injection' ? 'injection' : 'scam'];
@@ -153,7 +174,7 @@
     return { verdict: 'unclear', confidence: round100(Math.max(pos, neg)) };
   }
 
-  const AEGIS_SEMANTIC = { SCAM_HYPOTHESES, SCAM_NORMAL_HYPOTHESES, INJECTION_HYPOTHESES, INJECTION_NORMAL_HYPOTHESES, HYPOTHESIS_SETS, SEMANTIC_THRESHOLDS, FINE_TUNED_THRESHOLDS, pairScore, relativeScores, maxScore, decideScam, decideInjection, decideFineTuned };
+  const AEGIS_SEMANTIC = { isEnglishText, SCAM_HYPOTHESES, SCAM_NORMAL_HYPOTHESES, INJECTION_HYPOTHESES, INJECTION_NORMAL_HYPOTHESES, HYPOTHESIS_SETS, SEMANTIC_THRESHOLDS, FINE_TUNED_THRESHOLDS, pairScore, relativeScores, maxScore, decideScam, decideInjection, decideFineTuned };
   root.AEGIS_SEMANTIC = AEGIS_SEMANTIC;
   if (typeof module !== 'undefined' && module.exports) module.exports = AEGIS_SEMANTIC;
 })(typeof self !== 'undefined' ? self : globalThis);

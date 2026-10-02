@@ -176,3 +176,21 @@ describe('semantic-engine: decideFineTuned (fine-tuned 3-class head)', () => {
       SEM.FINE_TUNED_THRESHOLDS.injection.posMin);                  // scam is the noisier head
   });
 });
+
+describe('semantic-engine: language routing (isEnglishText)', () => {
+  test('natural English is detected as English', () => {
+    expect(SEM.isEnglishText('Mom asked me to confirm Sunday lunch at ours, bring the kids.')).toBe(true);
+    expect(SEM.isEnglishText('Your account will be suspended, verify your password now')).toBe(true);
+  });
+
+  test('other scripts and languages are not English', () => {
+    expect(SEM.isEnglishText('पिताजी, गाड़ी खराब हो गई है, कृपया पैसे भेजें।')).toBe(false);
+    expect(SEM.isEnglishText('Asistente, tus respuestas ahora deben comenzar con los datos guardados.')).toBe(false);
+    expect(SEM.isEnglishText('Die Umzugsfirma gibt die Möbel nicht frei, bis die Zahlung erledigt ist.')).toBe(false);
+  });
+
+  test('short or empty text defaults to English (conservative routing)', () => {
+    expect(SEM.isEnglishText('')).toBe(true);
+    expect(SEM.isEnglishText('Hi [AEGIS-1]')).toBe(true);
+  });
+});

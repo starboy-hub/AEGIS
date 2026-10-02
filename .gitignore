@@ -22,3 +22,6 @@ releases/
 evaluation/.chrome-profile/
 evaluation/semantic-cache.json
 .semantic-cache/
+
+# the joined model file is rebuilt from parts by build.js
+src/offscreen-model/onnx/model_quantized.onnx

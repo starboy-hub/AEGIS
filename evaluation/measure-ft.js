@@ -68,11 +68,11 @@ function loadCorpus(name) {
       const enc = await tok(t.text, { padding: 'max_length', max_length: 128, truncation: true });
       const am = enc.attention_mask.tolist()[0];
       const mask4 = new T.Tensor('float32', Float32Array.from(am, v => (Number(v) === 1 ? 0 : NEG)), [1, 1, 1, 128]);
-      const logits = (await mdl({ input_ids: enc.input_ids, token_type_ids: enc.token_type_ids, attention_mask: mask4 })).logits.tolist()[0];
+      const logits = (await mdl({ input_ids: enc.input_ids, attention_mask: mask4 })).logits.tolist()[0];
       const mx = Math.max(...logits);
       const exp = logits.map(v => Math.exp(v - mx));
       const sum = exp.reduce((a, b) => a + b, 0);
-      out.push({ id: t.id, label: t.label, legit: exp[0] / sum, scam: exp[1] / sum, injection: exp[2] / sum });
+      out.push({ id: t.id, label: t.label, lang: t.lang, legit: exp[0] / sum, scam: exp[1] / sum, injection: exp[2] / sum });
     }
     return out;
   }, { texts, baseURL: `http://127.0.0.1:${port}/` });

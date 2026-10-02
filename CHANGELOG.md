@@ -2,6 +2,37 @@
 
 All notable changes to AEGIS will be documented in this file.
 
+## [9.5.0] - 2026-10-02
+
+### Added — 🌍 Multilingual classifier (9 languages)
+
+The fine-tuned model now speaks the languages its users do.
+
+- **Bundled multilingual classifier** (118 MB quantized XLM-R MiniLM,
+  `src/offscreen-model`): trained on the 193 seeds **+ OPUS-MT translations
+  into es, hi, fr, de, pt, ru, zh, ar** (~1,750-sample pool). Export verified
+  EXACT against the live model (probdiff 0.0); validation 0.997 on the
+  multilingual pool.
+- **Measured on the never-trained multilingual eval set** (hand-translated
+  es/hi/de/fr): scam 4/6, injection 4/4, legit 6/6 — cross-language transfer
+  is real. **Injection recall stays 7/7 with ~0 false alarms on English.**
+- **Measured language router**: the multilingual scam head overfits
+  machine-translation style — on natural English it false-alarms on ~70% of
+  ordinary messages (62/88 held-out). `isEnglishText()` therefore gates
+  scam escalation: non-English scam detection is LIVE; English scam defense
+  stays heuristic + Ollama until a rebalanced retrain (English oversampling
+  + more natural-English hard negatives) restores the head.
+- Runtime contract simplified for the new base: no `token_type_ids` input
+  (XLM-R family); tokenizer-adaptive export verified in the notebook.
+- Extension zip grows 44 MB → ~155 MB — the price of 9 languages bundled
+  offline.
+
+### Honesty notes
+The English scam head regression is MEASURED, not hidden: shipping it ungated
+would spam false alarms. The retrain recipe is known (rebalance + hard
+negatives) and queued as the next sprint. Injection defense — the layer that
+was completely broken before the fine-tune sprint — is now the strongest one,
+in every language.
 ## [9.4.0] - 2026-10-02
 
 ### Added — 🤝 Companion: streaming re-hydration + agent wrapper

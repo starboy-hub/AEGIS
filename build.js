@@ -55,11 +55,21 @@ function copyIcons(out) {
 /** Copy the fine-tuned classifier into the build (Chromium target only). */
 function vendorFineTunedModel(out) {
   const srcDir = 'src/offscreen-model';
-  if (!fs.existsSync(path.join(srcDir, 'onnx', 'model_quantized.onnx'))) {
-    console.warn('! fine-tuned model missing — semantic layer inert');
-    return false;
+  const modelPath = path.join(srcDir, 'onnx', 'model_quantized.onnx');
+  if (!fs.existsSync(modelPath)) {
+    // GitHub caps files at 100 MB, so the model is committed as parts and
+    // reassembled here (deterministic byte concatenation)
+    const parts = fs.readdirSync(path.join(srcDir, 'onnx')).filter(f => f.startsWith('model_quantized.onnx.part-')).sort();
+    if (!parts.length) {
+      console.warn('! fine-tuned model missing — semantic layer inert');
+      return false;
+    }
+    fs.writeFileSync(modelPath, Buffer.concat(parts.map(p => fs.readFileSync(path.join(srcDir, 'onnx', p)))));
   }
   fs.cpSync(srcDir, path.join(out, 'offscreen-model'), { recursive: true });
+  // the committed parts are build inputs, not runtime files
+  const distOnnx = path.join(out, 'offscreen-model', 'onnx');
+  fs.readdirSync(distOnnx).filter(f => f.includes('.part-')).forEach(f => fs.rmSync(path.join(distOnnx, f)));
   return true;
 }
 
