@@ -28,6 +28,9 @@ jobs:
       - name: Test
         run: npm test
 
+      - name: Latency Benchmark
+        run: npm run benchmark:latency
+
       - name: Build
         run: npm run build
 
