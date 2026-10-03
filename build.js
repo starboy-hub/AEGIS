@@ -115,6 +115,8 @@ function buildChromium(out = CHROME_OUT) {
 
   const files = [
     { src: 'src/shared/aegis-shared.js', dest: 'aegis-shared.js' },
+    { src: 'src/shared/siem-exporter.js', dest: 'siem-exporter.js' },
+    { src: 'src/background/enterprise-policy.js', dest: 'enterprise-policy.js' },
     { src: 'src/background/aegis-vault.js', dest: 'aegis-vault.js' },
     { src: 'src/background/reality-engine.js', dest: 'reality-engine.js' },
     { src: 'src/background/signing-engine.js', dest: 'signing-engine.js' },
@@ -163,6 +165,8 @@ function buildFirefox(out = FIREFOX_OUT) {
 
   const files = [
     { src: 'src/shared/aegis-shared.js', dest: 'aegis-shared.js' },
+    { src: 'src/shared/siem-exporter.js', dest: 'siem-exporter.js' },
+    { src: 'src/background/enterprise-policy.js', dest: 'enterprise-policy.js' },
     { src: 'src/background/aegis-vault.js', dest: 'aegis-vault.js' },
     { src: 'src/background/reality-engine.js', dest: 'reality-engine.js' },
     { src: 'src/background/signing-engine.js', dest: 'signing-engine.js' },

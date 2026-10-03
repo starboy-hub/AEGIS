@@ -374,3 +374,39 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
     }
   }
 });
+
+// ==========================================
+// B2B SIEM Telemetry Export
+// ==========================================
+const exportSiemBtn = document.getElementById('exportSiemBtn');
+if (exportSiemBtn) {
+  exportSiemBtn.addEventListener('click', () => {
+    chrome.storage.local.get(['history'], (res) => {
+      const history = res.history || [];
+      const fmt = (document.getElementById('siemFormatSelect') || {}).value || 'JSON';
+      let outputText = '';
+      let ext = 'json';
+      let mime = 'application/json';
+
+      if (fmt === 'CEF') {
+        outputText = AEGIS_SIEM.formatCEF(history);
+        ext = 'cef';
+        mime = 'text/plain';
+      } else if (fmt === 'OCSF') {
+        outputText = JSON.stringify(AEGIS_SIEM.formatOCSF(history), null, 2);
+        ext = 'json';
+      } else {
+        outputText = JSON.stringify(AEGIS_SIEM.formatJSON(history), null, 2);
+        ext = 'json';
+      }
+
+      const blob = new Blob([outputText], { type: mime });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `aegis-siem-audit-${fmt.toLowerCase()}-${Date.now()}.${ext}`;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+  });
+}

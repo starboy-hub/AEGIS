@@ -25,7 +25,9 @@
     "AEGIS_VISION": "readonly",
     "AEGIS_SWARM_MESH": "readonly",
     "AEGIS_WEBGPU": "readonly",
-    "AEGIS_VOICE_SPECTRAL": "readonly"
+    "AEGIS_VOICE_SPECTRAL": "readonly",
+    "AEGIS_ENTERPRISE": "readonly",
+    "AEGIS_SIEM": "readonly"
   },
   "parserOptions": {
     "ecmaVersion": 2022,

@@ -165,10 +165,27 @@
     </div>
   </details>
 
+  <details class="card">
+    <summary class="card-head">
+      <span class="card-icon"><svg width="20" height="20"><use href="#i-doc"/></svg></span>
+      <div><h2>Enterprise B2B Telemetry &amp; SIEM Export</h2><p>Export audit logs to SOC/SIEM platforms (Splunk, Datadog, Sentinel) — 0% raw PII</p></div>
+    </summary>
+    <div class="row row-column">
+      <div class="row-info"><div class="row-label">Telemetry Format</div><div class="row-desc">CEF (ArcSight), OCSF (AWS/Splunk), or Enterprise JSON</div></div>
+      <select id="siemFormatSelect" class="select-input" style="width:200px;margin-bottom:8px;">
+        <option value="JSON">Enterprise JSON Stream</option>
+        <option value="CEF">CEF (Common Event Format)</option>
+        <option value="OCSF">OCSF (Open Cybersecurity Schema)</option>
+      </select>
+      <button id="exportSiemBtn" class="save-btn">📊 Export B2B Telemetry Log</button>
+    </div>
+  </details>
+
   <footer class="footer">AEGIS • 100% Local • <span id="footerVersion"></span></footer>
 
 </main>
 
 <script src="aegis-shared.js"></script>
+<script src="siem-exporter.js"></script>
 <script src="options.js"></script>
 </body></html>

@@ -4,6 +4,8 @@ importScripts('reality-engine.js');
 importScripts('signing-engine.js');
 importScripts('threat-store.js');
 importScripts('semantic-engine.js');
+importScripts('siem-exporter.js');
+importScripts('enterprise-policy.js');
 
 const DEFAULT_SETTINGS = AEGIS.DEFAULT_SETTINGS;
 
@@ -20,6 +22,10 @@ const vaultStorage = {
 const vault = AEGIS_VAULT.createVault(vaultStorage, crypto);
 const signer = AEGIS_SIGNING.createSigner(vaultStorage, crypto);
 const threats = AEGIS_THREATS.createThreatStore(vaultStorage, AEGIS);
+
+// Chrome Enterprise Policy sync
+AEGIS_ENTERPRISE.syncEnterprisePolicy(vault).catch(() => {});
+AEGIS_ENTERPRISE.initPolicyListener(vault);
 
 // ---- Session Guard state (chrome.storage.session: cleared on browser close) ----
 const SESSION_KEY = 'aegis_session';
@@ -76,28 +82,46 @@ function validateMessage(request) {
   }
 }
 
-// ---- Reality Check: right-click image -> scan bytes for AI provenance ----
+// ---- Context Menus: Right-click shortcuts for Sanitization & Provenance ----
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.removeAll(() => {
     chrome.contextMenus.create({
-      id: 'aegis-reality-check',
-      title: '🛡️ AEGIS Reality Check this image',
+      id: 'aegis-sanitize-selection',
+      title: '🛡️ AEGIS: Sanitize Selected Code/Text',
+      contexts: ['selection']
+    });
+    chrome.contextMenus.create({
+      id: 'aegis-check-image',
+      title: '🔍 AEGIS: Check Image Provenance (C2PA/AI)',
       contexts: ['image']
     });
   });
 });
 
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
-  if (info.menuItemId !== 'aegis-reality-check' || !info.srcUrl || !tab || !tab.id) return;
-  let findings;
-  try {
-    const resp = await fetch(info.srcUrl);
-    if (!resp.ok) throw new Error('HTTP ' + resp.status);
-    findings = AEGIS_REALITY.analyzeImageBytes(new Uint8Array(await resp.arrayBuffer()));
-  } catch (e) {
-    findings = { verdict: 'unknown', generator: null, signals: [], disclaimer: 'Could not fetch the image bytes (' + (e.message || 'blocked') + '). Try saving the image first.' };
+  if (!tab || !tab.id) return;
+  
+  if (info.menuItemId === 'aegis-sanitize-selection' && info.selectionText) {
+    try {
+      chrome.tabs.sendMessage(tab.id, {
+        type: 'CONTEXT_SANITIZED_TEXT',
+        text: info.selectionText
+      });
+    } catch (e) {}
+    return;
   }
-  try { chrome.tabs.sendMessage(tab.id, { type: 'REALITY_RESULT', findings }); } catch (e) {}
+
+  if ((info.menuItemId === 'aegis-check-image' || info.menuItemId === 'aegis-reality-check') && info.srcUrl) {
+    let findings;
+    try {
+      const resp = await fetch(info.srcUrl);
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      findings = AEGIS_REALITY.analyzeImageBytes(new Uint8Array(await resp.arrayBuffer()));
+    } catch (e) {
+      findings = { verdict: 'unknown', generator: null, signals: [], disclaimer: 'Could not fetch the image bytes (' + (e.message || 'blocked') + '). Try saving the image first.' };
+    }
+    try { chrome.tabs.sendMessage(tab.id, { type: 'REALITY_RESULT', findings }); } catch (e) {}
+  }
 });
 
 // Track pending responses to avoid port errors

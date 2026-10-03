@@ -28,14 +28,26 @@ function ensureModel() {
       T.env.remotePathTemplate = '{model}/';
       T.env.backends.onnx.wasm.wasmPaths = chrome.runtime.getURL('vendor/');
       const tok = await T.AutoTokenizer.from_pretrained('offscreen-model');
-      // WASM only: offscreen documents have unreliable GPU access
-      const mdl = await T.AutoModelForSequenceClassification.from_pretrained('offscreen-model', {
-        dtype: 'q8',
-        device: 'wasm',
-        progress_callback: (p) => {
-          try { chrome.runtime.sendMessage({ type: 'WEBGPU_PROGRESS', status: p.status, file: p.file || '' }); } catch (e) {}
-        }
-      });
+      // WebGPU acceleration with WASM fallback
+      const preferredDevice = (typeof navigator !== 'undefined' && navigator.gpu) ? 'webgpu' : 'wasm';
+      let mdl;
+      try {
+        mdl = await T.AutoModelForSequenceClassification.from_pretrained('offscreen-model', {
+          dtype: 'q8',
+          device: preferredDevice,
+          progress_callback: (p) => {
+            try { chrome.runtime.sendMessage({ type: 'WEBGPU_PROGRESS', status: p.status, file: p.file || '' }); } catch (e) {}
+          }
+        });
+      } catch (e) {
+        mdl = await T.AutoModelForSequenceClassification.from_pretrained('offscreen-model', {
+          dtype: 'q8',
+          device: 'wasm',
+          progress_callback: (p) => {
+            try { chrome.runtime.sendMessage({ type: 'WEBGPU_PROGRESS', status: p.status, file: p.file || '' }); } catch (e) {}
+          }
+        });
+      }
       const NEG = -3.4028235e38;
       const classify = async (text) => {
         const enc = await tok(String(text), { padding: 'max_length', max_length: 128, truncation: true });

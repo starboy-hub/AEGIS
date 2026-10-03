@@ -678,8 +678,43 @@ function showRealityBanner(findings) {
   });
 }
 
+function showSanitizedToast(originalText) {
+  const ct = AEGIS_ENGINE.cleanText(originalText);
+  const redactions = [];
+  const seen = new Set();
+
+  if (settings.regexEnabled) {
+    const r = AEGIS_ENGINE.scanWithRegex(ct);
+    if (r && r.redactions) r.redactions.forEach(x => { redactions.push(x); seen.add(x.text); });
+  }
+  if (typeof AEGIS_SECRETS !== 'undefined') {
+    const sec = AEGIS_SECRETS.scanSecrets(ct);
+    if (sec && sec.redactions) sec.redactions.forEach(x => { if (!seen.has(x.text)) { redactions.push(x); seen.add(x.text); } });
+  }
+
+  const result = AEGIS_FAKE.redactText(originalText, redactions, true);
+  const sanitized = result.sanitizedText;
+
+  const card = document.createElement('div');
+  card.setAttribute('data-aegis', 'sanitized-toast');
+  card.style.cssText = 'position:fixed!important;bottom:20px!important;right:20px!important;z-index:2147483647!important;background:#1a202c!important;color:white!important;padding:16px!important;border-radius:12px!important;box-shadow:0 10px 30px rgba(0,0,0,0.5)!important;max-width:400px!important;font-family:-apple-system,sans-serif!important;border:1px solid #4a5568!important;';
+  card.innerHTML = `<div style="font-weight:700;font-size:13px;color:#667eea;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;"><span>🛡️ AEGIS Sanitized Selection</span><button id="aegis-close-toast" style="background:none;border:none;color:#a0aec0;cursor:pointer;font-size:14px;">✕</button></div><div style="font-size:11px;color:#cbd5e0;margin-bottom:8px;">${redactions.length} sensitive item(s) sanitized</div><textarea readonly style="width:100%;height:80px;background:#2d3748;color:#e2e8f0;border:1px solid #4a5568;border-radius:6px;padding:8px;font-family:monospace;font-size:11px;resize:none;">${sanitized.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea><button id="aegis-copy-toast" style="width:100%;margin-top:8px;padding:8px;background:#667eea;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:12px;">📋 Copy Sanitized Text</button>`;
+  document.body.appendChild(card);
+
+  document.getElementById('aegis-close-toast').addEventListener('click', () => card.remove());
+  document.getElementById('aegis-copy-toast').addEventListener('click', () => {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(sanitized);
+    }
+    const btn = document.getElementById('aegis-copy-toast');
+    if (btn) btn.textContent = 'Copied to Clipboard! ✓';
+    setTimeout(() => card.remove(), 1500);
+  });
+}
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === 'REALITY_RESULT') showRealityBanner(request.findings);
+  if (request.type === 'CONTEXT_SANITIZED_TEXT' && request.text) showSanitizedToast(request.text);
   if (request.type === 'GET_SITE_GRADE') {
     const alerts = (typeof popup !== 'undefined' && popup && popup.activeAlerts) || [];
     const dangerous = alerts.some(a => (a.alerts || []).some(x => x.level === 'dangerous'));
