@@ -20,7 +20,12 @@
     "AEGIS_REALITY": "readonly",
     "AEGIS_SIGNING": "readonly",
     "AEGIS_THREATS": "readonly",
-    "AEGIS_SEMANTIC": "readonly"
+    "AEGIS_SEMANTIC": "readonly",
+    "AEGIS_SECRETS": "readonly",
+    "AEGIS_VISION": "readonly",
+    "AEGIS_SWARM_MESH": "readonly",
+    "AEGIS_WEBGPU": "readonly",
+    "AEGIS_VOICE_SPECTRAL": "readonly"
   },
   "parserOptions": {
     "ecmaVersion": 2022,
