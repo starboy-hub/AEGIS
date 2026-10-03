@@ -39,7 +39,7 @@ test.describe('popup controls', () => {
 
   test.beforeAll(async () => {
     context = await chromium.launchPersistentContext('', {
-      channel: 'chromium', headless: false,
+      headless: false,
       args: [`--disable-extensions-except=${EXT}`, `--load-extension=${EXT}`]
     });
     let [sw] = context.serviceWorkers();
@@ -154,7 +154,7 @@ test.describe('options controls', () => {
 
   test.beforeAll(async () => {
     context = await chromium.launchPersistentContext('', {
-      channel: 'chromium', headless: false,
+      headless: false,
       args: [`--disable-extensions-except=${EXT}`, `--load-extension=${EXT}`]
     });
     let [sw] = context.serviceWorkers();
@@ -274,7 +274,7 @@ test.describe('engineering checks (service worker)', () => {
 
   test.beforeAll(async () => {
     context = await chromium.launchPersistentContext('', {
-      channel: 'chromium', headless: false,
+      headless: false,
       args: [`--disable-extensions-except=${EXT}`, `--load-extension=${EXT}`]
     });
     let [worker] = context.serviceWorkers();
@@ -327,7 +327,7 @@ test.describe('popup presets and site grade', () => {
 
   test.beforeAll(async () => {
     context = await chromium.launchPersistentContext('', {
-      channel: 'chromium', headless: false,
+      headless: false,
       args: [`--disable-extensions-except=${EXT}`, `--load-extension=${EXT}`]
     });
     let [sw] = context.serviceWorkers();

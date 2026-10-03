@@ -17,7 +17,6 @@ test.describe('AEGIS Extension Journeys (Fast Tab Reuse)', () => {
 
   test.beforeAll(async () => {
     context = await chromium.launchPersistentContext('', {
-      channel: 'chromium',
       headless: false,
       args: [
         `--disable-extensions-except=${EXT}`,
