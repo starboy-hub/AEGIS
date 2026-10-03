@@ -2,10 +2,10 @@
 
 > **AI fights in both directions: it stops your data from leaking into AI systems, and it defends you from what AI-generated attacks deliver to your screen. 100% local. No account. No telemetry. No cloud.**
 
-![Version](https://img.shields.io/badge/version-9.1.0-blue.svg)
+![Version](https://img.shields.io/badge/version-9.7.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
-![Tests](https://img.shields.io/badge/tests-235%20passing-brightgreen.svg)
-![E2E](https://img.shields.io/badge/E2E-37%20checks-blueviolet.svg)
+![Tests](https://img.shields.io/badge/tests-242%20passing-brightgreen.svg)
+![E2E](https://img.shields.io/badge/E2E-45%20checks-blueviolet.svg)
 ![Privacy](https://img.shields.io/badge/privacy-100%25_local-red.svg)
 
 AEGIS is a browser extension that acts as a **personal guardian running entirely on your machine**. It protects you in two directions against AI-era threats, with a family of engines that all run locally:
@@ -22,6 +22,7 @@ AEGIS is a browser extension that acts as a **personal guardian running entirely
 | 🐝 **Swarm Defense** | Repeat scams across installs | Anonymized threat-signature packs (hashes only, never message text) — export/import between installs today, federatable tomorrow |
 | 📧 **Webmail Shield** | Scams in your Gmail/Outlook inbox | Sender forensics on webmail: corporate-name spoofing from free providers, lookalike/typosquat domains, sent-mail skip |
 | 🤖 **Agent Firewall** | AI agents leaking your data | Local loopback proxy (companion tool): scans agent HTTP traffic, tokenizes protected values on the way out, **re-hydrates them in the AI's streamed response** before you see it, blocks injection payloads |
+| 🕳️ **Full Coverage** | Modern web apps hiding content | **Shadow DOM** (web components) and **iframe** scanning, network-body PII warnings on fetch/XHR, browser-autofill detection — the engines see content that plain DOM scanners miss |
 | 🗣️ **Voice Canary** | Voice-clone call fraud | Challenge-response caller verification — clones can't answer questions that were never public |
 
 ---
@@ -125,8 +126,12 @@ docs/                developer reference
 - [ ] Web Store publication (listing prepared in [`store/`](store/LISTING.md))
 - [x] Webmail Shield (Gmail/Outlook sender forensics)
 - [x] Agent Firewall + Voice Canary companion tools
+- [x] Shadow DOM + iframe + network-body coverage (v9.7.0)
+- [x] Fine-tuned multilingual classifier bundled (v9.5.0–v9.7.0)
+- [ ] Rebalance + retrain to restore the English scam head (seeds ready)
+- [ ] Firefox background fix (known `importScripts` issue), then AMO/Edge stores
 - [ ] Companion GUI (firewall + canary have working CLI tools)
-- [ ] Firefox/Edge ports
+- [ ] Firefox/Edge store listings (after the Firefox background fix)
 - [ ] Federated swarm relay (needs a user base first)
 
 ## 🤝 Contributing
