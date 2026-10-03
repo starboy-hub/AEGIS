@@ -34,6 +34,6 @@
   },
   "dependencies": {
     "@huggingface/transformers": "^4.3.0",
-    "onnxruntime-web": "^1.18.0"
+    "onnxruntime-web": "^1.19.2"
   }
 }
