@@ -5,7 +5,7 @@
 
 [![Version](https://img.shields.io/badge/version-10.0.0--beast-blue.svg)](https://github.com/starboy-hub/AEGIS)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Unit Tests](https://img.shields.io/badge/tests-255%20passing-brightgreen.svg)](tests/)
+[![Unit Tests](https://img.shields.io/badge/tests-257%20passing-brightgreen.svg)](tests/)
 [![E2E Tests](https://img.shields.io/badge/E2E-44%20passing-purple.svg)](e2e/)
 [![Privacy](https://img.shields.io/badge/privacy-100%25_local-red.svg)](#-privacy--architecture)
 
@@ -78,7 +78,7 @@ npm install
 npm run build         # Compiles output into dist/
 
 # 3. Execute tests & benchmarks
-npm test              # Run 255 unit tests (Jest)
+npm test              # Run 257 unit tests (Jest)
 npm run test:e2e      # Run 44 Playwright E2E browser tests
 npm run benchmark     # Run Sentinel detection benchmark suite
 npm run pack          # Package extension into releases/
@@ -108,9 +108,9 @@ AEGIS is continuously evaluated against a baseline benchmark suite (`npm run ben
 │   └── offscreen-model/ # Bundled on-device ONNX AI Classifier
 ├── companion/           # Desktop Agent Firewall Proxy & Voice Canary CLI tools
 ├── evaluation/          # Labeled benchmark corpus & measurement scripts
-├── tests/               # 255 Jest unit and integration tests
+├── tests/               # 257 Jest unit and integration tests (including ReDoS safety & fuzzing)
 ├── e2e/                 # 44 Playwright E2E browser automation tests
-├── store/               # Web Store publication assets & listing
+├── store/               # Web Store assets, STORE_REVIEW.md pre-emption guide & listing
 └── scripts/             # Build, packaging, and dist verification scripts
 ```
 
