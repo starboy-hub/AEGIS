@@ -5,8 +5,8 @@
 
 [![Version](https://img.shields.io/badge/version-10.0.0--beast-blue.svg)](https://github.com/starboy-hub/AEGIS)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Unit Tests](https://img.shields.io/badge/tests-251%20passing-brightgreen.svg)](tests/)
-[![E2E Tests](https://img.shields.io/badge/E2E-45%20passing-purple.svg)](e2e/)
+[![Unit Tests](https://img.shields.io/badge/tests-255%20passing-brightgreen.svg)](tests/)
+[![E2E Tests](https://img.shields.io/badge/E2E-44%20passing-purple.svg)](e2e/)
 [![Privacy](https://img.shields.io/badge/privacy-100%25_local-red.svg)](#-privacy--architecture)
 
 ---
@@ -20,13 +20,18 @@
 
 ---
 
-## 🚀 Core Features (v10.0 Beast Mode)
+## 🚀 Core Features (v10.0 Beast Mode & Enterprise)
 
 ### 🛡️ Outbound Privacy & Data Protection
 * **Developer Secret & Code Sanitizer:** Real-time scanning and auto-redaction of AWS Access Keys, GitHub PATs, OpenAI/Anthropic Keys, Stripe Keys, JWTs, SSH Private Keys, and Database Connection Strings before submission to any AI model.
+* **Context Menu Right-Click Shortcuts:** Native context menus (`chrome.contextMenus`) to instantly sanitize selected text/code (`🛡️ AEGIS: Sanitize Selected Code/Text`) or inspect image metadata (`🔍 AEGIS: Check Image Provenance`).
 * **Identity Vault & Pseudonymization:** Teaches AEGIS your sensitive details once (AES-256-GCM encrypted locally). Data is automatically swapped with consistent per-site pseudonyms so AI chats stay coherent without leaking your real identity. When the AI responds using a pseudonym, AEGIS restores your real values on-screen.
 * **Smart Paste Guardian:** Intercepts clipboard paste events into AI input boxes and sanitizes sensitive data before it enters the DOM.
 * **Universal RTE Native Adapter:** Seamlessly works with complex Rich Text Editors (Notion, ProseMirror, Slate, Lexical) using native `execCommand` and input event dispatching.
+
+### 🏢 Enterprise & B2B Governance
+* **Chrome Enterprise Policy Engine (`chrome.storage.managed`):** Group Policy / Google Admin Console integration allowing IT admins to push pre-configured Vault entries, domain whitelists, and mandatory enforcement presets across corporate laptops.
+* **B2B Telemetry & SIEM Exporter:** 1-click audit log exports formatted for enterprise SOC platforms in **CEF** (ArcSight), **OCSF v1.1.0** (AWS Security Lake / Datadog), and **Enterprise JSON** (Splunk / Microsoft Sentinel) with zero raw PII exposed.
 
 ### 🚨 Inbound Threat Defense & Forensics
 * **Multi-Modal Vision & Canvas Injection Firewall:** Inspects Canvas elements, base64 data URLs, and embedded visual graphic layers for concealed visual prompt injection payloads designed to hijack AI agents.
@@ -73,8 +78,8 @@ npm install
 npm run build         # Compiles output into dist/
 
 # 3. Execute tests & benchmarks
-npm test              # Run 242 unit tests (Jest)
-npm run test:e2e      # Run 45 Playwright E2E browser tests
+npm test              # Run 255 unit tests (Jest)
+npm run test:e2e      # Run 44 Playwright E2E browser tests
 npm run benchmark     # Run Sentinel detection benchmark suite
 npm run pack          # Package extension into releases/
 ```
@@ -94,17 +99,17 @@ AEGIS is continuously evaluated against a baseline benchmark suite (`npm run ben
 
 ```
 ├── src/
-│   ├── background/      # Manifest V3 Service Worker (Vault, Threat Store, Offscreen AI)
+│   ├── background/      # Manifest V3 Service Worker (Vault, Threat Store, Offscreen AI, Enterprise Policy)
 │   ├── content/         # Content scripts (DOM Scanner, Sentinel, Injection, Webmail)
-│   │   └── modules/     # Modular detection engines (Detection, Fake-Data, Sentinel)
+│   │   └── modules/     # Modular detection engines (Detection, Fake-Data, Sentinel, Secrets, Vision)
 │   ├── options/         # Full Extension Settings UI & Identity Vault Manager
 │   ├── popup/           # Floating Shield Header & Quick Dashboard UI
-│   ├── shared/          # Encryption, SHA-256 integrity, shared helpers
+│   ├── shared/          # SIEM Telemetry Exporter, Encryption, SHA-256 integrity, shared helpers
 │   └── offscreen-model/ # Bundled on-device ONNX AI Classifier
 ├── companion/           # Desktop Agent Firewall Proxy & Voice Canary CLI tools
 ├── evaluation/          # Labeled benchmark corpus & measurement scripts
-├── tests/               # 242 Jest unit and integration tests
-├── e2e/                 # 45 Playwright E2E browser automation tests
+├── tests/               # 255 Jest unit and integration tests
+├── e2e/                 # 44 Playwright E2E browser automation tests
 ├── store/               # Web Store publication assets & listing
 └── scripts/             # Build, packaging, and dist verification scripts
 ```
@@ -121,6 +126,8 @@ AEGIS is continuously evaluated against a baseline benchmark suite (`npm run ben
 - [x] Shadow DOM, Nested IFrame, and Network Body Scanning
 - [x] Universal Rich Text Editor Native Adapter (ProseMirror, Lexical, Slate)
 - [x] Chrome MV3 Side Panel Integration (`chrome.sidePanel`)
+- [x] Chrome Enterprise Managed Policy Engine (`chrome.storage.managed`)
+- [x] B2B Telemetry & SIEM Exporter (CEF / OCSF / Enterprise JSON)
 - [ ] Chrome Web Store Publication ([`store/LISTING.md`](store/LISTING.md))
 - [ ] Expanded Corpus (1,000+ benchmark entries)
 - [ ] Desktop GUI wrapper for Companion Proxy Tools
