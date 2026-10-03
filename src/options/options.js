@@ -88,10 +88,12 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!list) return;
       const entries = (res && res.entries) || [];
       if (!entries.length) {
-        list.innerHTML = '<div class="vault-empty">Vault is empty — add your details above and AEGIS will consistently pseudonymize them.</div>';
+        list.replaceChildren();
+        const empty = document.createElement('div'); empty.className = 'vault-empty'; empty.textContent = 'Vault is empty — add your details above and AEGIS will consistently pseudonymize them.';
+        list.appendChild(empty);
         return;
       }
-      list.innerHTML = '';
+      list.replaceChildren();
       entries.forEach(e => {
         const row = document.createElement('div');
         row.className = 'vault-item';
@@ -151,10 +153,12 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!list) return;
       const trusted = (res && res.trusted) || [];
       if (!trusted.length) {
-        list.innerHTML = '<div class="vault-empty">Trust list is empty — add your bank, employer, and family contacts.</div>';
+        list.replaceChildren();
+        const empty = document.createElement('div'); empty.className = 'vault-empty'; empty.textContent = 'Trust list is empty — add your bank, employer, and family contacts.';
+        list.appendChild(empty);
         return;
       }
-      list.innerHTML = '';
+      list.replaceChildren();
       trusted.forEach(e => {
         const row = document.createElement('div');
         row.className = 'vault-item';

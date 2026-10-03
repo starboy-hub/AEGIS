@@ -179,7 +179,7 @@ describe('AEGIS Detection Engine', () => {
       expect(redactions.every(r => r.text === r.text.trim())).toBe(true);
       const { text } = require('../src/content/modules/fake-data.js')
         .redactText(raw, redactions, false);
-      expect(text).toBe('[REDACTED-MEDICAL] 2 [REDACTED-MEDICAL] last year');
+      expect(text).toBe('I was diagnosed with [REDACTED-MEDICAL] 2 [REDACTED-MEDICAL] last year');
     });
 
     test('employment capture is bounded — stops at lowercase words (no line eating)', () => {

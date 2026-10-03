@@ -35,17 +35,25 @@ let isWhitelisted = false, isPaused = false, pauseTimer = null, protectionHistor
 // shadow root under a root element (recursively, capped), so the passes can
 // scan them and the observer can watch them.
 const observedShadowRoots = new WeakSet();
-function collectShadowRoots(root, out, depth) {
-  if (depth > 8 || !root || root.nodeType !== 1) return out || [];
-  out = out || [];
+function collectShadowRoots(root, out = [], depth = 0) {
+  if (depth > 8 || !root) return out;
   if (root.shadowRoot && !observedShadowRoots.has(root.shadowRoot)) {
     out.push(root.shadowRoot);
     observedShadowRoots.add(root.shadowRoot);
+    collectShadowRoots(root.shadowRoot, out, depth + 1);
   }
-  let children;
-  try { children = root.querySelectorAll('*'); } catch (e) { return out; }
-  const cap = Math.min(children.length, 4000);
-  for (let i = 0; i < cap; i++) collectShadowRoots(children[i], out, depth + 1);
+  try {
+    const children = root.querySelectorAll ? root.querySelectorAll('*') : [];
+    const cap = Math.min(children.length, 2000);
+    for (let i = 0; i < cap; i++) {
+      const child = children[i];
+      if (child.shadowRoot && !observedShadowRoots.has(child.shadowRoot)) {
+        out.push(child.shadowRoot);
+        observedShadowRoots.add(child.shadowRoot);
+        collectShadowRoots(child.shadowRoot, out, depth + 1);
+      }
+    }
+  } catch (e) {}
   return out;
 }
 function scanRoots() {
@@ -219,7 +227,8 @@ function updateBubbleVisibility() {
   if (typeof popup === 'undefined' || !popup || !popup.container) return;
   const hasNotes = !!noteEl || noteQueue.length > 0;
   const hasAlerts = popup.activeAlerts && popup.activeAlerts.length > 0;
-  const show = settings.bubbleMode === 'always' || settings.familyMode || hasNotes || hasAlerts;
+  const isExpanded = popup.state !== 'minimized';
+  const show = settings.bubbleMode === 'always' || settings.familyMode || hasNotes || hasAlerts || isExpanded;
   popup.container.style.display = show ? '' : 'none';
 }
 
@@ -797,9 +806,28 @@ function highlightSensitive(element, redactions) {
   const safeTheme = typeof currentTheme !== 'undefined' ? currentTheme : 'light';
   const color = safeTheme === 'dark' ? '#ef5350' : '#ff4444';
   if (element.getAttribute('contenteditable') === 'true') {
-    let html = element.innerHTML;
-    redactions.forEach(r => { if (r.text && r.text.length > 0) { const escaped = r.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); html = html.replace(new RegExp(escaped, 'g'), `<span class="aegis-sensitive" style="color:${color}!important;font-weight:600;text-decoration:wavy underline ${color};">${r.text}</span>`); } });
-    element.innerHTML = html;
+    redactions.forEach(r => {
+      if (!r.text) return;
+      const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+      const textNodes = [];
+      let n;
+      while ((n = walker.nextNode())) {
+        if (n.parentNode && n.parentNode.className === 'aegis-sensitive') continue;
+        if (n.nodeValue && n.nodeValue.includes(r.text)) textNodes.push(n);
+      }
+      textNodes.forEach(tn => {
+        const idx = tn.nodeValue.indexOf(r.text);
+        if (idx !== -1 && tn.parentNode) {
+          const matchNode = tn.splitText(idx);
+          matchNode.splitText(r.text.length);
+          const span = document.createElement('span');
+          span.className = 'aegis-sensitive';
+          span.style.cssText = `color:${color}!important;font-weight:600;text-decoration:wavy underline ${color};`;
+          span.textContent = matchNode.nodeValue;
+          matchNode.parentNode.replaceChild(span, matchNode);
+        }
+      });
+    });
   } else { element.style.transition = 'all 0.3s ease'; element.style.color = color; element.style.borderLeft = '4px solid ' + color; showInlineIndicator(element, ' PII detected', color); }
 }
 function highlightProtected(element, _replacements) {
@@ -837,7 +865,21 @@ function performRedaction(element, redactions) {
       else element.value = txt;
       element.dispatchEvent(new Event('input', { bubbles: true }));
     } else {
-      element.innerText = txt;
+      if (document.queryCommandSupported && document.queryCommandSupported('insertText')) {
+        element.focus();
+        try {
+          const sel = window.getSelection();
+          const range = document.createRange();
+          range.selectNodeContents(element);
+          sel.removeAllRanges();
+          sel.addRange(range);
+          document.execCommand('insertText', false, txt);
+        } catch (e) {
+          element.innerText = txt;
+        }
+      } else {
+        element.innerText = txt;
+      }
       element.dispatchEvent(new Event('input', { bubbles: true }));
     }
     reps.forEach(r => historyStore.add({ ...r, site: window.location.hostname }));
@@ -859,12 +901,23 @@ class AEGISPopup {
   getMaxHeight() { const size = settings.notificationSize || 'standard'; if (size === 'compact') return '400px'; if (size === 'large') return '700px'; return '550px'; }
   getFontSize() { const size = settings.notificationSize || 'standard'; if (size === 'compact') return '11px'; if (size === 'large') return '14px'; return '12px'; }
   renderMinimized() {
+    const safeRight = Number.isFinite(this.position?.right) ? Math.max(10, Math.min(window.innerWidth - 60, this.position.right)) : 20;
+    const safeBottom = Number.isFinite(this.position?.bottom) ? Math.max(10, Math.min(window.innerHeight - 60, this.position.bottom)) : 20;
     const hasAlert = this.activeAlerts.length > 0; const bgColor = isPaused ? '#6c757d' : (hasAlert ? '#ff0000' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'); const shield = isPaused ? '⏸️' : (hasAlert ? '🚨' : '🛡️'); const borderColor = tc('white', '#1a1a1a');
     this.container.innerHTML = `<div data-aegis-part="minimized" style="width:56px;height:56px;background:${bgColor};border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:26px;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,0.3);border:3px solid ${borderColor};position:relative;transition:transform 0.2s;">${shield}<div style="position:absolute;bottom:-4px;right:-4px;background:#00ff88;color:#000;font-size:10px;font-weight:bold;padding:2px 6px;border-radius:10px;border:2px solid ${borderColor};">${allTimeProtected}</div>${hasAlert ? `<div style="position:absolute;top:-4px;left:-4px;width:14px;height:14px;background:#ff0000;border-radius:50%;border:2px solid ${borderColor};animation:aegis-pulse 1.5s infinite;"></div>` : ''}</div>`;
-    this.container.style.cssText = `position:fixed!important;z-index:2147483647!important;right:${this.position.right}px!important;bottom:${this.position.bottom}px!important;left:auto!important;top:auto!important;`;
+    this.container.style.cssText = `position:fixed!important;z-index:2147483647!important;right:${safeRight}px!important;bottom:${safeBottom}px!important;left:auto!important;top:auto!important;display:block!important;`;
     const mini = this.container.querySelector('[data-aegis-part="minimized"]'); mini.addEventListener('click', () => this.expand()); mini.addEventListener('mouseenter', () => { mini.style.transform = 'scale(1.1)'; }); mini.addEventListener('mouseleave', () => { mini.style.transform = 'scale(1)'; });
   }
   renderFull() {
+    const popupWidth = this.getPopupWidth();
+    const popupHeight = this.getMaxHeight();
+    const popupRadius = '16px';
+    const actualWidth = this.isMaximized ? '100%' : popupWidth;
+    const actualHeight = this.isMaximized ? '100%' : 'auto';
+    const actualMaxHeight = this.isMaximized ? '100%' : popupHeight;
+    const actualRadius = this.isMaximized ? '12px' : popupRadius;
+    const safeRight = Number.isFinite(this.position?.right) ? Math.max(10, Math.min(window.innerWidth - 60, this.position.right)) : 20;
+    const safeBottom = Number.isFinite(this.position?.bottom) ? Math.max(10, Math.min(window.innerHeight - 60, this.position.bottom)) : 20;
     const isAlert = this.state === 'alert'; let headerColor, headerIcon, headerTitle;
     if (isAlert) { const high = this.activeAlerts.some(a => a.alerts.some(x => x.severity === 'high')); if (high) { headerColor = '#ff0000'; headerIcon = '🚨'; headerTitle = this.activeAlerts.length + ' Alert' + (this.activeAlerts.length > 1 ? 's' : ''); } else { headerColor = '#ff8800'; headerIcon = '️'; headerTitle = this.activeAlerts.length + ' Warning' + (this.activeAlerts.length > 1 ? 's' : ''); } }
     else { if (isPaused) { headerColor = '#6c757d'; headerIcon = '️'; headerTitle = 'AEGIS Paused'; } else { headerColor = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'; headerIcon = '🛡️'; headerTitle = 'AEGIS Shield'; } }
@@ -887,17 +940,20 @@ class AEGISPopup {
       body = `<div style="padding:12px;background:${bodyBg};color:${bodyText};flex:1;overflow-y:auto;"><div style="font-size:11px;color:${bodySecondary};margin-bottom:8px;padding:0 4px;"><strong>${this.activeAlerts.length}</strong> active alert(s) • <strong>${totalItems}</strong> total item(s) detected</div>${alertCards}</div>`;
     } else {
       const todayBlocked = totalProtected; const recentItems = protectionHistory.slice(-5).reverse().map(h => { const time = new Date(h.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); const color = h.type === 'MEDICAL' ? '#e91e63' : h.type === 'FINANCIAL' ? '#ff9800' : h.type === 'LEGAL' ? '#9c27b0' : h.type === 'CREDENTIALS' ? '#f44336' : '#667eea'; return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;font-size:11px;border-bottom:1px solid ${recentBorder};"><span style="width:6px;height:6px;border-radius:50%;background:${color};flex-shrink:0;"></span><span style="flex:1;color:${bodyText};">${h.type}</span><span style="color:${recentTime};">${time}</span></div>`; }).join('');
-      body = `<div style="padding:14px 16px;background:${popupBg};color:${bodyText};"><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;"><div style="background:${idleCardBg};padding:8px;border-radius:8px;text-align:center;"><div style="font-size:20px;font-weight:bold;color:#667eea;">${todayBlocked}</div><div style="font-size:9px;color:${idleLabel};text-transform:uppercase;">Today</div></div><div style="background:${idleCardBg};padding:8px;border-radius:8px;text-align:center;"><div style="font-size:20px;font-weight:bold;color:#667eea;">${allTimeProtected}</div><div style="font-size:9px;color:${idleLabel};text-transform:uppercase;">All Time</div></div><div style="background:${idleCardBg};padding:8px;border-radius:8px;text-align:center;"><div style="font-size:20px;font-weight:bold;color:#667eea;">${new Set(protectionHistory.map(h => h.site).filter(Boolean)).size}</div><div style="font-size:9px;color:${idleLabel};text-transform:uppercase;">Sites</div></div></div><div style="font-size:11px;color:${idleLabel};text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Recent Activity</div><div style="max-height:140px;overflow-y:auto;">${recentItems || `<div style="color:${idleLabel};font-size:11px;padding:8px 0;">No activity yet</div>`}</div></div>`;
+      body = `<div style="padding:14px 16px;background:${popupBg};color:${bodyText};flex:1;overflow-y:auto;"><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;"><div style="background:${idleCardBg};padding:8px;border-radius:8px;text-align:center;"><div style="font-size:20px;font-weight:bold;color:#667eea;">${todayBlocked}</div><div style="font-size:9px;color:${idleLabel};text-transform:uppercase;">Today</div></div><div style="background:${idleCardBg};padding:8px;border-radius:8px;text-align:center;"><div style="font-size:20px;font-weight:bold;color:#667eea;">${allTimeProtected}</div><div style="font-size:9px;color:${idleLabel};text-transform:uppercase;">All Time</div></div><div style="background:${idleCardBg};padding:8px;border-radius:8px;text-align:center;"><div style="font-size:20px;font-weight:bold;color:#667eea;">${new Set(protectionHistory.map(h => h.site).filter(Boolean)).size}</div><div style="font-size:9px;color:${idleLabel};text-transform:uppercase;">Sites</div></div></div><div style="font-size:11px;color:${idleLabel};text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Recent Activity</div><div style="max-height:140px;overflow-y:auto;">${recentItems || `<div style="color:${idleLabel};font-size:11px;padding:8px 0;">No activity yet</div>`}</div></div>`;
     }
     const snoozeButtons = isPaused ? '<button data-aegis-action="resume" style="flex:2;padding:6px;background:#28a745;color:white;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;">▶️ Resume</button>' : `<div style="flex:2;display:flex;gap:4px;"><button data-aegis-action="pause-5" style="flex:1;padding:6px;background:${snoozeBtnBg};color:${snoozeBtnText};border:none;border-radius:6px;cursor:pointer;font-size:10px;font-weight:600;" title="Pause 5 min">5m</button><button data-aegis-action="pause-60" style="flex:1;padding:6px;background:${snoozeBtnBg};color:${snoozeBtnText};border:none;border-radius:6px;cursor:pointer;font-size:10px;font-weight:600;" title="Pause 1 hour">1h</button><button data-aegis-action="pause-refresh" style="flex:1;padding:6px;background:${snoozeBtnBg};color:${snoozeBtnText};border:none;border-radius:6px;cursor:pointer;font-size:10px;font-weight:600;" title="Pause until refresh">↻</button></div>`;
     const footer = `<div style="padding:12px 16px;background:${footerBg};border-top:1px solid ${footerBorder};display:flex;gap:8px;align-items:center;flex-shrink:0;">${snoozeButtons}<div style="flex:1;"></div><div style="display:flex;gap:10px;align-items:center;"><button data-aegis-action="trust-site" style="background:transparent;color:#667eea;border:2px solid #667eea;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;font-weight:bold;transition:all 0.15s ease;" title="Trust this site" aria-label="Trust this site" onmouseover="this.style.background='#667eea';this.style.color='white'" onmouseout="this.style.background='transparent';this.style.color='#667eea'">🤝</button><button data-aegis-action="export" style="background:transparent;color:#667eea;border:2px solid #667eea;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;font-weight:bold;transition:all 0.15s ease;" title="Export JSON" aria-label="Export history as JSON" onmouseover="this.style.background='#667eea';this.style.color='white'" onmouseout="this.style.background='transparent';this.style.color='#667eea'">📤</button><button data-aegis-action="export-csv" style="background:transparent;color:#667eea;border:2px solid #667eea;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;font-weight:bold;transition:all 0.15s ease;" title="Export CSV" aria-label="Export history as CSV" onmouseover="this.style.background='#667eea';this.style.color='white'" onmouseout="this.style.background='transparent';this.style.color='#667eea'">📊</button><button data-aegis-action="settings" style="background:transparent;color:#667eea;border:2px solid #667eea;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;font-weight:bold;transition:all 0.15s ease;" title="Settings" aria-label="Open settings" onmouseover="this.style.background='#667eea';this.style.color='white'" onmouseout="this.style.background='transparent';this.style.color='#667eea'">⚙️</button></div></div>`;
-    const popupWidth = this.isMaximized ? 'calc(100vw - 40px)' : this.getPopupWidth(); const popupHeight = this.isMaximized ? 'calc(100vh - 40px)' : this.getMaxHeight(); const popupRadius = this.isMaximized ? '0' : '14px';
-    this.container.innerHTML = `<div data-aegis-part="full" style="width:${popupWidth};height:${popupHeight};max-height:${popupHeight};background:${popupBg};border-radius:${popupRadius};box-shadow:0 12px 40px rgba(0,0,0,0.4);overflow:hidden;border:1px solid ${popupBorder};display:flex;flex-direction:column;"><div data-aegis-part="header" style="background:${headerColor};color:white;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;cursor:grab;flex-shrink:0;"><div style="display:flex;align-items:center;gap:8px;"><span style="font-size:18px;">${headerIcon}</span><span style="font-size:14px;font-weight:600;">${headerTitle}</span></div><div style="display:flex;gap:10px;align-items:center;"><button data-aegis-action="minimize" style="background:transparent;color:white;border:2px solid white;width:22px;height:22px;border-radius:50%;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;font-weight:bold;transition:all 0.15s ease;" title="Minimize" onmouseover="this.style.background='white';this.style.color='#333'" onmouseout="this.style.background='transparent';this.style.color='white'">−</button><button data-aegis-action="${this.isMaximized ? 'restore' : 'maximize'}" style="background:transparent;color:white;border:2px solid white;width:22px;height:22px;border-radius:50%;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;font-weight:bold;transition:all 0.15s ease;" title="${this.isMaximized ? 'Restore' : 'Maximize'}" onmouseover="this.style.background='white';this.style.color='#333'" onmouseout="this.style.background='transparent';this.style.color='white'">${this.isMaximized ? '−' : '+'}</button></div></div>${body}${footer}</div>`;
-    if (this.isMaximized) { this.container.style.cssText = 'position:fixed!important;z-index:2147483647!important;top:20px!important;left:20px!important;right:20px!important;bottom:20px!important;'; } else { this.container.style.cssText = `position:fixed!important;z-index:2147483647!important;right:${this.position.right}px!important;bottom:${this.position.bottom}px!important;left:auto!important;top:auto!important;`; }
+    const minIcon = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
+    const maxIcon = this.isMaximized 
+      ? `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="square"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/></svg>`
+      : `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="square"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>`;
+    this.container.innerHTML = `<div data-aegis-part="full" style="width:${actualWidth};height:${actualHeight};max-height:${actualMaxHeight};background:${popupBg};border-radius:${actualRadius};box-shadow:0 12px 40px rgba(0,0,0,0.4);overflow:hidden;border:1px solid ${popupBorder};display:flex;flex-direction:column;"><div data-aegis-part="header" style="background:${headerColor};color:white;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;cursor:${this.isMaximized ? 'default' : 'grab'};flex-shrink:0;"><div style="display:flex;align-items:center;gap:8px;"><span style="font-size:18px;">${headerIcon}</span><span style="font-size:14px;font-weight:600;">${headerTitle}</span></div><div style="display:flex;gap:10px;align-items:center;"><button data-aegis-action="minimize" style="background:transparent;color:white;border:2px solid white;width:22px;height:22px;border-radius:50%;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;font-weight:bold;transition:all 0.15s ease;" title="Minimize" onmouseover="this.style.background='white';this.style.color='#333'" onmouseout="this.style.background='transparent';this.style.color='white'">${minIcon}</button><button data-aegis-action="${this.isMaximized ? 'restore' : 'maximize'}" style="background:transparent;color:white;border:2px solid white;width:22px;height:22px;border-radius:50%;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;font-weight:bold;transition:all 0.15s ease;" title="${this.isMaximized ? 'Restore' : 'Maximize'}" onmouseover="this.style.background='white';this.style.color='#333'" onmouseout="this.style.background='transparent';this.style.color='white'">${maxIcon}</button></div></div>${body}${footer}</div>`;
+    if (this.isMaximized) { this.container.style.cssText = 'position:fixed!important;z-index:2147483647!important;top:20px!important;left:20px!important;right:20px!important;bottom:20px!important;display:block!important;'; } else { this.container.style.cssText = `position:fixed!important;z-index:2147483647!important;right:${safeRight}px!important;bottom:${safeBottom}px!important;left:auto!important;top:auto!important;display:block!important;`; }
     this.attachHandlers();
   }
   attachHandlers() {
-    const header = this.container.querySelector('[data-aegis-part="header"]'); if (header) { header.addEventListener('mousedown', (e) => { if (e.target.tagName === 'BUTTON') return; if (e.target.closest('[data-aegis-action]')) return; this.isDragging = true; const rect = this.container.getBoundingClientRect(); this.dragOffset = { x: e.clientX - rect.left, y: e.clientY - rect.top }; this.container.style.cursor = 'grabbing'; e.preventDefault(); }); }
+    const header = this.container.querySelector('[data-aegis-part="header"]'); if (header) { header.addEventListener('mousedown', (e) => { if (this.isMaximized) return; if (e.target.tagName === 'BUTTON') return; if (e.target.closest('[data-aegis-action]')) return; this.isDragging = true; const rect = this.container.getBoundingClientRect(); this.dragOffset = { x: e.clientX - rect.left, y: e.clientY - rect.top }; this.container.style.cursor = 'grabbing'; e.preventDefault(); }); }
     this.container.querySelectorAll('[data-aegis-action]').forEach(btn => { const action = btn.getAttribute('data-aegis-action'); btn.addEventListener('click', (e) => { e.stopPropagation(); this.handleAction(action); }); });
   }
   render() { if (this.state === 'minimized') this.renderMinimized(); else this.renderFull(); }
@@ -974,8 +1030,42 @@ class AEGISPopup {
 }
 let popup;
 
-function setupPasteListener() { document.addEventListener('paste', async (e) => { try { let pastedText = ''; if (e.clipboardData && e.clipboardData.getData) pastedText = e.clipboardData.getData('text/plain') || ''; if (!pastedText || pastedText.length < 5) return; const { alerts, redactions } = await scanText(pastedText); if (alerts.length > 0) { const markedAlerts = alerts.map(a => ({ ...a, source: 'clipboard:' + a.source })); popup.showAlert(markedAlerts, redactions, null, null, null, 'clipboard'); } } catch (error) {} }, true); }
-async function monitorClipboard() { setupPasteListener(); }
+function setupPasteGuardian() {
+  document.addEventListener('paste', async (e) => {
+    if (isWhitelisted || isPaused) return;
+    const target = e.target;
+    if (!target || (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA' && target.getAttribute && target.getAttribute('contenteditable') !== 'true')) return;
+    let pastedText = '';
+    if (e.clipboardData && e.clipboardData.getData) pastedText = e.clipboardData.getData('text/plain') || '';
+    if (!pastedText || pastedText.length < 5) return;
+    try {
+      const { alerts, redactions } = await scanText(pastedText, target);
+      if (alerts.length > 0) {
+        if (settings.autoProtectPaste) {
+          e.preventDefault();
+          const result = AEGIS_FAKE.redactText(pastedText, redactions, settings.useFakeData);
+          if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+            const valueProto = target.tagName === 'TEXTAREA' ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype;
+            const nativeSetter = Object.getOwnPropertyDescriptor(valueProto, 'value').set;
+            if (nativeSetter) nativeSetter.call(target, result.text);
+            else target.value = result.text;
+            target.dispatchEvent(new Event('input', { bubbles: true }));
+          } else {
+            if (document.queryCommandSupported && document.queryCommandSupported('insertText')) {
+              document.execCommand('insertText', false, result.text);
+            } else {
+              target.innerText = result.text;
+            }
+            target.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+        }
+        const markedAlerts = alerts.map(a => ({ ...a, source: 'clipboard:' + a.source }));
+        if (popup) popup.showAlert(markedAlerts, redactions, target, pastedText, null, 'clipboard');
+      }
+    } catch (err) {}
+  }, true);
+}
+async function monitorClipboard() { setupPasteGuardian(); }
 let lastScannedText = '', scanDebounce = null, _scanInterval = null;
 function getActiveInputElement() { let active = document.activeElement; if (!active) return null; while (active.shadowRoot && active.shadowRoot.activeElement) active = active.shadowRoot.activeElement; if (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA') return active; if (active.getAttribute('contenteditable') === 'true') return active; const chatInput = document.querySelector('textarea[placeholder], div[contenteditable="true"], textarea'); return chatInput; }
 async function performScan() {
@@ -1135,7 +1225,7 @@ async function init() {
   _scanInterval = setInterval(() => { if (!pagePassPending && Date.now() - lastPagePass >= 10000) runPagePasses(); }, 10000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - lastPagePass >= 4000) runPagePasses(); });
   document.addEventListener('mousemove', (e) => popup.onDrag(e)); document.addEventListener('mouseup', () => popup.endDrag());
-  setupKeyboardShortcuts(); setupSubmissionGuard(); setupAttachmentGuard();
+  setupKeyboardShortcuts(); setupSubmissionGuard(); setupAttachmentGuard(); setupPasteGuardian();
   if (isWhitelisted) { popup.minimize(); return; }
   const hasOllama = await checkOllama(); console.log('🛡️ AEGIS: Ollama =', hasOllama, '| model =', ollamaModel || 'none');
   if (settings.monitorClipboard) monitorClipboard();

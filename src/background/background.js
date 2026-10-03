@@ -7,6 +7,10 @@ importScripts('semantic-engine.js');
 
 const DEFAULT_SETTINGS = AEGIS.DEFAULT_SETTINGS;
 
+if (chrome.sidePanel && chrome.sidePanel.setPanelBehavior) {
+  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false }).catch(() => {});
+}
+
 // Identity Vault: encrypted storage + per-site pseudonym map
 const vaultStorage = {
   get: (keys) => new Promise((res) => chrome.storage.local.get(keys, res)),

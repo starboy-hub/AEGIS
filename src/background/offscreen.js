@@ -19,7 +19,8 @@ let classifyText = null;
 function ensureModel() {
   if (classifyText) return Promise.resolve(classifyText);
   return import('./vendor/transformers.min.js')
-    .then(async (T) => {
+    .then(async (mod) => {
+      const T = globalThis.transformers || mod.default || mod;
       // Serve the bundled model through the extension origin
       T.env.allowLocalModels = false;
       T.env.allowRemoteModels = true;

@@ -10,8 +10,9 @@
 
 AEGIS is a browser extension that acts as a **personal guardian running entirely on your machine**. It protects you in two directions against AI-era threats, with a family of engines that all run locally:
 
-| Layer | What it defends against | How it works |
-|---|---|---|
+| 📋 **Paste Guardian** | Auto-clean PII when pasting into AI textareas | Intercepts paste events and sanitizes sensitive data before it reaches the DOM |
+| ✍️ **RTE Native Adapter** | Web apps hiding/intercepting inputs (Notion, Slate, Lexical) | Native `execCommand` and `InputEvent` simulation for complex rich-text editors |
+| 🪟 **Side Panel Support** | Side-by-side threat monitoring | Native Manifest V3 Side Panel integration (`chrome.sidePanel`) |
 | 🛡️ **Shield** | Your data leaking into AI chats | Detects PII as you type (regex + 9-language context + your personal Vault) and swaps it with realistic fake data before anything is sent |
 | 🔐 **Identity Vault** | Your real details typed plainly | Teach it your name/email/phone once (AES-256-GCM encrypted, device-local) — it detects them at any sensitivity and replaces them with **consistent per-site pseudonyms**, so AI conversations stay coherent. AI replies containing a pseudonym are restored to your real value on-screen |
 | 🚨 **Sentinel** | AI-generated scams arriving at you | Scores every inbound message against weighted scam signals (credential requests, payment pressure, fake authority, too-good offers, emergency money requests…). Optional local AI second opinion (Ollama or the bundled multilingual classifier). **Trust Graph**: pressure messages naming *your* bank/employer escalate as impersonation |
@@ -22,7 +23,7 @@ AEGIS is a browser extension that acts as a **personal guardian running entirely
 | 🐝 **Swarm Defense** | Repeat scams across installs | Anonymized threat-signature packs (hashes only, never message text) — export/import between installs today, federatable tomorrow |
 | 📧 **Webmail Shield** | Scams in your Gmail/Outlook inbox | Sender forensics on webmail: corporate-name spoofing from free providers, lookalike/typosquat domains, sent-mail skip |
 | 🤖 **Agent Firewall** | AI agents leaking your data | Local loopback proxy (companion tool): scans agent HTTP traffic, tokenizes protected values on the way out, **re-hydrates them in the AI's streamed response** before you see it, blocks injection payloads |
-| 🕳️ **Full Coverage** | Modern web apps hiding content | **Shadow DOM** (web components) and **iframe** scanning, network-body PII warnings on fetch/XHR, browser-autofill detection — the engines see content that plain DOM scanners miss |
+| 🕳️ **Full Coverage** | Modern web apps hiding content | **Shadow DOM** (web components) and **iframe** scanning, TreeWalker DOM text-node replacement (XSS-safe), network-body PII warnings on fetch/XHR, browser-autofill detection — the engines see content that plain DOM scanners miss |
 | 🗣️ **Voice Canary** | Voice-clone call fraud | Challenge-response caller verification — clones can't answer questions that were never public |
 
 ---
@@ -69,8 +70,8 @@ git clone https://github.com/starboy-hub/AEGIS.git
 cd AEGIS
 npm install
 npm run build        # dist/ appears — load it as above
-npm test             # 128 unit tests
-npm run test:e2e     # 7 Playwright journeys (real Chromium)
+npm test             # 242 unit tests (jest)
+npm run test:e2e     # 45 Playwright E2E checks (real Chromium)
 npm run benchmark    # Sentinel detection benchmark
 npm run pack         # store-ready zip in releases/
 ```
@@ -100,16 +101,16 @@ Replacements use format-preserving fake data with safety guarantees (fake cards 
 
 ```
 src/shared/          storage keys, settings, shared helpers (UMD)
-src/content/         content script + detection/sentinel/injection/webmail engines
-src/background/      service worker: settings, vault, signing, threats, reality, offscreen AI
+src/content/         content script + detection/sentinel/injection/webmail/paste/RTE engines
+src/background/      service worker: settings, vault, signing, threats, reality, offscreen AI, sidePanel
 companion/           agent firewall + wrapper + voice canary (local CLI tools)
 training/            fine-tune seeds, Colab notebook, measurement tools
 src/popup/           guardian dashboard UI
 src/options/         settings UI (7 grouped sections)
 companion/           desktop tools: agent firewall proxy + voice canary (+ DESIGN.md)
 evaluation/          labeled corpus + benchmark harness
-tests/               186 unit tests (jest)
-e2e/                 37 Playwright checks against real Chromium
+tests/               242 unit tests (jest)
+e2e/                 45 Playwright E2E checks against real Chromium
 store/               Web Store listing + privacy policy
 docs/                developer reference
 ```
@@ -122,16 +123,19 @@ docs/                developer reference
 - [x] Reality Check (metadata forensics)
 - [x] Trust Graph + Family Mode
 - [x] Content signing + swarm-ready signature packs
-- [ ] Grow the corpus to 1,000+ messages with real-world submissions
-- [ ] Web Store publication (listing prepared in [`store/`](store/LISTING.md))
 - [x] Webmail Shield (Gmail/Outlook sender forensics)
 - [x] Agent Firewall + Voice Canary companion tools
 - [x] Shadow DOM + iframe + network-body coverage (v9.7.0)
 - [x] Fine-tuned multilingual classifier bundled (v9.5.0–v9.7.0)
+- [x] XSS-Safe DOM TreeWalker Text Node Replacement
+- [x] Smart Clipboard Guardian (Paste Interceptor)
+- [x] Universal Rich Text Editor Native Adapter (ProseMirror, Lexical, Slate)
+- [x] Chrome Side Panel API Integration (`chrome.sidePanel`)
+- [ ] Grow the corpus to 1,000+ messages with real-world submissions
+- [ ] Web Store publication (listing prepared in [`store/`](store/LISTING.md))
 - [ ] Rebalance + retrain to restore the English scam head (seeds ready)
 - [ ] Firefox background fix (known `importScripts` issue), then AMO/Edge stores
 - [ ] Companion GUI (firewall + canary have working CLI tools)
-- [ ] Firefox/Edge store listings (after the Firefox background fix)
 - [ ] Federated swarm relay (needs a user base first)
 
 ## 🤝 Contributing
@@ -141,3 +145,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). Good first contributions: corpus message
 ## 📄 License
 
 MIT — see [LICENSE](LICENSE).
+

@@ -170,10 +170,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         badge.textContent = alerts.length;
         const list = $('alertsList');
         if (!alerts.length) {
-          list.innerHTML = '<div class="activity-empty">Nothing flagged on this page</div>';
+          list.replaceChildren();
+          const empty = document.createElement('div'); empty.className = 'activity-empty'; empty.textContent = 'Nothing flagged on this page';
+          list.appendChild(empty);
           return;
         }
-        list.innerHTML = '';
+        list.replaceChildren();
         alerts.forEach(a => {
           const row = document.createElement('div');
           row.className = 'alert-item';
@@ -215,15 +217,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         .map(([t, n]) => t + ' ×' + n).join(', ');
       const summary = document.createElement('div');
       summary.style.cssText = 'padding:8px 10px;margin-bottom:8px;border-radius:8px;background:rgba(102,126,234,0.08);font-size:10.5px;line-height:1.7;';
-      summary.innerHTML = '<b>Scanned ' + (scan.nodes || 0) + '</b> text nodes · ignored <b>' + fpRate + '%</b> of ' + a.triggered + ' alerts' +
-        (topTypes ? ' · top: ' + topTypes : '');
-      list.innerHTML = '';
-      list.appendChild(summary);
+      const b1 = document.createElement('b'); b1.textContent = 'Scanned ' + (scan.nodes || 0);
+      const b2 = document.createElement('b'); b2.textContent = fpRate + '%';
+      summary.append(b1, ' text nodes · ignored ', b2, ' of ' + (a.triggered || 0) + ' alerts' + (topTypes ? ' · top: ' + topTypes : ''));
+      list.replaceChildren(summary);
       if (!history.length) {
-        list.innerHTML += '<div class="activity-empty">Nothing yet — your protections will appear here</div>';
+        const empty = document.createElement('div'); empty.className = 'activity-empty'; empty.textContent = 'Nothing yet — your protections will appear here';
+        list.appendChild(empty);
         return;
       }
-      list.innerHTML = '';
       history.forEach(h => {
         const row = document.createElement('div');
         row.className = 'activity-item';
