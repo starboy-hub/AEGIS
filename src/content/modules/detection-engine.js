@@ -40,6 +40,13 @@
     { type: 'EMPLOYMENT', pattern: /\b(?:fired|laid off|let go|terminated|quit my job|resigned)\b/gi }
   ];
 
+  function isReDoSSafe(patternStr) {
+    if (!patternStr) return true;
+    // Reject nested quantifiers like (a+)+ or ([a-z]+)* which trigger exponential ReDoS
+    if (/\([^()]*[+*][^()]*\)[+*]/.test(patternStr)) return false;
+    return true;
+  }
+
   function parseCustomPatterns(patternsString) {
     if (!patternsString || patternsString.trim() === '') return [];
     const lines = patternsString.split('\n').filter(l => l.trim() !== '');
@@ -48,6 +55,10 @@
       const match = line.match(/^([A-Z_]+):\/(.+)\/([gim]*)$/);
       if (match) {
         const [, type, pattern, flags] = match;
+        if (!isReDoSSafe(pattern)) {
+          console.warn('🛡️ AEGIS: Rejected high-risk ReDoS custom pattern:', line);
+          return;
+        }
         try { parsed.push({ type, pattern: new RegExp(pattern, flags) }); }
         catch (e) { console.warn('🛡️ AEGIS: Invalid custom pattern:', line); }
       }
