@@ -258,3 +258,27 @@ describe('AEGIS Detection Engine', () => {
     });
   });
 });
+
+describe('medical pattern — real conditions vs everyday "I have" (v9.5.1)', () => {
+  const med = (text) => {
+    const r = engine.scanWithContext(engine.cleanText(text));
+    return (r.redactions || []).some(x => x.type === 'MEDICAL');
+  };
+
+  test('everyday "I have <word>" is NOT medical', () => {
+    for (const t of ['I have gemini', 'I have a car', 'I have two brothers', 'I have gemini and chatgpt', 'I have no idea']) {
+      expect(med(t)).toBe(false);
+    }
+  });
+
+  test('real conditions still match, in several languages', () => {
+    for (const t of ['I have diabetes', 'I have anxiety and stress', 'tengo migraña', 'I have high cholesterol', 'Ich habe Depression']) {
+      expect(med(t)).toBe(true);
+    }
+  });
+
+  test('diagnosis/suffer verbs stay open-ended', () => {
+    expect(med('I was diagnosed with something rare last year')).toBe(true);
+    expect(med('I suffer from a rare condition')).toBe(true);
+  });
+});

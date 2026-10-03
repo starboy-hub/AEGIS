@@ -28,7 +28,26 @@ let ollamaModel = null;
 let sentinelAnalyzed = new Set(), sentinelNoted = false, sentinelLLMCalls = 0;
 let injectionSeen = new Set(), injectionNoted = false;
 let settings = { aiEnabled: true, regexEnabled: true, useFakeData: true, sensitivity: 'medium', customPatterns: '', trustedSites: [], monitorClipboard: true, notificationSize: 'standard' };
-let isWhitelisted = false, isPaused = false, pauseTimer = null, protectionHistory = [], totalProtected = 0, allTimeProtected = 0, ignoredTexts = new Set(), currentTheme = 'light';
+let isWhitelisted = false, isPaused = false, pauseTimer = null, protectionHistory = [], totalProtected = 0, allTimeProtected = 0, ignoredTexts = new Map(), currentTheme = 'light';
+
+// Ignored texts: per-SITE and time-limited (5 minutes). A global, session-long
+// ignore list would silence a pattern even when it reappears in a malicious
+// context on another site.
+function ignoreText(text) {
+  if (!text) return;
+  const host = location.hostname;
+  if (!isTextIgnored(host)) ignoredTexts.set(host, new Map());
+  ignoredTexts.get(host).set(text, Date.now() + 5 * 60 * 1000);
+}
+function isTextIgnored(text) {
+  if (!text) return false;
+  const hostMap = ignoredTexts.get(location.hostname);
+  if (!hostMap) return false;
+  const expiry = hostMap.get(text);
+  if (expiry === undefined) return false;
+  if (Date.now() > expiry) { hostMap.delete(text); return false; }
+  return true;
+}
 function tc(light, dark) { return (typeof currentTheme === 'undefined' || currentTheme === 'dark') ? dark : light; }
 function loadTheme() { return new Promise((resolve) => { chrome.storage.sync.get([AEGIS.KEYS.THEME], (r) => { currentTheme = r[AEGIS.KEYS.THEME] || 'light'; resolve(currentTheme); }); }); }
 
@@ -648,13 +667,13 @@ async function scanText(text) {
       const ctx = AEGIS_ENGINE.scanWithContext(ct);
       if (ctx && ctx.alerts) {
         ctx.alerts.forEach(a => { 
-          if (!alerts.find(x => x.type === a.type && x.source === 'context') && !ignoredTexts.has(a.text)) 
+          if (!alerts.find(x => x.type === a.type && x.source === 'context') && !isTextIgnored(a.text)) 
             alerts.push(a); 
         }); 
       }
       if (ctx && ctx.redactions) {
         ctx.redactions.forEach(r => { 
-          if (!seen.has(r.text) && !ignoredTexts.has(r.text)) { 
+          if (!seen.has(r.text) && !isTextIgnored(r.text)) { 
             redactions.push(r); 
             seen.add(r.text); 
           } 
@@ -666,7 +685,7 @@ async function scanText(text) {
       const names = AEGIS_ENGINE.findNamesHeuristic(ct);
       if (names && Array.isArray(names)) {
         names.forEach(n => { 
-          if (!seen.has(n) && !ignoredTexts.has(n)) { 
+          if (!seen.has(n) && !isTextIgnored(n)) { 
             alerts.push({ type: 'NAME', source: 'heuristic', severity: 'medium' }); 
             redactions.push({ text: n, type: 'NAME' }); 
             seen.add(n); 
@@ -683,13 +702,13 @@ async function scanText(text) {
       const custom = AEGIS_ENGINE.scanWithCustomPatterns(ct, customPatterns);
       if (custom && custom.alerts) {
         custom.alerts.forEach(a => { 
-          if (!alerts.find(x => x.type === a.type && x.source === 'custom') && !ignoredTexts.has(a.text)) 
+          if (!alerts.find(x => x.type === a.type && x.source === 'custom') && !isTextIgnored(a.text)) 
             alerts.push(a); 
         });
       }
       if (custom && custom.redactions) {
         custom.redactions.forEach(r => { 
-          if (!seen.has(r.text) && !ignoredTexts.has(r.text)) { 
+          if (!seen.has(r.text) && !isTextIgnored(r.text)) { 
             redactions.push(r); 
             seen.add(r.text); 
           } 
@@ -763,7 +782,7 @@ class AEGISPopup {
   async loadPosition() { return new Promise((resolve) => { chrome.storage.local.get(['popupPosition'], (result) => { if (result.popupPosition) { this.position = result.popupPosition; this.render(); } resolve(); }); }); }
   savePosition() { chrome.storage.local.set({ popupPosition: this.position }); }
   build() { this.container = document.createElement('div'); this.container.setAttribute('data-aegis', 'unified-popup'); this.container.style.cssText = 'position:fixed!important;z-index:2147483647!important;font-family:-apple-system,BlinkMacSystemFont,sans-serif!important;'; if (!document.getElementById('aegis-animations')) { const style = document.createElement('style'); style.id = 'aegis-animations'; style.textContent = '@keyframes aegis-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); } } @keyframes aegis-fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }'; document.head.appendChild(style); } document.body.appendChild(this.container); this.render(); }
-  showAlert(alerts, redactions, element, originalText, replacements = null, source = 'input') { const filteredAlerts = alerts.filter(a => !a.text || !ignoredTexts.has(a.text)); const filteredRedactions = redactions.filter(r => !ignoredTexts.has(r.text)); if (filteredAlerts.length === 0) return; const newAlert = { id: Date.now() + Math.random(), alerts: filteredAlerts, redactions: filteredRedactions, timestamp: new Date(), replacements: replacements || [], source, element, originalText }; this.activeAlerts = this.activeAlerts.filter(a => a.source !== source); this.activeAlerts.push(newAlert); if (this.activeAlerts.length > 10) this.activeAlerts.shift(); this.state = 'alert'; this.render(); }
+  showAlert(alerts, redactions, element, originalText, replacements = null, source = 'input') { const filteredAlerts = alerts.filter(a => !a.text || !isTextIgnored(a.text)); const filteredRedactions = redactions.filter(r => !isTextIgnored(r.text)); if (filteredAlerts.length === 0) return; const newAlert = { id: Date.now() + Math.random(), alerts: filteredAlerts, redactions: filteredRedactions, timestamp: new Date(), replacements: replacements || [], source, element, originalText }; this.activeAlerts = this.activeAlerts.filter(a => a.source !== source); this.activeAlerts.push(newAlert); if (this.activeAlerts.length > 10) this.activeAlerts.shift(); this.state = 'alert'; this.render(); }
   dismissAlert(alertId = null) { if (alertId) this.activeAlerts = this.activeAlerts.filter(a => a.id !== alertId); else this.activeAlerts = []; this.state = this.activeAlerts.length > 0 ? 'alert' : 'idle'; this.render(); }
   minimize() { this.state = 'minimized'; this.render(); } expand() { this.state = this.activeAlerts.length > 0 ? 'alert' : 'idle'; this.render(); } maximize() { this.isMaximized = true; this.render(); } restore() { this.isMaximized = false; this.render(); }
   getPopupWidth() { const size = settings.notificationSize || 'standard'; if (size === 'compact') return '340px'; if (size === 'large') return '640px'; return '480px'; }
@@ -827,7 +846,7 @@ class AEGISPopup {
       }
       this.render(); return;
     }
-    if (action.startsWith('ignore-')) { const id = parseFloat(action.substring(7)); const alert = this.activeAlerts.find(a => a.id === id); if (alert && alert.redactions) { alert.redactions.forEach(r => ignoredTexts.add(r.text)); if (alert.element) clearHighlights(alert.element); this.dismissAlert(id); } return; }
+    if (action.startsWith('ignore-')) { const id = parseFloat(action.substring(7)); const alert = this.activeAlerts.find(a => a.id === id); if (alert && alert.redactions) { alert.redactions.forEach(r => ignoreText(r.text)); if (alert.element) clearHighlights(alert.element); this.dismissAlert(id); } return; }
     if (action.startsWith('undo-')) { const id = parseFloat(action.substring(5)); const alert = this.activeAlerts.find(a => a.id === id); if (alert && alert.element && alert.originalText) { if (alert.element.tagName === 'INPUT' || alert.element.tagName === 'TEXTAREA') alert.element.value = alert.originalText; else if (alert.element.innerText !== undefined) alert.element.innerText = alert.originalText; clearHighlights(alert.element); this.dismissAlert(id); } return; }
     if (action.startsWith('dismiss-')) { this.dismissAlert(parseFloat(action.substring(8))); return; }
     if (action.startsWith('clear-clipboard-')) { try { await navigator.clipboard.writeText('[CLEARED BY AEGIS]'); this.dismissAlert(parseFloat(action.substring(16))); } catch (e) {} return; }
@@ -876,12 +895,22 @@ let submissionGuardEnabled = true, pendingSubmission = null, hasUserInteracted =
 document.addEventListener('mousedown', () => { hasUserInteracted = true; }, { once: true }); document.addEventListener('keydown', () => { hasUserInteracted = true; }, { once: true });
 function setupSubmissionGuard() {
   document.addEventListener('click', (e) => { const target = e.target; if (target.id === 'aegis-modal-cancel' || target.closest('#aegis-modal-cancel')) { e.preventDefault(); e.stopPropagation(); const modal = document.querySelector('[data-aegis="submission-modal"]'); if (modal) modal.remove(); pendingSubmission = null; return; } if (target.id === 'aegis-modal-confirm' || target.closest('#aegis-modal-confirm')) { e.preventDefault(); e.stopPropagation(); const modal = document.querySelector('[data-aegis="submission-modal"]'); if (modal) modal.remove(); if (pendingSubmission) { submissionGuardEnabled = false; setTimeout(() => { if (pendingSubmission.type === 'button') pendingSubmission.element.click(); else if (pendingSubmission.type === 'enter') { const evt = new KeyboardEvent('keydown', { key: 'Enter', shiftKey: false, bubbles: true, cancelable: true }); pendingSubmission.element.dispatchEvent(evt); } else if (pendingSubmission.type === 'form') pendingSubmission.element.submit(); pendingSubmission = null; setTimeout(() => { submissionGuardEnabled = true; }, 1000); }, 100); } return; } if (target.getAttribute('data-aegis') === 'submission-modal') { target.remove(); pendingSubmission = null; return; } }, true);
-  document.addEventListener('click', (e) => { if (!submissionGuardEnabled || !hasUserInteracted) return; if (e.target.closest('[data-aegis]')) return; const target = e.target; const button = target.closest('button'); if (button && button.closest('[data-aegis="unified-popup"]')) return; if (target.id === 'aegis-modal-cancel' || target.id === 'aegis-modal-confirm') return; const isSendButton = button && (button.getAttribute('data-testid') === 'send-button' || button.type === 'submit' || /send|submit/i.test(button.textContent || button.getAttribute('aria-label') || '')); if (isSendButton && hasUnprotectedPII()) { e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); pendingSubmission = { type: 'button', element: button }; showSubmissionConfirmation(); } }, true);
-  document.addEventListener('keydown', (e) => { if (!submissionGuardEnabled || !hasUserInteracted) return; if ((e.key === 'Enter' && !e.shiftKey) || ((e.metaKey || e.ctrlKey) && e.key === 'Enter')) { const target = e.target; if ((target.tagName === 'TEXTAREA' || target.tagName === 'INPUT' || target.getAttribute('contenteditable') === 'true') && hasUnprotectedPII()) { e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); pendingSubmission = { type: 'enter', element: target }; showSubmissionConfirmation(); } } }, true);
+  document.addEventListener('click', (e) => { if (!submissionGuardEnabled || !hasUserInteracted) return; if (e.target.closest('[data-aegis]')) return; const target = e.target; const button = target.closest('button'); if (button && button.closest('[data-aegis="unified-popup"]')) return; if (target.id === 'aegis-modal-cancel' || target.id === 'aegis-modal-confirm') return; const isSendButton = button && (button.getAttribute('data-testid') === 'send-button' || button.type === 'submit' || /send|submit/i.test(button.textContent || button.getAttribute('aria-label') || '')); if (isSendButton && hasUnprotectedPII(button)) { e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); pendingSubmission = { type: 'button', element: button }; showSubmissionConfirmation(); } }, true);
+  document.addEventListener('keydown', (e) => { if (!submissionGuardEnabled || !hasUserInteracted) return; if ((e.key === 'Enter' && !e.shiftKey) || ((e.metaKey || e.ctrlKey) && e.key === 'Enter')) { const target = e.target; if ((target.tagName === 'TEXTAREA' || target.tagName === 'INPUT' || target.getAttribute('contenteditable') === 'true') && hasUnprotectedPII(target)) { e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); pendingSubmission = { type: 'enter', element: target }; showSubmissionConfirmation(); } } }, true);
   document.addEventListener('submit', (e) => { if (!submissionGuardEnabled || !hasUserInteracted) return; if (hasUnprotectedPII()) { e.preventDefault(); e.stopPropagation(); pendingSubmission = { type: 'form', element: e.target }; showSubmissionConfirmation(); } }, true);
   console.log('️ AEGIS: ✅ Universal submission guard active');
 }
-function hasUnprotectedPII() { return popup && popup.activeAlerts && popup.activeAlerts.some(a => !a.isProtected); }
+function hasUnprotectedPII(target) {
+  if (!popup || !popup.activeAlerts) return false;
+  const unscoped = popup.activeAlerts.filter(a => !a.isProtected && a.element);
+  if (!unscoped.length) return false;
+  if (!target || !target.closest) return true;
+  // Scope to the editing surface the interaction belongs to: an alert on
+  // page text must not block a send in a composer (and vice versa)
+  const scope = target.closest('form, [role="dialog"], [role="textbox"], [contenteditable="true"], textarea, input');
+  if (!scope) return true;
+  return unscoped.some(a => scope === a.element || scope.contains(a.element) || (a.element.contains && a.element.contains(scope)));
+}
 function showSubmissionConfirmation() {
   document.querySelectorAll('[data-aegis="submission-modal"]').forEach(el => el.remove());
   const modalBg = tc('white', '#1e1e1e'), modalText = tc('#333', '#e0e0e0'), modalBorder = tc('#e9ecef', '#404040'), secondaryText = tc('#666', '#999');

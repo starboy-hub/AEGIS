@@ -2,6 +2,31 @@
 
 All notable changes to AEGIS will be documented in this file.
 
+## [9.5.1] - 2026-10-03
+
+### Fixed — the "I have gemini" false positive + audit criticals
+
+User-reported on Gemini: typing "I have gemini" raised a Medical alert, and
+pressing Enter popped the submission modal — the guard then ate the
+keystroke. Three fixes, all from a code-verified external audit:
+
+- **Medical pattern redesigned**: the old context pattern treated ANY word
+  after "I have" as a medical condition. It is now split — diagnosis/suffer
+  verbs ("diagnosed with", "suffer from") keep the open capture (inherently
+  medical), while "I have"-style verbs require an actual condition word from
+  a multilingual vocabulary. "I have gemini / a car / two brothers" no longer
+  match; "I have diabetes / anxiety / migraña" still do.
+- **Submission guard scoped** to the surface the interaction belongs to: an
+  alert on page text can no longer block a send in a composer (and vice
+  versa) — an alert must belong to the same form/editor/dialog as the button
+  or Enter press it tries to intercept.
+- **Ignore list is per-site and time-limited** (5 minutes): ignoring a value
+  on one site no longer silences it everywhere for the whole session.
+
+Also from the verified audit: clipboard "clear" now explains it was cleared
+by AEGIS in the alert copy (unchanged behavior, better wording context).
+The 2-second polling → MutationObserver redesign is assessed and queued —
+the current loop already skips hidden tabs.
 ## [9.5.0] - 2026-10-02
 
 ### Added — 🌍 Multilingual classifier (9 languages)
