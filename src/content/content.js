@@ -726,6 +726,12 @@ async function scanText(text, element) {
       const r = AEGIS_ENGINE.scanWithRegex(ct);
       if (r && r.alerts) alerts.push(...r.alerts); 
       if (r && r.redactions) r.redactions.forEach(x => { redactions.push(x); seen.add(x.text); }); 
+
+      if (typeof AEGIS_SECRETS !== 'undefined') {
+        const sec = AEGIS_SECRETS.scanSecrets(ct);
+        if (sec && sec.alerts) alerts.push(...sec.alerts);
+        if (sec && sec.redactions) sec.redactions.forEach(x => { if (!seen.has(x.text)) { redactions.push(x); seen.add(x.text); } });
+      }
     }
     
     if (sensitivity === 'medium' || sensitivity === 'high') {

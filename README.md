@@ -3,9 +3,9 @@
 > **Local-First Privacy & Security Engine Against AI Data Leaks and Cyber Threats.**  
 > *100% On-Device. Zero Cloud. Zero Account Required. Zero Telemetry.*
 
-[![Version](https://img.shields.io/badge/version-9.7.1-blue.svg)](https://github.com/starboy-hub/AEGIS)
+[![Version](https://img.shields.io/badge/version-10.0.0--beast-blue.svg)](https://github.com/starboy-hub/AEGIS)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Unit Tests](https://img.shields.io/badge/tests-242%20passing-brightgreen.svg)](tests/)
+[![Unit Tests](https://img.shields.io/badge/tests-251%20passing-brightgreen.svg)](tests/)
 [![E2E Tests](https://img.shields.io/badge/E2E-45%20passing-purple.svg)](e2e/)
 [![Privacy](https://img.shields.io/badge/privacy-100%25_local-red.svg)](#-privacy--architecture)
 
@@ -15,29 +15,29 @@
 
 **AEGIS** is a high-performance browser extension designed to protect your privacy and security in the AI era. It operates bidirectionally:
 
-1. **Outbound Protection:** Prevents Personally Identifiable Information (PII), credentials, and sensitive data from leaking into public AI models (ChatGPT, Gemini, Claude, etc.).
+1. **Outbound Protection:** Prevents Personally Identifiable Information (PII), developer secrets, credentials, and sensitive data from leaking into public AI models (ChatGPT, Gemini, Claude, etc.).
 2. **Inbound Threat Defense:** Shields you against prompt injections, AI-generated scams, impersonation attacks, and synthetic media.
 
 ---
 
-## 🚀 Core Features
+## 🚀 Core Features (v10.0 Beast Mode)
 
 ### 🛡️ Outbound Privacy & Data Protection
+* **Developer Secret & Code Sanitizer:** Real-time scanning and auto-redaction of AWS Access Keys, GitHub PATs, OpenAI/Anthropic Keys, Stripe Keys, JWTs, SSH Private Keys, and Database Connection Strings before submission to any AI model.
 * **Identity Vault & Pseudonymization:** Teaches AEGIS your sensitive details once (AES-256-GCM encrypted locally). Data is automatically swapped with consistent per-site pseudonyms so AI chats stay coherent without leaking your real identity. When the AI responds using a pseudonym, AEGIS restores your real values on-screen.
 * **Smart Paste Guardian:** Intercepts clipboard paste events into AI input boxes and sanitizes sensitive data before it enters the DOM.
 * **Universal RTE Native Adapter:** Seamlessly works with complex Rich Text Editors (Notion, ProseMirror, Slate, Lexical) using native `execCommand` and input event dispatching.
-* **Contextual & Regex Detection:** Scans text in real time using 9-language semantic context and high-accuracy regex (Luhn-verified cards, SSA-valid SSNs, emails, phones, credentials).
 
 ### 🚨 Inbound Threat Defense & Forensics
+* **Multi-Modal Vision & Canvas Injection Firewall:** Inspects Canvas elements, base64 data URLs, and embedded visual graphic layers for concealed visual prompt injection payloads designed to hijack AI agents.
+* **Decentralized P2P Swarm Defense:** Zero-Knowledge threat signature exchange using WebRTC DataChannels, anonymously broadcasting cryptographic threat hashes across peer nodes without any central server.
 * **Sentinel Engine:** Scores incoming web content against weighted scam signals (urgency, credential harvesting, fake authority, payment demands). Uses a Trust Graph where messages impersonating *your* bank or employer trigger critical alerts.
-* **Injection Firewall:** Detects prompt-injection payloads, instruction overrides, and hidden/concealed text (1px, transparent, off-screen text) engineered to hijack web-browsing AI agents.
 * **Webmail Shield:** Performs real-time sender forensics on Gmail and Outlook to detect corporate name spoofing and typosquatting domains.
-* **Reality Check:** Right-click image analysis scanning raw bytes for AI provenance metadata (C2PA content credentials, Stable Diffusion parameters, IPTC tags).
-* **ECDSA Sign & Verify:** Sign content locally with device keys; verify portable signed blocks to detect tampering or forgery.
+* **Reality Check & ECDSA Verification:** Right-click image analysis for C2PA/IPTC AI provenance metadata + device-local cryptographic signing.
 
-### 🤖 Desktop & Agent Companion Tools
-* **Agent Firewall Proxy:** Local loopback proxy that tokenizes sensitive values in outgoing AI agent HTTP traffic and re-hydrates them in streamed responses.
-* **Voice Canary:** Challenge-response verification tool to defeat voice-clone phone scams using private non-public questions.
+### 🤖 WebGPU Acceleration & Audio Canary Tools
+* **WebGPU Hardware Accelerator Engine:** Hardware-accelerated tensor compute engine (`navigator.gpu`) providing up to 40+ tokens/sec local neural inference on Apple Silicon / NVIDIA GPUs with WASM SIMD fallback.
+* **Voice Clone Audio Spectral Canary:** Analyzes FFT audio spectrums for synthetic vocoder artifacts, unnatural pitch variance, and high-frequency jitter typical of AI voice clones.
 
 ---
 
