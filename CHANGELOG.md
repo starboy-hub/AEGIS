@@ -2,6 +2,51 @@
 
 All notable changes to AEGIS will be documented in this file.
 
+## [9.7.0] - 2026-10-03
+
+### Added — 🕳️ Closing the coverage blind spots (verified external audit)
+
+Five architectural blind spots, each verified in the code before fixing, each
+covered by a regression test where testable.
+
+- **Shadow DOM traversal**: Web-Component inputs and text (GitHub, Stripe
+  Elements, modern banking portals) were invisible to the TreeWalker. The
+  sentinel, injection and honeytoken passes now walk every discovered shadow
+  root recursively (capped), the MutationObserver watches new shadow roots
+  for their own changes, and the active-input resolution follows focus
+  through `shadowRoot.activeElement`. The submission guard reads the real
+  target via `composedPath()` (events from shadow trees are retargeted).
+  **E2E journey added: an input inside a shadow root is detected and
+  Protect works.**
+- **Iframe coverage**: `all_frames: true` — embedded forms (Typeform,
+  Stripe Checkout, Intercom) now run their own full protection stack per
+  frame. **E2E journey added: a form in an iframe detects PII and shows its
+  own alert.**
+- **Network body warnings**: the fetch/XHR wrappers now also scan STRING
+  bodies (JSON-aware — values are walked, not the wire format) and surface a
+  throttled heads-up toast when PII is about to leave. Requests are never
+  altered or blocked — redacting inside an API payload would break apps.
+- **Autofill coverage**: `change` and `focusout` listeners plus the
+  `:-webkit-autofill` animation trick catch browser/1Password fills that
+  bypass input events; focusout rescans are debounced (a synchronous rescan
+  on blur re-rendered the alert card mid-click and swallowed clicks — found
+  by the E2E suite, fixed with a render-dedup + debounce).
+- **Model warm-up**: when the bundled AI layer is enabled, the model loads at
+  page open instead of on the first consult.
+- **Undo Ignore toast**: ignoring an alert now shows a 5-second reversible
+  toast matching the per-site TTL.
+- **Inline Vault onboarding**: the first time an email/phone/name is
+  detected, the alert card offers "🛡️ Add to Vault" — one click teaches and
+  immediately re-scans, instead of sending the user to Options.
+- **Declined with justification**: `requestIdleCallback` scheduling (the
+  4s throttle + 10s fallback already bound the work), and popup-wide ARIA
+  rework (controls are native buttons with keyboard support; aria-labels
+  added where missing).
+
+### Development notes
+Two E2E journeys and one debug-line-filter regression (the E2E suite caught
+a deleted button-binding line mid-sprint — the net paid off) — final state:
+45 E2E + 242 unit green.
 ## [9.6.1] - 2026-10-03
 
 ### Fixed — self-audit of the v9.5/v9.6 changes

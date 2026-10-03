@@ -107,9 +107,12 @@ test('vault: a taught name is detected and pseudonymized deterministically', asy
   const first = await page.inputValue('#chat-input');
   expect(first).not.toContain('Sarah Mitchell');
 
-  // Same name again -> the SAME pseudonym (deterministic, per site)
+  // Same name again -> the SAME pseudonym (deterministic, per site).
+  // The identical PII produces an identical alert signature, so the popup
+  // intentionally does NOT re-render — the existing card (and its Protect
+  // button, whose redactions still match) stays valid. Click it directly.
   await page.fill('#chat-input', 'hi, I am Sarah Mitchell again');
-  await page.waitForSelector('[data-aegis-action^="protect-"]', { timeout: 20000 });
+  await page.waitForTimeout(600); // allow the debounced rescan to confirm no change is needed
   await page.click('[data-aegis-action^="protect-"]');
   const second = await page.inputValue('#chat-input');
   const fake1 = first.split(' ').find(w => w !== 'hi,' && w !== 'I' && w !== 'am');
@@ -236,5 +239,48 @@ test('first-run onboarding walks through and dismisses', async () => {
   // flag persists — reload does not re-show
   await popup.reload();
   await expect(popup.locator('#onboard')).toBeHidden();
+  await context.close();
+});
+
+test('shadow DOM: an input inside a web component is scanned and Protect works', async () => {
+  const { context, page } = await launchWithExtension();
+  await context.route('**://shadow-app.test/**', route => route.fulfill({
+    contentType: 'text/html',
+    body: `<!doctype html><html><body>
+      <div id="host"></div>
+      <script>
+        const host = document.getElementById('host');
+        const root = host.attachShadow({ mode: 'open' });
+        root.innerHTML = '<textarea id="shadow-input" placeholder="type here"></textarea>';
+      </script>
+    </body></html>`
+  }));
+  await page.goto('https://shadow-app.test/');
+  // type INSIDE the shadow root (this is the path the audit said was blind)
+  await page.locator('#host >> textarea').fill('my email is jane.doe@gmail.com thanks');
+  await page.waitForSelector('[data-aegis="unified-popup"]', { timeout: 20000 });
+  await expect(page.locator('[data-aegis="unified-popup"]')).toContainText('Email', { timeout: 10000 });
+  await page.click('[data-aegis-action^="protect-"]');
+  const value = await page.locator('#host >> textarea').inputValue();
+  expect(value).not.toContain('jane.doe@gmail.com');
+  await context.close();
+});
+
+test('iframe: a form embedded in an iframe gets its own detection + guard', async () => {
+  const { context, page } = await launchWithExtension();
+  await context.route('**://frame-host.test/**', route => route.fulfill({
+    contentType: 'text/html',
+    body: `<!doctype html><html><body><iframe src="https://frame-host.test/form" style="width:600px;height:300px"></iframe></body></html>`
+  }));
+  await context.route('**://frame-host.test/form', route => route.fulfill({
+    contentType: 'text/html',
+    body: `<!doctype html><html><body><form><input id="frame-input" placeholder="email"><button type="submit">Send</button></form></body></html>`
+  }));
+  await page.goto('https://frame-host.test/');
+  const frame = page.frames().find(f => f.url().includes('/form'));
+  await frame.fill('#frame-input', 'my email is jane.doe@gmail.com thanks');
+  const frameAlert = frame.locator('[data-aegis="unified-popup"]');
+  await expect(frameAlert).toBeVisible({ timeout: 20000 });
+  await expect(frameAlert).toContainText('Email', { timeout: 10000 });
   await context.close();
 });
