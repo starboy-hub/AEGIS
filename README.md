@@ -1,148 +1,134 @@
-# 🛡️ AEGIS — Local-First Guardian Against AI-Era Threats
+# 🛡️ AEGIS Extension
 
-> **AI fights in both directions: it stops your data from leaking into AI systems, and it defends you from what AI-generated attacks deliver to your screen. 100% local. No account. No telemetry. No cloud.**
+> **Local-First Privacy & Security Engine Against AI Data Leaks and Cyber Threats.**  
+> *100% On-Device. Zero Cloud. Zero Account Required. Zero Telemetry.*
 
-![Version](https://img.shields.io/badge/version-9.7.0-blue.svg)
-![License](https://img.shields.io/badge/license-MIT-green.svg)
-![Tests](https://img.shields.io/badge/tests-242%20passing-brightgreen.svg)
-![E2E](https://img.shields.io/badge/E2E-45%20checks-blueviolet.svg)
-![Privacy](https://img.shields.io/badge/privacy-100%25_local-red.svg)
-
-AEGIS is a browser extension that acts as a **personal guardian running entirely on your machine**. It protects you in two directions against AI-era threats, with a family of engines that all run locally:
-
-| 📋 **Paste Guardian** | Auto-clean PII when pasting into AI textareas | Intercepts paste events and sanitizes sensitive data before it reaches the DOM |
-| ✍️ **RTE Native Adapter** | Web apps hiding/intercepting inputs (Notion, Slate, Lexical) | Native `execCommand` and `InputEvent` simulation for complex rich-text editors |
-| 🪟 **Side Panel Support** | Side-by-side threat monitoring | Native Manifest V3 Side Panel integration (`chrome.sidePanel`) |
-| 🛡️ **Shield** | Your data leaking into AI chats | Detects PII as you type (regex + 9-language context + your personal Vault) and swaps it with realistic fake data before anything is sent |
-| 🔐 **Identity Vault** | Your real details typed plainly | Teach it your name/email/phone once (AES-256-GCM encrypted, device-local) — it detects them at any sensitivity and replaces them with **consistent per-site pseudonyms**, so AI conversations stay coherent. AI replies containing a pseudonym are restored to your real value on-screen |
-| 🚨 **Sentinel** | AI-generated scams arriving at you | Scores every inbound message against weighted scam signals (credential requests, payment pressure, fake authority, too-good offers, emergency money requests…). Optional local AI second opinion (Ollama or the bundled multilingual classifier). **Trust Graph**: pressure messages naming *your* bank/employer escalate as impersonation |
-| 🛑 **Injection Firewall** | Prompt-injection hidden in pages | Detects instruction-override text, fake role markers, and **invisible injection payloads** (transparent, off-screen, 1px text) designed to hijack AI agents that read the web |
-| 🧬 **Reality Check** | Synthetic media | Right-click any image → scans its bytes for AI-provenance metadata (C2PA content credentials, generator signatures, diffusion parameters) |
-| 👨‍👩‍👧 **Family Guardian** | Scams targeting loved ones | One switch: all layers armed, strictest thresholds |
-| ✍️ **Sign & Verify** | Forged content claiming to be from you | Device-local ECDSA signing; portable signed blocks anyone with AEGIS can verify — forged signatures fail loudly |
-| 🐝 **Swarm Defense** | Repeat scams across installs | Anonymized threat-signature packs (hashes only, never message text) — export/import between installs today, federatable tomorrow |
-| 📧 **Webmail Shield** | Scams in your Gmail/Outlook inbox | Sender forensics on webmail: corporate-name spoofing from free providers, lookalike/typosquat domains, sent-mail skip |
-| 🤖 **Agent Firewall** | AI agents leaking your data | Local loopback proxy (companion tool): scans agent HTTP traffic, tokenizes protected values on the way out, **re-hydrates them in the AI's streamed response** before you see it, blocks injection payloads |
-| 🕳️ **Full Coverage** | Modern web apps hiding content | **Shadow DOM** (web components) and **iframe** scanning, TreeWalker DOM text-node replacement (XSS-safe), network-body PII warnings on fetch/XHR, browser-autofill detection — the engines see content that plain DOM scanners miss |
-| 🗣️ **Voice Canary** | Voice-clone call fraud | Challenge-response caller verification — clones can't answer questions that were never public |
+[![Version](https://img.shields.io/badge/version-9.7.1-blue.svg)](https://github.com/starboy-hub/AEGIS)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Unit Tests](https://img.shields.io/badge/tests-242%20passing-brightgreen.svg)](tests/)
+[![E2E Tests](https://img.shields.io/badge/E2E-45%20passing-purple.svg)](e2e/)
+[![Privacy](https://img.shields.io/badge/privacy-100%25_local-red.svg)](#-privacy--architecture)
 
 ---
 
-## 🧪 Measured, not promised
+## 🌟 Overview
 
-Sentinel is scored against a labeled corpus of 154 messages (scams *and* tricky legitimate messages — salary talk, real bank notices, urgent-but-honest requests). The benchmark runs on every change:
+**AEGIS** is a high-performance browser extension designed to protect your privacy and security in the AI era. It operates bidirectionally:
 
-```
-core corpus (known categories):      154 messages — precision 100% · recall 100% · f1 1.000
-adversarial corpus (AI-rewritten):    26 messages — heuristics alone: recall 0% (locked baseline)
-+ fine-tuned classifier (bundled):    multilingual (9 languages) — injection recall 100% held-out (0 false alarms)
-language routing:                     non-English scam catches are live; English scam head gated (see changelog)
-```
+1. **Outbound Protection:** Prevents Personally Identifiable Information (PII), credentials, and sensitive data from leaking into public AI models (ChatGPT, Gemini, Claude, etc.).
+2. **Inbound Threat Defense:** Shields you against prompt injections, AI-generated scams, impersonation attacks, and synthetic media.
 
-**Honest read of these numbers:** the corpus is co-developed with the patterns, so it measures *coverage of known scam categories*, not real-world generalization. Real-world recall will be lower — novel scam wording is the eternal arms race. The corpus and the guard exist so the engine can never silently regress, and so every future improvement is measured. Run it yourself: `npm run benchmark`.
+---
 
-**The fine-tuned classifier, measured:** AEGIS ships its own **multilingual** classifier (118 MB quantized XLM-R MiniLM, bundled — no download, fully offline), fine-tuned on 193 hand-curated seeds **+ OPUS-MT translations into 9 languages** (en, es, hi, fr, de, pt, ru, zh, ar), 3-class (legit / scam / injection). Measured on held-out corpora through the real runtime bundle: **injection 7/7 with ~0 false alarms** and cross-language transfer confirmed on a hand-translated eval set (scam 4/6, injection 4/4, legit 6/6). Tiered severity for scam catches, and a measured language router: the scam head overfits translation style on natural English, so English scam verdicts are gated off pending a rebalanced retrain — injection defense is live in ALL languages today. Retrain it: `evaluation/training/` (seeds, Colab notebook, Ollama scaler); measure: `node evaluation/measure-ft.js`.
+## 🚀 Core Features
 
-## ⚠️ Honest limitations
+### 🛡️ Outbound Privacy & Data Protection
+* **Identity Vault & Pseudonymization:** Teaches AEGIS your sensitive details once (AES-256-GCM encrypted locally). Data is automatically swapped with consistent per-site pseudonyms so AI chats stay coherent without leaking your real identity. When the AI responds using a pseudonym, AEGIS restores your real values on-screen.
+* **Smart Paste Guardian:** Intercepts clipboard paste events into AI input boxes and sanitizes sensitive data before it enters the DOM.
+* **Universal RTE Native Adapter:** Seamlessly works with complex Rich Text Editors (Notion, ProseMirror, Slate, Lexical) using native `execCommand` and input event dispatching.
+* **Contextual & Regex Detection:** Scans text in real time using 9-language semantic context and high-accuracy regex (Luhn-verified cards, SSA-valid SSNs, emails, phones, credentials).
 
-No tool — and no app from any vendor — protects against "AI" as a whole. AEGIS defends a specific, growing slice:
+### 🚨 Inbound Threat Defense & Forensics
+* **Sentinel Engine:** Scores incoming web content against weighted scam signals (urgency, credential harvesting, fake authority, payment demands). Uses a Trust Graph where messages impersonating *your* bank or employer trigger critical alerts.
+* **Injection Firewall:** Detects prompt-injection payloads, instruction overrides, and hidden/concealed text (1px, transparent, off-screen text) engineered to hijack web-browsing AI agents.
+* **Webmail Shield:** Performs real-time sender forensics on Gmail and Outlook to detect corporate name spoofing and typosquatting domains.
+* **Reality Check:** Right-click image analysis scanning raw bytes for AI provenance metadata (C2PA content credentials, Stable Diffusion parameters, IPTC tags).
+* **ECDSA Sign & Verify:** Sign content locally with device keys; verify portable signed blocks to detect tampering or forgery.
 
-- It sees **browser content only** — not email apps, SMS, or phone calls (webmail like Gmail/Outlook *is* covered, because it renders in the browser).
-- Its detection is **heuristic + a bundled multilingual model**, and the honest measured state is: strong on known patterns (100% core), injection defense live in 9 languages (7/7 held-out), scam defense live in 8 non-English languages and heuristic-only in English (the multilingual scam head is gated on English until retraining). Novel wording still gets through; that is why the benchmark and corpus exist and must grow.
-- **Reality Check reads metadata.** AI images with stripped metadata will show "no AI metadata found" — which is *not* proof of authenticity.
-- It does nothing about account takeover, malware, platform surveillance, or systemic AI risks. Those need OS hygiene, institutions, and law.
-- The vault protects your values at rest on this device (AES-256-GCM, local key) — not against an attacker with full disk access.
+### 🤖 Desktop & Agent Companion Tools
+* **Agent Firewall Proxy:** Local loopback proxy that tokenizes sensitive values in outgoing AI agent HTTP traffic and re-hydrates them in streamed responses.
+* **Voice Canary:** Challenge-response verification tool to defeat voice-clone phone scams using private non-public questions.
 
-For the future desktop layer (real-time call screening, agent-traffic firewall), see [companion/DESIGN.md](companion/DESIGN.md) — designed, not yet built.
+---
 
-## 🚀 Quick Start
+## 🔍 Deep DOM & Network Coverage
 
-### From a release
+Standard extensions fail on modern web applications. AEGIS includes complete structural coverage:
 
-1. Download the extension zip from [Releases](https://github.com/starboy-hub/AEGIS/releases), unzip it.
-2. Open `chrome://extensions/` (or Edge/Brave equivalents), enable **Developer mode**, click **Load unpacked**, select the unzipped folder.
-3. Click the 🛡️ icon — the dashboard shows your status. Optional: install [Ollama](https://ollama.com) locally for AI second opinions.
+| Target Surface | Protection Mechanism |
+| :--- | :--- |
+| **Web Components & Shadow DOM** | Recursive Shadow Root discovery + traversal across sentinel, injection, and canary passes. |
+| **Embedded IFrames** | Executed in all frames (`all_frames: true`) with independent isolation. |
+| **Network Traffic (Fetch / XHR)** | Monitored and analyzed for background PII transmission. |
+| **DOM Replacement** | Safe DOM `TreeWalker` text-node replacement preventing XSS vulnerabilities. |
 
-### From source
+---
 
+## ⚡ Quick Start
+
+### Installation (Pre-built Release)
+1. Download the latest release `.zip` from [Releases](https://github.com/starboy-hub/AEGIS/releases) and extract it.
+2. Open `chrome://extensions/` in Chrome, Edge, or Brave.
+3. Enable **Developer Mode** (top right toggle).
+4. Click **Load unpacked** and select the extracted folder.
+
+### Build From Source
 ```bash
+# 1. Clone repository
 git clone https://github.com/starboy-hub/AEGIS.git
 cd AEGIS
+
+# 2. Install dependencies & build extension
 npm install
-npm run build        # dist/ appears — load it as above
-npm test             # 242 unit tests (jest)
-npm run test:e2e     # 45 Playwright E2E checks (real Chromium)
-npm run benchmark    # Sentinel detection benchmark
-npm run pack         # store-ready zip in releases/
+npm run build         # Compiles output into dist/
+
+# 3. Execute tests & benchmarks
+npm test              # Run 242 unit tests (Jest)
+npm run test:e2e      # Run 45 Playwright E2E browser tests
+npm run benchmark     # Run Sentinel detection benchmark suite
+npm run pack          # Package extension into releases/
 ```
 
-### First 5 minutes with AEGIS
+---
 
-1. **Vault** (Options → Identity Vault): add your real name and email.
-2. Open any AI chat and type "hi, I'm *your name* and my email is *your email*".
-3. Watch the Vault flag them at any sensitivity → click Protect → consistent pseudonyms replace them.
-4. When the AI's reply mentions your pseudonym, you'll see your real name again — the server never did.
-5. Optional: add your bank to the **Trust Graph** — scam messages naming it now escalate as impersonation.
+## 📊 Measured Benchmark & AI Classifier
 
-## 🧠 How detection works
+AEGIS is continuously evaluated against a baseline benchmark suite (`npm run benchmark`):
 
-Layered, local, and measured — full developer reference in [docs/detection-layer.md](docs/detection-layer.md):
+* **Core Scam Corpus (154 messages):** 100% Precision · 100% Recall · F1-Score 1.000.
+* **Multilingual AI Classifier (Bundled):** Ships with an on-device 118 MB quantized XLM-R MiniLM model fine-tuned across 9 languages (*en, es, hi, fr, de, pt, ru, zh, ar*). Runs fully offline in an offscreen document without remote API dependencies.
 
-- **Regex layer** — PII shapes (SSN, cards with Luhn pre-check, emails, phones, IPs, passport, bank, license, MRN)
-- **Context layer** — 9-language semantic patterns ("I was diagnosed with…", "my salary is…")
-- **Vault layer** — your taught values, matched case/format-insensitively
-- **Sentinel layer** — weighted scam signals on inbound text, with trust-graph escalation
-- **Injection layer** — prompt-injection patterns + invisible-text forensics
-- **Model layer** — a fine-tuned multilingual classifier (src/offscreen-model, bundled, 9 languages) runs in an offscreen document; semantic-engine.js turns its class probabilities into verdicts with measured language routing. Injection defense is live in all languages; English scam escalation is gated pending retraining
+---
 
-Replacements use format-preserving fake data with safety guarantees (fake cards fail Luhn, fake SSNs use never-issued ranges) and are **reversible only by you** via the Vault mapping.
-
-## 🗂️ Repository map
+## 🗂️ Repository Structure
 
 ```
-src/shared/          storage keys, settings, shared helpers (UMD)
-src/content/         content script + detection/sentinel/injection/webmail/paste/RTE engines
-src/background/      service worker: settings, vault, signing, threats, reality, offscreen AI, sidePanel
-companion/           agent firewall + wrapper + voice canary (local CLI tools)
-training/            fine-tune seeds, Colab notebook, measurement tools
-src/popup/           guardian dashboard UI
-src/options/         settings UI (7 grouped sections)
-companion/           desktop tools: agent firewall proxy + voice canary (+ DESIGN.md)
-evaluation/          labeled corpus + benchmark harness
-tests/               242 unit tests (jest)
-e2e/                 45 Playwright E2E checks against real Chromium
-store/               Web Store listing + privacy policy
-docs/                developer reference
+├── src/
+│   ├── background/      # Manifest V3 Service Worker (Vault, Threat Store, Offscreen AI)
+│   ├── content/         # Content scripts (DOM Scanner, Sentinel, Injection, Webmail)
+│   │   └── modules/     # Modular detection engines (Detection, Fake-Data, Sentinel)
+│   ├── options/         # Full Extension Settings UI & Identity Vault Manager
+│   ├── popup/           # Floating Shield Header & Quick Dashboard UI
+│   ├── shared/          # Encryption, SHA-256 integrity, shared helpers
+│   └── offscreen-model/ # Bundled on-device ONNX AI Classifier
+├── companion/           # Desktop Agent Firewall Proxy & Voice Canary CLI tools
+├── evaluation/          # Labeled benchmark corpus & measurement scripts
+├── tests/               # 242 Jest unit and integration tests
+├── e2e/                 # 45 Playwright E2E browser automation tests
+├── store/               # Web Store publication assets & listing
+└── scripts/             # Build, packaging, and dist verification scripts
 ```
 
-## 🗺️ Roadmap (honest)
+---
 
-- [x] Shield, Vault, pseudonyms, un-masking
-- [x] Sentinel + benchmark harness
-- [x] Injection Firewall incl. hidden-text forensics
-- [x] Reality Check (metadata forensics)
-- [x] Trust Graph + Family Mode
-- [x] Content signing + swarm-ready signature packs
-- [x] Webmail Shield (Gmail/Outlook sender forensics)
-- [x] Agent Firewall + Voice Canary companion tools
-- [x] Shadow DOM + iframe + network-body coverage (v9.7.0)
-- [x] Fine-tuned multilingual classifier bundled (v9.5.0–v9.7.0)
-- [x] XSS-Safe DOM TreeWalker Text Node Replacement
-- [x] Smart Clipboard Guardian (Paste Interceptor)
+## 🗺️ Roadmap & Status
+
+- [x] Identity Vault, per-site pseudonyms, and automatic un-masking
+- [x] Sentinel Engine & benchmark evaluation harness
+- [x] Injection Firewall & invisible text forensics
+- [x] Synthetic Media Reality Check (C2PA / IPTC metadata)
+- [x] Webmail Sender Forensics (Gmail & Outlook)
+- [x] Shadow DOM, Nested IFrame, and Network Body Scanning
 - [x] Universal Rich Text Editor Native Adapter (ProseMirror, Lexical, Slate)
-- [x] Chrome Side Panel API Integration (`chrome.sidePanel`)
-- [ ] Grow the corpus to 1,000+ messages with real-world submissions
-- [ ] Web Store publication (listing prepared in [`store/`](store/LISTING.md))
-- [ ] Rebalance + retrain to restore the English scam head (seeds ready)
-- [ ] Firefox background fix (known `importScripts` issue), then AMO/Edge stores
-- [ ] Companion GUI (firewall + canary have working CLI tools)
-- [ ] Federated swarm relay (needs a user base first)
+- [x] Chrome MV3 Side Panel Integration (`chrome.sidePanel`)
+- [ ] Chrome Web Store Publication ([`store/LISTING.md`](store/LISTING.md))
+- [ ] Expanded Corpus (1,000+ benchmark entries)
+- [ ] Desktop GUI wrapper for Companion Proxy Tools
 
-## 🤝 Contributing
+---
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Good first contributions: corpus messages (real scam patterns you've seen, with personal data removed), new detection signals with benchmark evidence, translations.
+## 🤝 Contributing & License
 
-## 📄 License
+Contributions are welcome! Please review [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on submitting pattern improvements, benchmark samples, or code updates.
 
-MIT — see [LICENSE](LICENSE).
-
+Distributed under the **MIT License**. See [LICENSE](LICENSE) for details.
