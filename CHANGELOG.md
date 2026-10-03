@@ -2,6 +2,27 @@
 
 All notable changes to AEGIS will be documented in this file.
 
+## [9.6.1] - 2026-10-03
+
+### Fixed — self-audit of the v9.5/v9.6 changes
+
+Auditing our own recent changes the way we audit others' found two real
+defects, both fixed:
+
+- **Vault alerts were being downgraded by context** (v9.6.0 regression): the
+  new context multiplier treated user-taught identity alerts like any other
+  detection — "critical" became "high" in form fields. Vault alerts are now
+  exempt: user-taught identities are never re-ranked by where they appear.
+- **Submission-guard scoping was weaker than advertised for chat UIs**: the
+  form/dialog selector missed chat apps whose send button is a SIBLING of
+  the contenteditable editor (Gemini's structure). Replaced with a unified
+  ancestor-walk (8 levels) — an alert may only block an interaction that
+  shares its editing surface, whatever the DOM shape.
+- Also verified the multilingual model's five load-time sanity sentences
+  against the real shipped artifact through the real browser pipeline
+  (all pass, probabilities 0.94–0.995) — the AI layer cannot break silently
+  at load.
+- 242 unit + 43 E2E green.
 ## [9.6.0] - 2026-10-03
 
 ### Changed — 🔧 Audit items: performance, context scoring, analytics

@@ -728,7 +728,8 @@ async function scanText(text, element) {
       const anyLikelyPhone = isTel || phoneMatches.some(r => AEGIS_ENGINE.isLikelyPhoneNumber(r.text, ct));
       if (phoneMatches.length && !anyLikelyPhone) alerts.forEach(a => { if (a.type === 'Phone') a.severity = 'low'; });
     }
-    AEGIS_ENGINE.applyContextMultiplier(alerts, element);
+    // Vault values are user-taught identities — context never downgrades them
+    AEGIS_ENGINE.applyContextMultiplier(alerts.filter(a => a.source !== 'vault'), element);
 
     if (settings.customPatterns) {
       const customPatterns = AEGIS_ENGINE.parseCustomPatterns(settings.customPatterns);
@@ -938,12 +939,17 @@ function hasUnprotectedPII(target) {
   if (!popup || !popup.activeAlerts) return false;
   const unscoped = popup.activeAlerts.filter(a => !a.isProtected && a.element);
   if (!unscoped.length) return false;
-  if (!target || !target.closest) return true;
-  // Scope to the editing surface the interaction belongs to: an alert on
-  // page text must not block a send in a composer (and vice versa)
-  const scope = target.closest('form, [role="dialog"], [role="textbox"], [contenteditable="true"], textarea, input');
-  if (!scope) return true;
-  return unscoped.some(a => scope === a.element || scope.contains(a.element) || (a.element.contains && a.element.contains(scope)));
+  if (!target) return true;
+  // An alert may only block an interaction it shares a composer with: walk
+  // up from the clicked/typed element a few levels — if an alert's element
+  // is found on that chain (or contains it), they belong to the same
+  // editing surface. This handles chat UIs where the send button is a
+  // SIBLING of the contenteditable editor, not inside it.
+  let node = target;
+  for (let depth = 0; node && depth < 8; depth++, node = node.parentElement) {
+    if (unscoped.some(a => a.element === node || (a.element && a.element.contains(node)))) return true;
+  }
+  return false;
 }
 function showSubmissionConfirmation() {
   document.querySelectorAll('[data-aegis="submission-modal"]').forEach(el => el.remove());
