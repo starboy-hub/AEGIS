@@ -282,3 +282,35 @@ describe('medical pattern — real conditions vs everyday "I have" (v9.5.1)', ()
     expect(med('I suffer from a rare condition')).toBe(true);
   });
 });
+
+describe('context-aware scoring (v9.6.0, verified audit)', () => {
+  test('isLikelyPhoneNumber: tel context, keywords, country codes', () => {
+    expect(engine.isLikelyPhoneNumber('555-123-4567', 'call me at 555-123-4567 tonight')).toBe(true);
+    expect(engine.isLikelyPhoneNumber('555-123-4567', 'phone: 555-123-4567')).toBe(true);
+    expect(engine.isLikelyPhoneNumber('+44 20 1234 5678', '')).toBe(true);
+  });
+
+  test('bare 10-digit groups without phone signals are not phones', () => {
+    expect(engine.isLikelyPhoneNumber('555-123-4567', 'order confirmation 555-123-4567 shipped today')).toBe(false);
+    expect(engine.isLikelyPhoneNumber('555-123-4567', 'ticket 555-123-4567')).toBe(false);
+  });
+
+  test('applyContextMultiplier: mailto downgrades, form fields downweight, paragraphs upweight', () => {
+    const mailto = { closest: (sel) => sel === 'a[href^="mailto:"]' ? {} : null };
+    const [emailAlert] = engine.applyContextMultiplier([{ type: 'Email', severity: 'medium' }], mailto);
+    expect(emailAlert.severity).toBe('low');
+
+    const input = { tagName: 'INPUT', closest: () => null };
+    const [inputAlert] = engine.applyContextMultiplier([{ type: 'SSN', severity: 'high' }], input);
+    expect(inputAlert.severity).toBe('medium'); // expected in a form field
+
+    const para = { tagName: 'P', closest: () => null };
+    const [paraAlert] = engine.applyContextMultiplier([{ type: 'SSN', severity: 'medium' }], para);
+    expect(paraAlert.severity).toBe('high'); // free-floating text is riskier
+  });
+
+  test('multiplier never drops a detection', () => {
+    const [a] = engine.applyContextMultiplier([{ type: 'Email', severity: 'low' }], { closest: (sel) => sel === 'a[href^="mailto:"]' ? {} : null });
+    expect(a.type).toBe('Email');
+  });
+});

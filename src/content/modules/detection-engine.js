@@ -144,7 +144,42 @@
 
   function cleanText(t) { return t.replace(/\{[^}]*\}/g,'').replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/g,'').replace(/\s+/g,' ').trim(); }
 
-  const AEGIS_ENGINE = { PII_PATTERNS, CONTEXT_PATTERNS, parseCustomPatterns, scanWithRegex, scanWithContext, scanWithCustomPatterns, findNamesHeuristic, cleanText, luhnValid };
+  // ---- Context-aware scoring (v9.6.0, from the verified external audit) ----
+
+  // Is this 10-digit match actually a phone number? Signals: tel input,
+  // phone keywords just before it, or a country-code prefix.
+  function isLikelyPhoneNumber(match, surroundingText) {
+    const m = String(match || '');
+    if (/^\+\d{1,3}[-.\s]/.test(m)) return true; // +1 555 123 4567
+    const before = String(surroundingText || '').slice(0, 400);
+    const idx = before.lastIndexOf(m);
+    const preceding = idx >= 0 ? before.slice(Math.max(0, idx - 24), idx) : before;
+    return /\b(?:phone|mobile|cell|call|tel|contact|reach|number)\b[^.!?]{0,10}$/i.test(preceding.trim());
+  }
+
+  // Severity multiplier by WHERE the match lives (pure — pass an element-like
+  // object with a closest() when a DOM is available, else omit).
+  // mailto/contact contexts are expected → downweight; free-floating
+  // paragraphs are the risky ones → upweight. Detection is never dropped,
+  // only re-ranked.
+  const SEVERITY_ORDER = { low: 0, medium: 1, high: 2, critical: 3 };
+  function applyContextMultiplier(alerts, element) {
+    for (const a of alerts) {
+      let multiplier = 1.0;
+      const closest = (sel) => (element && typeof element.closest === 'function') ? element.closest(sel) : null;
+      if (a.type === 'Email' && closest && closest('a[href^="mailto:"]')) multiplier = 0.3;
+      else if (element && (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA' || element.isContentEditable)) multiplier = 0.7;
+      else if (closest && closest('[class*="contact" i], [id*="contact" i], [class*="support" i], [id*="support" i]')) multiplier = 0.5;
+      else if (element && element.tagName === 'P' && !closest('form')) multiplier = 1.2;
+      a.contextMultiplier = multiplier;
+      const level = SEVERITY_ORDER[a.severity] !== undefined ? SEVERITY_ORDER[a.severity] : 1;
+      const next = multiplier >= 1.2 ? level + 1 : multiplier <= 0.7 ? level - 1 : level;
+      a.severity = Object.keys(SEVERITY_ORDER).find(k => SEVERITY_ORDER[k] === Math.max(0, Math.min(3, next))) || a.severity;
+    }
+    return alerts;
+  }
+
+  const AEGIS_ENGINE = { PII_PATTERNS, CONTEXT_PATTERNS, parseCustomPatterns, scanWithRegex, scanWithContext, scanWithCustomPatterns, findNamesHeuristic, cleanText, luhnValid, isLikelyPhoneNumber, applyContextMultiplier };
   root.AEGIS_ENGINE = AEGIS_ENGINE;
   if (typeof module !== 'undefined' && module.exports) module.exports = AEGIS_ENGINE;
 })(typeof self !== 'undefined' ? self : globalThis);

@@ -65,8 +65,23 @@ function ensureModel() {
       }
       return classify;
     })
-    .then((classify) => {
+    .then(async (classify) => {
       classifyText = classify;
+      // Integrity check (best effort): the vendored AI files must match the
+      // SHA-256 manifest the build emitted. A mismatch is reported loudly —
+      // it would mean the extension's own files were tampered with.
+      try {
+        const digest = async (buf) => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', buf))).map(b => b.toString(16).padStart(2, '0')).join('');
+        const manifest = await (await fetch(chrome.runtime.getURL('vendor/aegis-integrity.json'))).json();
+        for (const file of ['vendor/transformers.min.js']) {
+          const actual = await digest(await (await fetch(chrome.runtime.getURL(file))).arrayBuffer());
+          if (manifest[file] && manifest[file] !== actual) {
+            throw new Error('integrity mismatch on ' + file + ' — expected ' + manifest[file].slice(0, 12) + ' got ' + actual.slice(0, 12));
+          }
+        }
+      } catch (e) {
+        try { chrome.runtime.sendMessage({ type: 'OFFSCREEN_ERROR', error: 'integrity: ' + e.message }); } catch (e2) {}
+      }
       try { chrome.runtime.sendMessage({ type: 'WEBGPU_READY' }); } catch (e) {}
       return classify;
     })

@@ -2,6 +2,41 @@
 
 All notable changes to AEGIS will be documented in this file.
 
+## [9.6.0] - 2026-10-03
+
+### Changed — 🔧 Audit items: performance, context scoring, analytics
+
+The remaining verified-audit items, implemented end to end.
+
+- **Change-driven scanning** (the big one): the 2-second full-page poller is
+  replaced by a MutationObserver (throttled 4s / debounced 800ms) so the page
+  passes run when content actually changes — not 30 times a minute on Gmail.
+  Typing detection was already event-driven (300 ms debounce) and is
+  unchanged; a 10s interval remains as a safety net for anything events
+  cannot see. Idle CPU on complex pages drops accordingly.
+- **Context-aware severity**: detection is never dropped, only re-ranked —
+  mailto links and contact/form placements downweight an alert, free-floating
+  paragraphs upweight it; a bare 10-digit group without phone signals (tel
+  input, "call me" context, +country prefix) downgrades from Phone to
+  low-severity. "Ticket 555-123-4567" stops screaming; "call me at
+  555-123-4567" still protects.
+- **Pseudonym stability**: vault pseudonyms are now seeded by the normalized
+  VALUE (not the volatile entry id) — delete and re-add an identity and the
+  AI conversation keeps the same consistent fake.
+- **Local-only detection analytics**: the popup History tab shows how many
+  text nodes were scanned, how many alerts fired, and the ignored ratio —
+  the user-visible false-positive signal. Nothing leaves the device.
+- **Clipboard clearing** now copies the protected fake values instead of a
+  generic string, so the clipboard stays usable after clearing.
+- **AI-file integrity manifest**: the build emits SHA-256 hashes of the
+  vendored AI runtime; the offscreen document verifies them at model load and
+  reports a mismatch loudly (best-effort defense for the wasm-unsafe-eval
+  surface).
+- **Declined with justification**: inline floating Protect buttons — the
+  inline alert card already carries Protect/Ignore/Undo next to the finding;
+  extra floating buttons would reintroduce the alert fatigue the Quiet
+  Guardian redesign removed.
+- 242 unit + 43 E2E green.
 ## [9.5.1] - 2026-10-03
 
 ### Fixed — the "I have gemini" false positive + audit criticals

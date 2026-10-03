@@ -204,11 +204,23 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function renderHistory() {
-    chrome.storage.local.get([AEGIS.KEYS.HISTORY], (local) => {
+    chrome.storage.local.get([AEGIS.KEYS.HISTORY, 'aegis_analytics', 'aegis_last_scan'], (local) => {
       const history = (local[AEGIS.KEYS.HISTORY] || []).slice(-10).reverse();
       const list = $('historyList');
+      // Scan summary + false-positive signal (local-only analytics)
+      const a = local.aegis_analytics || { triggered: 0, protected: 0, ignored: 0, patternBreakdown: {} };
+      const scan = local.aegis_last_scan || { nodes: 0 };
+      const fpRate = a.triggered ? Math.round(a.ignored / a.triggered * 100) : 0;
+      const topTypes = Object.entries(a.patternBreakdown || {}).sort((x, y) => y[1] - x[1]).slice(0, 3)
+        .map(([t, n]) => t + ' ×' + n).join(', ');
+      const summary = document.createElement('div');
+      summary.style.cssText = 'padding:8px 10px;margin-bottom:8px;border-radius:8px;background:rgba(102,126,234,0.08);font-size:10.5px;line-height:1.7;';
+      summary.innerHTML = '<b>Scanned ' + (scan.nodes || 0) + '</b> text nodes · ignored <b>' + fpRate + '%</b> of ' + a.triggered + ' alerts' +
+        (topTypes ? ' · top: ' + topTypes : '');
+      list.innerHTML = '';
+      list.appendChild(summary);
       if (!history.length) {
-        list.innerHTML = '<div class="activity-empty">Nothing yet — your protections will appear here</div>';
+        list.innerHTML += '<div class="activity-empty">Nothing yet — your protections will appear here</div>';
         return;
       }
       list.innerHTML = '';

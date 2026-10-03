@@ -48,6 +48,25 @@ function isTextIgnored(text) {
   if (Date.now() > expiry) { hostMap.delete(text); return false; }
   return true;
 }
+
+// Local-only detection analytics (verified external audit Claim 7): counts
+// what was alerted, protected, ignored — the ignored ratio is the user-visible
+// false-positive signal. Nothing leaves the device.
+function trackAnalytics(event, types) {
+  try {
+    chrome.storage.local.get(['aegis_analytics'], (r) => {
+      const a = r.aegis_analytics || { triggered: 0, protected: 0, ignored: 0, patternBreakdown: {}, siteBreakdown: {} };
+      if (event === 'triggered') {
+        a.triggered++;
+        (types || []).forEach(t => { a.patternBreakdown[t] = (a.patternBreakdown[t] || 0) + 1; });
+        a.siteBreakdown[location.hostname] = (a.siteBreakdown[location.hostname] || 0) + 1;
+      }
+      if (event === 'protected') a.protected++;
+      if (event === 'ignored') a.ignored++;
+      chrome.storage.local.set({ aegis_analytics: a });
+    });
+  } catch (e) {}
+}
 function tc(light, dark) { return (typeof currentTheme === 'undefined' || currentTheme === 'dark') ? dark : light; }
 function loadTheme() { return new Promise((resolve) => { chrome.storage.sync.get([AEGIS.KEYS.THEME], (r) => { currentTheme = r[AEGIS.KEYS.THEME] || 'light'; resolve(currentTheme); }); }); }
 
@@ -101,10 +120,13 @@ async function refreshVault() {
   } catch (e) { console.warn('🛡️ AEGIS: vault unavailable:', e.message); }
 }
 
-function pickVaultFake(kind, entryId) {
+function pickVaultFake(kind, entryId, value) {
   const pools = { name: 'names', email: 'emails', phone: 'phones' };
   const pool = AEGIS_FAKE.FAKE_DATA[pools[kind]];
-  const seed = AEGIS.strHash(entryId + '|' + location.hostname);
+  // Seed by the NORMALIZED VALUE (not the volatile entryId): deleting and
+  // re-adding a vault entry keeps the same pseudonym, so AI conversations
+  // stay coherent across vault edits
+  const seed = AEGIS.strHash(String(value || '').trim().toLowerCase() + '|' + location.hostname);
   if (pool && pool.length) return pool[seed % pool.length];
   return '[Private-' + seed.toString(36) + ']';
 }
@@ -646,7 +668,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   return false;
 });
 
-async function scanText(text) {
+async function scanText(text, element) {
   const ct = AEGIS_ENGINE.cleanText(text);
   const alerts = [], redactions = [], seen = new Set();
   const sensitivity = settings.sensitivity || 'medium';
@@ -696,6 +718,17 @@ async function scanText(text) {
     
     // Vault values are user-taught — always detected, at any sensitivity
     scanVaultText(ct, alerts, redactions, seen);
+
+    // Context-aware scoring (verified external audit): a bare 10-digit group
+    // is usually an order ID, not a phone; mailto/contact/form placements are
+    // expected. Detection is never dropped — only severity is re-ranked.
+    if (element) {
+      const isTel = element.tagName === 'INPUT' && element.type === 'tel';
+      const phoneMatches = redactions.filter(r => r.type === 'Phone');
+      const anyLikelyPhone = isTel || phoneMatches.some(r => AEGIS_ENGINE.isLikelyPhoneNumber(r.text, ct));
+      if (phoneMatches.length && !anyLikelyPhone) alerts.forEach(a => { if (a.type === 'Phone') a.severity = 'low'; });
+    }
+    AEGIS_ENGINE.applyContextMultiplier(alerts, element);
 
     if (settings.customPatterns) {
       const customPatterns = AEGIS_ENGINE.parseCustomPatterns(settings.customPatterns);
@@ -751,7 +784,7 @@ function performRedaction(element, redactions) {
     if (!r.vaultId) return r;
     let fake = vaultPseudos[r.vaultId];
     if (!fake) {
-      fake = pickVaultFake(r.vaultKind, r.vaultId);
+      fake = pickVaultFake(r.vaultKind, r.vaultId, r.text);
       vaultPseudos[r.vaultId] = fake;
       try { chrome.runtime.sendMessage({ type: 'PSEUDO_RECORD', entryId: r.vaultId, site: location.hostname, fake }, () => {}); } catch (e) {}
     }
@@ -782,7 +815,7 @@ class AEGISPopup {
   async loadPosition() { return new Promise((resolve) => { chrome.storage.local.get(['popupPosition'], (result) => { if (result.popupPosition) { this.position = result.popupPosition; this.render(); } resolve(); }); }); }
   savePosition() { chrome.storage.local.set({ popupPosition: this.position }); }
   build() { this.container = document.createElement('div'); this.container.setAttribute('data-aegis', 'unified-popup'); this.container.style.cssText = 'position:fixed!important;z-index:2147483647!important;font-family:-apple-system,BlinkMacSystemFont,sans-serif!important;'; if (!document.getElementById('aegis-animations')) { const style = document.createElement('style'); style.id = 'aegis-animations'; style.textContent = '@keyframes aegis-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); } } @keyframes aegis-fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }'; document.head.appendChild(style); } document.body.appendChild(this.container); this.render(); }
-  showAlert(alerts, redactions, element, originalText, replacements = null, source = 'input') { const filteredAlerts = alerts.filter(a => !a.text || !isTextIgnored(a.text)); const filteredRedactions = redactions.filter(r => !isTextIgnored(r.text)); if (filteredAlerts.length === 0) return; const newAlert = { id: Date.now() + Math.random(), alerts: filteredAlerts, redactions: filteredRedactions, timestamp: new Date(), replacements: replacements || [], source, element, originalText }; this.activeAlerts = this.activeAlerts.filter(a => a.source !== source); this.activeAlerts.push(newAlert); if (this.activeAlerts.length > 10) this.activeAlerts.shift(); this.state = 'alert'; this.render(); }
+  showAlert(alerts, redactions, element, originalText, replacements = null, source = 'input') { const filteredAlerts = alerts.filter(a => !a.text || !isTextIgnored(a.text)); const filteredRedactions = redactions.filter(r => !isTextIgnored(r.text)); if (filteredAlerts.length === 0) return; const newAlert = { id: Date.now() + Math.random(), alerts: filteredAlerts, redactions: filteredRedactions, timestamp: new Date(), replacements: replacements || [], source, element, originalText }; this.activeAlerts = this.activeAlerts.filter(a => a.source !== source); this.activeAlerts.push(newAlert); if (this.activeAlerts.length > 10) this.activeAlerts.shift(); trackAnalytics('triggered', filteredAlerts.map(a => a.type)); this.state = 'alert'; this.render(); }
   dismissAlert(alertId = null) { if (alertId) this.activeAlerts = this.activeAlerts.filter(a => a.id !== alertId); else this.activeAlerts = []; this.state = this.activeAlerts.length > 0 ? 'alert' : 'idle'; this.render(); }
   minimize() { this.state = 'minimized'; this.render(); } expand() { this.state = this.activeAlerts.length > 0 ? 'alert' : 'idle'; this.render(); } maximize() { this.isMaximized = true; this.render(); } restore() { this.isMaximized = false; this.render(); }
   getPopupWidth() { const size = settings.notificationSize || 'standard'; if (size === 'compact') return '340px'; if (size === 'large') return '640px'; return '480px'; }
@@ -834,6 +867,7 @@ class AEGISPopup {
   endDrag() { if (this.isDragging) { this.isDragging = false; this.container.style.cursor = ''; const rect = this.container.getBoundingClientRect(); this.position = { right: window.innerWidth - rect.right, bottom: window.innerHeight - rect.bottom }; this.savePosition(); } }
   async handleAction(action) {
     if (action.startsWith('protect-')) {
+      trackAnalytics('protected', []);
       const id = parseFloat(action.substring(8)); const alert = this.activeAlerts.find(a => a.id === id);
       if (alert && alert.element && alert.redactions) {
         const result = performRedaction(alert.element, alert.redactions);
@@ -846,10 +880,10 @@ class AEGISPopup {
       }
       this.render(); return;
     }
-    if (action.startsWith('ignore-')) { const id = parseFloat(action.substring(7)); const alert = this.activeAlerts.find(a => a.id === id); if (alert && alert.redactions) { alert.redactions.forEach(r => ignoreText(r.text)); if (alert.element) clearHighlights(alert.element); this.dismissAlert(id); } return; }
+    if (action.startsWith('ignore-')) { trackAnalytics('ignored', []); const id = parseFloat(action.substring(7)); const alert = this.activeAlerts.find(a => a.id === id); if (alert && alert.redactions) { alert.redactions.forEach(r => ignoreText(r.text)); if (alert.element) clearHighlights(alert.element); this.dismissAlert(id); } return; }
     if (action.startsWith('undo-')) { const id = parseFloat(action.substring(5)); const alert = this.activeAlerts.find(a => a.id === id); if (alert && alert.element && alert.originalText) { if (alert.element.tagName === 'INPUT' || alert.element.tagName === 'TEXTAREA') alert.element.value = alert.originalText; else if (alert.element.innerText !== undefined) alert.element.innerText = alert.originalText; clearHighlights(alert.element); this.dismissAlert(id); } return; }
     if (action.startsWith('dismiss-')) { this.dismissAlert(parseFloat(action.substring(8))); return; }
-    if (action.startsWith('clear-clipboard-')) { try { await navigator.clipboard.writeText('[CLEARED BY AEGIS]'); this.dismissAlert(parseFloat(action.substring(16))); } catch (e) {} return; }
+    if (action.startsWith('clear-clipboard-')) { try { const a = this.activeAlerts.find(x => x.id === parseFloat(action.substring(16))); const fakes = a && a.replacements && a.replacements.length ? a.replacements.map(r => r.fake).join(', ') : '[CLEARED BY AEGIS]'; await navigator.clipboard.writeText(fakes); this.dismissAlert(parseFloat(action.substring(16))); } catch (e) {} return; }
     if (action.startsWith('pause-')) { const duration = action.substring(6); let ms = 0; if (duration === '5') ms = 5 * 60 * 1000; else if (duration === '60') ms = 60 * 60 * 1000; isPaused = true; if (pauseTimer) clearTimeout(pauseTimer); if (ms > 0) pauseTimer = setTimeout(() => { isPaused = false; if (popup) popup.render(); }, ms); this.render(); return; }
     switch (action) {
       case 'minimize': this.minimize(); break; case 'maximize': this.maximize(); break; case 'restore': this.restore(); break;
@@ -885,7 +919,7 @@ async function performScan() {
   if (isWhitelisted || isPaused) return; const element = getActiveInputElement(); if (!element) return;
   const text = element.tagName === 'INPUT' || element.tagName === 'TEXTAREA' ? (element.value || '') : (element.innerText || '');
   if (text === lastScannedText || text.length < 5) return; if (/\[REDACTED-|user_[a-z0-9]+@example\.com|555-01\d{2}-\d{4}/.test(text)) { lastScannedText = text; return; }
-  lastScannedText = text; try { const { alerts, redactions } = await scanText(text); if (alerts.length > 0) { highlightSensitive(element, redactions); popup.showAlert(alerts, redactions, element, text, null, 'input'); chrome.runtime.sendMessage({ type: 'UPDATE_STATS', alerts, site: window.location.hostname }); } else { clearHighlights(element); } } catch (err) { console.warn('🛡️ AEGIS: Scan error:', err.message); }
+  lastScannedText = text; try { const { alerts, redactions } = await scanText(text, element); if (alerts.length > 0) { highlightSensitive(element, redactions); popup.showAlert(alerts, redactions, element, text, null, 'input'); chrome.runtime.sendMessage({ type: 'UPDATE_STATS', alerts, site: window.location.hostname }); } else { clearHighlights(element); } } catch (err) { console.warn('🛡️ AEGIS: Scan error:', err.message); }
 }
 function handleInputEvent() { clearTimeout(scanDebounce); scanDebounce = setTimeout(performScan, 300); }
 function setupKeyboardShortcuts() { document.addEventListener('keydown', (e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { if (popup && popup.activeAlerts.length > 0) { const latestAlert = popup.activeAlerts[popup.activeAlerts.length - 1]; popup.handleAction(`protect-${latestAlert.id}`); e.preventDefault(); } } if (e.key === 'Escape') { if (popup && popup.activeAlerts.length > 0) { const latestAlert = popup.activeAlerts[popup.activeAlerts.length - 1]; popup.dismissAlert(latestAlert.id); e.preventDefault(); } } }); }
@@ -974,8 +1008,31 @@ async function init() {
     popup.render = function () { originalRender(); updateBubbleVisibility(); };
   document.addEventListener('input', handleInputEvent, true); document.addEventListener('keyup', handleInputEvent, true);
   document.addEventListener('focusin', (e) => { const el = e.target; if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.getAttribute('contenteditable') === 'true')) handleInputEvent(); }, true);
-  _scanInterval = setInterval(() => { if (!document.hidden) { performScan(); restoreVaultInResponses(); sentinelPass(); webmailPass(); injectionPass(); honeytokenPass(); } }, 2000);
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) { performScan(); restoreVaultInResponses(); sentinelPass(); webmailPass(); injectionPass(); honeytokenPass(); } });
+  // Page passes are CHANGE-DRIVEN (verified external audit): a 2s full-page
+  // poll burned CPU on complex pages. The MutationObserver runs the page
+  // passes when content actually changes (throttled to 4s, debounced 800ms);
+  // a 10s interval remains as a safety net. Typing is covered by the input/
+  // keyup listeners above (300ms debounce).
+  let pagePassPending = false, lastPagePass = 0;
+  function runPagePasses() {
+    if (document.hidden) return;
+    restoreVaultInResponses(); sentinelPass(); webmailPass(); injectionPass(); honeytokenPass();
+    try { chrome.storage.local.set({ aegis_last_scan: { nodes: (sentinelAnalyzed.size + injectionSeen.size), at: Date.now() } }); } catch (e) {}
+    lastPagePass = Date.now();
+  }
+  const pageObserver = new MutationObserver((mutations) => {
+    if (isWhitelisted || isPaused || pagePassPending) return;
+    let pageChanged = false;
+    for (const m of mutations) {
+      if ((m.type === 'childList' && m.addedNodes.length) || m.type === 'characterData') { pageChanged = true; break; }
+    }
+    if (!pageChanged || Date.now() - lastPagePass < 4000) return;
+    pagePassPending = true;
+    setTimeout(() => { pagePassPending = false; runPagePasses(); }, 800);
+  });
+  pageObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
+  _scanInterval = setInterval(() => { if (!pagePassPending && Date.now() - lastPagePass >= 10000) runPagePasses(); }, 10000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - lastPagePass >= 4000) runPagePasses(); });
   document.addEventListener('mousemove', (e) => popup.onDrag(e)); document.addEventListener('mouseup', () => popup.endDrag());
   setupKeyboardShortcuts(); setupSubmissionGuard(); setupAttachmentGuard();
   if (isWhitelisted) { popup.minimize(); return; }

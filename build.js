@@ -52,6 +52,18 @@ function copyIcons(out) {
   });
 }
 
+/** SHA-256 manifest of the vendored AI files (Issue 11: runtime can verify). */
+function writeIntegrityManifest(out) {
+  const crypto = require('crypto');
+  const vendorDir = path.join(out, 'vendor');
+  const manifest = {};
+  for (const f of fs.readdirSync(vendorDir)) {
+    if (f === 'aegis-integrity.json') continue;
+    manifest['vendor/' + f] = crypto.createHash('sha256').update(fs.readFileSync(path.join(vendorDir, f))).digest('hex');
+  }
+  fs.writeFileSync(path.join(out, 'vendor', 'aegis-integrity.json'), JSON.stringify(manifest, null, 1));
+}
+
 /** Copy the fine-tuned classifier into the build (Chromium target only). */
 function vendorFineTunedModel(out) {
   const srcDir = 'src/offscreen-model';
@@ -131,6 +143,7 @@ function buildChromium(out = CHROME_OUT) {
   if (!hasAI) console.warn('! in-browser AI runtime omitted');
   const hasModel = vendorFineTunedModel(out);
   if (hasModel) written.push('offscreen-model/*');
+  if (hasAI) writeIntegrityManifest(out);
   return written.length;
 }
 
@@ -173,11 +186,11 @@ function buildFirefox(out = FIREFOX_OUT) {
 if (require.main === module) {
   const target = process.argv.includes('--firefox') ? 'firefox' : 'chromium';
   if (target === 'firefox') {
-    const n = buildFirefox();
-    console.log(`✅ Firefox build complete (${n} files) — load dist-firefox/ via about:debugging`);
+    const count = buildFirefox();
+    console.log(`✅ Firefox build complete (${count} files) — load dist-firefox/ via about:debugging`);
   } else {
-    const n = buildChromium();
-    console.log(`✅ Build complete! Load the "${CHROME_OUT}" folder in Chrome.`);
+    const count = buildChromium();
+    console.log(`✅ Build complete! Load the "${CHROME_OUT}" folder in Chrome. (${count} files)`);
   }
 }
 
